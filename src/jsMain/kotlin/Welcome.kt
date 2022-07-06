@@ -42,7 +42,7 @@ val Welcome = FC<WelcomeProps> { props ->
         css {
             display = Display.block
             padding = 5.px
-            backgroundColor = rgb(128, 128, 128)
+            backgroundColor = rgb(100, 100, 100)
             color = rgb(56, 246, 137)
         }
         rows = 25
