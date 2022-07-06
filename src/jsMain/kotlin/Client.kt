@@ -7,7 +7,7 @@ fun main() {
     document.body!!.appendChild(container)
 
     val welcome = Welcome.create {
-        request = "PUT your CNF in DIMACS format here"
+        request = "p cnf 3 2\n1 2 -3 0\n-2 3 0"
         response = ""
         time = "0.00"
     }
