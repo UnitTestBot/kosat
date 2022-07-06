@@ -4,9 +4,6 @@ on:
   push:
     branches: [ "html_page" ]
 
-permissions:
-  contents: read
-
 jobs:
   build-and-deploy-site:
 
