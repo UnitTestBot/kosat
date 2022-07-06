@@ -35,8 +35,9 @@ jobs:
           git fetch
           git stash
           git checkout gh-pages
-          sudo rm -rf *
-          sudo cp -r /usr/distributions/* .
+          rm -rf docs
+          mkdir docs
+          sudo cp -r /usr/distributions/* ./docs/
           git add .
           git commit -am "${{ github.event.head_commit.message }}"
           git push
