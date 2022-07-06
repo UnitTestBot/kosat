@@ -12,10 +12,8 @@ import react.dom.html.ReactHTML.textarea
 import react.useState
 import org.kosat.processCnfRequests
 import org.kosat.readCnfRequests
-import react.dom.html.ReactHTML.h1
 import react.dom.html.ReactHTML.h2
 import react.dom.html.ReactHTML.p
-import react.dom.svg.AlignmentBaseline
 import kotlin.time.DurationUnit
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTimedValue
@@ -120,22 +118,25 @@ val Welcome = FC<WelcomeProps> { props ->
     div {
         css {
             fontFamily = FontFamily.monospace
+            display = Display.block
+            padding = 5.px
+            color = rgb(0, 0, 137)
         }
-        h2 {
+        h2 { +"DIMACS CNF format:" }
+        p { +"The number of variables and the number of clauses is defined by the line \"p cnf variables clauses\"" }
+        p { +"Each of the next lines specifies a clause: a positive literal is denoted by the corresponding number, and a negative literal is denoted by the corresponding negative number. " }
+        p { +"The last number in a line should be zero. For example:" }
+        val cnf = "p cnf 3 2\n1 2 -3 0\n-2 3 0"
+        textarea {
             css {
                 display = Display.block
                 padding = 5.px
-                color = rgb(0, 0, 137)
+                backgroundColor = rgb(100, 100, 100)
+                color = rgb(56, 246, 137)
             }
-            +"DIMACS CNF format:"
-        }
-        p {
-            css {
-                display = Display.block
-                padding = 5.px
-                color = rgb(0, 0, 137)
-            }
-            +"The number of variables and the number of clauses is defined by the line \"p cnf variables clauses\""
+            rows = 4
+            cols = 10
+            value = cnf
         }
     }
 }
