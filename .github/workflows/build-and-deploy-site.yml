@@ -31,12 +31,12 @@ jobs:
           set -o xtrace
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          sudo cp build/distributions/index.html /usr
+          sudo cp -r ./build/distributions/* /usr
           git fetch
           git stash
-          get checkout gh-pages
+          git checkout gh-pages
           sudo rm -rf *
-          sudo cp /usr/index.html .
+          sudo cp /usr/* .
           git add .
           git commit -am "${{ github.event.head_commit.message }}"
           git push
