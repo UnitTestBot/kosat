@@ -10,6 +10,13 @@ repositories {
     jcenter()
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven")
+    maven("https://jitpack.io")
+}
+
+dependencies {
+    implementation("com.github.Lipen:kotlin-satlib:master-SNAPSHOT")
+    implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.17.2")
+    implementation("org.apache.logging.log4j:log4j-core:2.17.2")
 }
 
 kotlin {
