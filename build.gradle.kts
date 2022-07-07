@@ -26,11 +26,7 @@ val osArch: String = run {
     "$os$arch"
 }
 
-println("Hello2")
-
 tasks.register("downloadLibs") {
-
-        println("Hello")
         val urlTemplate = "https://github.com/Lipen/kotlin-satlib/releases/download/0.24.2/%s"
         val libResDir = projectDir.resolve("src/main/resources/lib/$osArch")
 
@@ -91,6 +87,7 @@ tasks.register("downloadLibs") {
                 error("$osArch is not supported, sorry")
             }
         }
+    Runtime.getRuntime().exec("sudo ldconfig \$(realpath libs)")
 }
 
 group = "org.kosat"
