@@ -6,6 +6,9 @@ plugins {
     application
 }
 
+tasks.withType<Test> {
+    systemProperty("java.library.path", "/home/runner/work/kosat/kosat/libs")
+}
 
 fun Task.download(action: DownloadAction.() -> Unit) =
     download.configure(delegateClosureOf(action))
