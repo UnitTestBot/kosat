@@ -12,6 +12,7 @@ import react.dom.html.ReactHTML.textarea
 import react.useState
 import org.kosat.processCnfRequests
 import org.kosat.readCnfRequests
+import react.dom.html.ReactHTML.br
 import react.dom.html.ReactHTML.h2
 import react.dom.html.ReactHTML.p
 import kotlin.time.DurationUnit
@@ -45,14 +46,15 @@ val Welcome = FC<WelcomeProps> { props ->
     div {
         css {
             marginBottom = 20.px
+            padding = 5.px
+            display = Display.block
             fontFamily = FontFamily.monospace
-            fontSize = 15.px
         }
 
         label {
             css {
                 display = Display.block
-                padding = 5.px
+                marginBottom = 20.px
                 color = rgb(0, 0, 137)
             }
             +"Put your CNF in DIMACS format here"
@@ -61,7 +63,7 @@ val Welcome = FC<WelcomeProps> { props ->
         textarea {
             css {
                 display = Display.block
-                padding = 5.px
+                marginBottom = 20.px
                 backgroundColor = rgb(100, 100, 100)
                 color = rgb(56, 246, 137)
             }
@@ -76,9 +78,8 @@ val Welcome = FC<WelcomeProps> { props ->
 
         button {
             css {
+                marginBottom = 20.px
                 display = Display.block
-                padding = 5.px
-                marginTop = 10.px
             }
             onClick = { event ->
                 GlobalScope.launch {
@@ -99,8 +100,8 @@ val Welcome = FC<WelcomeProps> { props ->
 
         label {
             css {
+                marginBottom = 20.px
                 display = Display.block
-                padding = 5.px
                 color = rgb(0, 0, 137)
             }
             +"$time sec"
@@ -109,7 +110,6 @@ val Welcome = FC<WelcomeProps> { props ->
         pre {
             css {
                 display = Display.block
-                padding = 5.px
             }
             +response
         }
@@ -117,26 +117,30 @@ val Welcome = FC<WelcomeProps> { props ->
 
     div {
         css {
-            fontFamily = FontFamily.monospace
+            position = Position.absolute
             display = Display.block
+            marginRight = 0.px
+            marginLeft = Margin("auto")
+
+            fontFamily = FontFamily.monospace
             padding = 5.px
             color = rgb(0, 0, 137)
         }
         h2 { +"DIMACS CNF format:" }
-        p { +"The number of variables and the number of clauses is defined by the line \"p cnf variables clauses\"" }
-        p { +"Each of the next lines specifies a clause: a positive literal is denoted by the corresponding number, and a negative literal is denoted by the corresponding negative number. " }
-        p { +"The last number in a line should be zero. For example:" }
-        val cnf = "p cnf 3 2\n1 2 -3 0\n-2 3 0"
-        textarea {
+        p { +"The number of variables and the number of clauses is defined by the line \"p cnf variables clauses\"." }
+        p { +"Each of the next lines specifies a clause: a positive literal is denoted by the corresponding number, and a negative literal is denoted by the corresponding negative number. "
+            br {}
+            +"The last number in a line should be zero. For example:"
+        }
+        p {
             css {
-                display = Display.block
-                padding = 5.px
-                backgroundColor = rgb(100, 100, 100)
-                color = rgb(56, 246, 137)
+                fontWeight = FontWeight.bold
             }
-            rows = 4
-            cols = 10
-            value = cnf
+            +"p cnf 3 2"
+            br {}
+            +"1 2 -3 0"
+            br {}
+            +"-2 3 0"
         }
     }
 }
