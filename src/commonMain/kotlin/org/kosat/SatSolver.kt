@@ -142,6 +142,9 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
                 trail.add(TrailMember(literal, clause, level))
                 litValues[abs(literal)] = if (literal > 0) LitStatus.TRUE else LitStatus.FALSE
             }
+            if (undefined.size == 0) {
+                return true
+            }
         }
         return false
     }
