@@ -87,7 +87,6 @@ tasks.register("downloadLibs") {
                 error("$osArch is not supported, sorry")
             }
         }
-    Runtime.getRuntime().exec("sudo ldconfig \$(realpath libs)")
 }
 
 group = "org.kosat"
