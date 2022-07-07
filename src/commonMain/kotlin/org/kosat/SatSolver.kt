@@ -151,6 +151,9 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
                     return true
                 }
             }
+            if (undefined.size == 0) {
+                return true
+            }
         }
         return false
     }
