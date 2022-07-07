@@ -52,6 +52,7 @@ tasks.register("downloadLibs") {
         when (osArch) {
             "linux64" -> {
                 val jLibs = listOf(
+                    "jminisat.dll",
                     "libjminisat.so",
                     "libjglucose.so",
                     "libjcms.so",
