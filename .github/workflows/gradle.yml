@@ -31,6 +31,7 @@ jobs:
     - name: Prepare system variable
       run: |
         export LD_LIBRARY_PATH=$PWD/src/jvmMain/resources/lib.linux64
+        ldconfig
         echo $LD_LIBRARY_PATH
     - name: Build with Gradle
       uses: gradle/gradle-build-action@67421db6bd0bf253fb4bd25b31ebb98943c375e1
