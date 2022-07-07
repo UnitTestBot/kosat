@@ -7,7 +7,8 @@ plugins {
 }
 
 tasks.withType<Test> {
-    systemProperty("java.library.path", "/home/runner/work/kosat/kosat/libs")
+    systemProperty("java.library.path", listOf("/home/runner/work/kosat/kosat/libs",
+    "/home/runner/work/kosat/kosat/src/main/resources/lib/linux64"))
 }
 
 fun Task.download(action: DownloadAction.() -> Unit) =
