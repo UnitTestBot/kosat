@@ -134,13 +134,22 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     private fun unitPropagateCdcl(): Boolean {
         for (clause in clauses.indices) {
             val undefined = ArrayList<Int>()
+            var satisfied = false
             for (literal in clauses[clause]) {
-                if (litValues[abs(literal)] == LitStatus.UNDEFINED) undefined.add(literal)
+                val value = litValues[abs(literal)]
+                if (value == LitStatus.UNDEFINED) undefined.add(literal)
+                else if (literal > 0 && value == LitStatus.TRUE || literal < 0 && value == LitStatus.FALSE)
+                    satisfied = true
             }
-            if (undefined.size == 1) {
-                val literal = undefined[0]
-                trail.add(TrailMember(literal, clause, level))
-                litValues[abs(literal)] = if (literal > 0) LitStatus.TRUE else LitStatus.FALSE
+            if (!satisfied) {
+                if (undefined.size == 1) {
+                    val literal = undefined[0]
+                    trail.add(TrailMember(literal, clause, level))
+                    litValues[abs(literal)] = if (literal > 0) LitStatus.TRUE else LitStatus.FALSE
+                }
+                if (undefined.size == 0) {
+                    return true
+                }
             }
         }
         return false
