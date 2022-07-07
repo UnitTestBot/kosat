@@ -19,6 +19,10 @@ dependencies {
     implementation("org.apache.logging.log4j:log4j-core:2.17.2")
 }
 
+tasks.withType<Test> {
+    systemProperty("java.library.path", "/src/jvmMain/resources/lib.linux64")
+}
+
 kotlin {
     jvm {
         compilations.all {
