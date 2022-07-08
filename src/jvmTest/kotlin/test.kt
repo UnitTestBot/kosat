@@ -11,21 +11,21 @@ import kotlin.math.abs
 import kotlin.math.sign
 
 val packageName = "src/jvmTest/resources/"
-val strLen = 11
+val strLen = 13
 
 fun fill(s: String): String {
     return s.padEnd(strLen, ' ')
 }
 
-fun processMiniSatSolver(input: String) {
+fun processMiniSatSolver(input: String): Boolean {
     val data = readCnfRequests(input).first()
 
     with(MiniSatSolver()) {
         val lit = List(data.vars) { newLiteral() }
         for (clause in data.clauses) {
-            addClause { clause.lit.map { it.sign * lit[abs(it) - 1] } }
+            addClause(clause.lit.map { it.sign * lit[abs(it) - 1] })
         }
-        solve()
+        return solve()
     }
 }
 
@@ -34,8 +34,14 @@ fun checkClause(ans: List<Int>?, clause: Clause) : Boolean {
     return clause.lit.any { ans.contains(it) }
 }
 
-fun checkKoSatSolution(ans: List<Int>?, input: String): Boolean {
+fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boolean {
+    if (ans == null) {
+        return !isSolution
+    }
     val cnfRequest = readCnfRequests(input).first()
+    if (ans.size != cnfRequest.vars) {
+        return false
+    }
     var isFailedClause = false
     for (clause in cnfRequest.clauses) {
         if (!checkClause(ans, clause)) isFailedClause = true
@@ -44,14 +50,14 @@ fun checkKoSatSolution(ans: List<Int>?, input: String): Boolean {
 }
 
 internal class DiamondTests {
-    val testNumber = 3
+    val testNumber = 1
     val groupName = "diamond"
     val name = packageName + groupName
     val format = ".cnf"
 
     @Test
     fun diamondTests() {
-        println("${fill("Name:")} | ${fill("KoSat time:")} | MiniSat time: | Check result")
+        println("${fill("Name:")} | ${fill("KoSat time:")} | ${fill("MiniSat time:")} | ${fill("Check result")} | ${fill("Solvable")}")
         MiniSatSolver()
         for (ind in 1..testNumber) {
             val filename = name + ind + format
@@ -60,13 +66,17 @@ internal class DiamondTests {
             val input = File(filename).readText()
 
             var solution: List<Int>?
+            var isSolution: Boolean
 
             val timeKoSat: Double = measureTimeMillis { solution = solveCnf(readCnfRequests(input).first()) }.toDouble() / 1000
-            val timeMiniSat: Double = measureTimeMillis { processMiniSatSolver(input) }.toDouble() / 1000
+            val timeMiniSat: Double = measureTimeMillis { isSolution = processMiniSatSolver(input) }.toDouble() / 1000
 
-            val checkRes = if (checkKoSatSolution(solution, input)) "OK" else "WA"
+            val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
-            println("${fill(testName)} | ${fill(timeKoSat.toString())} | ${fill(timeMiniSat.toString())} | ${fill(checkRes)}")
+
+            if (solution != null) println(solution!!.size)
+
+            println("${fill(testName)} | ${fill(timeKoSat.toString())} | ${fill(timeMiniSat.toString())} | ${fill(checkRes)} | ${if(isSolution) "SAT" else "UNSAT"}")
         }
     }
 }
