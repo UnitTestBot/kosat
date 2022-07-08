@@ -52,14 +52,13 @@ tasks.register("downloadLibs") {
         when (osArch) {
             "linux64" -> {
                /* val jLibs = listOf(
-                    "jminisat.dll",
                     "libjminisat.so",
                     "libjglucose.so",
                     "libjcms.so",
                     "libjcadical.so"
                 )
-                downloadLibs(jLibs, libResDir)*/
-
+                downloadLibs(jLibs, libResDir)
+                */
                 val solverLibs = listOf(
                     "libminisat.so",
                     "libglucose.so",
