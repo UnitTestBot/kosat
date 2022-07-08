@@ -130,7 +130,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
     // add clause and change structures for it
     private fun addClause(clause: ArrayList<Int>) {
-        clauses.add(ArrayList(clause.map { -it }))
+        clauses.add(ArrayList(clause.map { it }))
     }
 
     private fun updateLemma(lemma: ArrayList<Int>, lit: Int) {
