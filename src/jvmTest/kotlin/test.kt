@@ -5,6 +5,8 @@ import java.io.File
 import kotlin.system.measureTimeMillis
 import com.github.lipen.satlib.solver.MiniSatSolver
 import com.github.lipen.satlib.solver.addClause
+import org.kosat.Clause
+import org.kosat.solveCnf
 import kotlin.math.abs
 import kotlin.math.sign
 
@@ -27,6 +29,20 @@ fun processMiniSatSolver(input: String) {
     }
 }
 
+fun checkClause(ans: List<Int>?, clause: Clause) : Boolean {
+    if (ans == null) return false
+    return clause.lit.any { ans.contains(it) }
+}
+
+fun checkKoSatSolution(ans: List<Int>?, input: String): Boolean {
+    val cnfRequest = readCnfRequests(input).first()
+    var isFailedClause = false
+    for (clause in cnfRequest.clauses) {
+        if (!checkClause(ans, clause)) isFailedClause = true
+    }
+    return !isFailedClause
+}
+
 internal class DiamondTests {
     val testNumber = 3
     val groupName = "diamond"
@@ -35,7 +51,7 @@ internal class DiamondTests {
 
     @Test
     fun diamondTests() {
-        println("${fill("Name:")} | ${fill("KoSat time:")} | MiniSat time:")
+        println("${fill("Name:")} | ${fill("KoSat time:")} | MiniSat time: | Check result")
         MiniSatSolver()
         for (ind in 1..testNumber) {
             val filename = name + ind + format
@@ -43,10 +59,14 @@ internal class DiamondTests {
 
             val input = File(filename).readText()
 
-            val timeKoSat: Double = measureTimeMillis { processCnfRequests(readCnfRequests(input)) }.toDouble() / 1000
+            var solution: List<Int>?
+
+            val timeKoSat: Double = measureTimeMillis { solution = solveCnf(readCnfRequests(input).first()) }.toDouble() / 1000
             val timeMiniSat: Double = measureTimeMillis { processMiniSatSolver(input) }.toDouble() / 1000
 
-            println("${fill(testName)} | ${fill(timeKoSat.toString())} | ${fill(timeMiniSat.toString())}")
+            val checkRes = if (checkKoSatSolution(solution, input)) "OK" else "WA"
+
+            println("${fill(testName)} | ${fill(timeKoSat.toString())} | ${fill(timeMiniSat.toString())} | ${fill(checkRes)}")
         }
     }
 }
