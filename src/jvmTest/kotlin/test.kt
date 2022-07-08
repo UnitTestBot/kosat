@@ -39,9 +39,9 @@ fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boo
         return !isSolution
     }
     val cnfRequest = readCnfRequests(input).first()
-    if (ans.size != cnfRequest.vars) {
-        return false
-    }
+//    if (ans.size != cnfRequest.vars) {
+//        return false
+//    }
     var isFailedClause = false
     for (clause in cnfRequest.clauses) {
         if (!checkClause(ans, clause)) isFailedClause = true
@@ -50,7 +50,7 @@ fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boo
 }
 
 internal class DiamondTests {
-    val testNumber = 1
+    val testNumber = 18
     val groupName = "diamond"
     val name = packageName + groupName
     val format = ".cnf"
@@ -72,9 +72,6 @@ internal class DiamondTests {
             val timeMiniSat: Double = measureTimeMillis { isSolution = processMiniSatSolver(input) }.toDouble() / 1000
 
             val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
-
-
-            if (solution != null) println(solution!!.size)
 
             println("${fill(testName)} | ${fill(timeKoSat.toString())} | ${fill(timeMiniSat.toString())} | ${fill(checkRes)} | ${if(isSolution) "SAT" else "UNSAT"}")
         }
