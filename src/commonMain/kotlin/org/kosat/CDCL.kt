@@ -5,11 +5,11 @@ import kotlin.math.abs
 //CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
     val clauses = ArrayList(cnf.clauses.map { ArrayList(it.lit.toList()) })
-    return NCDCL(clauses, cnf.vars).solve()
+    return CDCL(clauses, cnf.vars).solve()
 }
 
 
-class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumber: Int) {
+class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumber: Int) {
     enum class VarStatus {
         TRUE, FALSE, UNDEFINED;
 
@@ -43,6 +43,7 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
 
     // decision level
     private var level: Int = 0
+
     fun solve(): List<Int>? {
         if (clauses.isEmpty()) return emptyList()
 
@@ -57,7 +58,6 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
                 continue
             }
 
-
             // checks if all satisfied and return answer
             if (clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }) {
                 return vars.mapIndexed { index, v ->
@@ -69,13 +69,8 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
                 }.sortedBy { abs(it) }.filter { abs(it) > 0 }
             }
 
-            vars[0].status = VarStatus.FALSE
-            val undefined = vars.indexOfFirst { it.status == VarStatus.UNDEFINED }
             level++
-            vars[undefined].status = VarStatus.TRUE
-            vars[undefined].level = level
-            vars[undefined].clause = -1
-            trail.add(undefined)
+            addVariable(-1, vars.drop(1).indexOfFirst { it.status == VarStatus.UNDEFINED } + 1)
         }
     }
 
@@ -94,6 +89,7 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
     }
 
     //returns index of conflict clause, or -1 if there is no conflict clause
+    //propogates
     private fun propagate(): Int? { //TODO: watch literals
         clauses.forEachIndexed { ind, clause ->
             if (clause.isEmpty()) return null
@@ -105,13 +101,13 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
         return -1
     }
 
-    //return is clause a Unit or not
+    //return is clause a unit or not
     private fun ArrayList<Int>.isUnit() = (size - 1 == this.count { getStatus(it) == VarStatus.FALSE })
 
-    //return unfalse variable
+    //return unfalse variable in unit
     private fun ArrayList<Int>.forced() = this.first { getStatus(it) != VarStatus.FALSE }
 
-    // change level, undefine variables and so on
+    //change level, undefine variables and so on
     private fun backjump(clause: ArrayList<Int>) {
         level = clause.map { vars[abs(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
         //require(prevLevel != null) { "previous level is null" }
@@ -155,7 +151,6 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
             active[v] = false
         }
         active.indexOfFirst { it }.let { if (it != -1) lemma.add(it) }
-        //require(active.count { it } > 0) { "There are no FUIP" }
         return lemma
     }
 }
