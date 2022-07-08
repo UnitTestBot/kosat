@@ -44,13 +44,16 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
         if (clauses.isEmpty()) return emptyList()
 
         while (true) {
-            val conflictClause = propagate() ?: return null
+            while (true) {
+                val conflictClause = propagate() ?: return null
 
-            if (conflictClause != -1) {
-                val lemma = analyzeConflict(clauses[conflictClause])
-                addClause(lemma)
-                backjump(lemma)
+                if (conflictClause != -1) {
+                    val lemma = analyzeConflict(clauses[conflictClause])
+                    addClause(lemma)
+                    backjump(lemma)
+                } else break
             }
+
 
             if (clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE} }) {
                 return vars.mapIndexed { index, v -> when (v.status) {
@@ -66,6 +69,7 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
             vars[undefined].status = VarStatus.TRUE
             vars[undefined].level = level
             vars[undefined].clause = -1
+            trail.add(undefined)
         }
     }
 
@@ -102,18 +106,17 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
 
     // change level, undefine variables and so on
     private fun backjump(clause: ArrayList<Int>) {
-        val prevLevel = clause.map { vars[it].level }.sortedDescending().firstOrNull { it != level }
-        require(prevLevel != null) { "previous level is null" }
+        level = clause.map { vars[abs(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
+        //require(prevLevel != null) { "previous level is null" }
 
-        while (trail.size > 0 && vars[trail.last()].level > prevLevel) {
+        while (trail.size > 0 && vars[trail.last()].level > level) {
             delVariable(trail.removeLast())
         }
-        level = prevLevel
     }
 
     // add clause and change structures for it
     private fun addClause(clause: ArrayList<Int>) {
-        clauses.add(clause)
+        clauses.add(ArrayList(clause.map { -it }))
     }
 
     // analyze conflict and return new clause
