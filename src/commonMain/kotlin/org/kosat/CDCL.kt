@@ -142,9 +142,9 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     // analyze conflict and return new clause
     private fun analyzeConflict(conflict: ArrayList<Int>): ArrayList<Int> {
 
-        val active = MutableList<Boolean>(varsNumber + 1) { false }
-        val seen = MutableList<Boolean>(varsNumber + 1) { false }
+        val active = MutableList(varsNumber + 1) { false }
         val lemma = ArrayList<Int>()
+
         conflict.forEach { lit ->
             if (vars[abs(lit)].level == level) active[abs(lit)] = true
             else updateLemma(lemma, lit)
@@ -153,19 +153,12 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         while (active.count { it } > 1) {
 
             val v = trail[ind--]
-            seen[v] = true
             if (!active[v]) continue
 
-            if (vars[v].clause == -1) {
-                active.fill(false)
-                updateLemma(lemma, v)
-                require(false)
-                break
-            }
             clauses[vars[v].clause].forEach { u ->
                 val current = abs(u)
                 if (vars[current].level != level) updateLemma(lemma, u)
-                else if (!seen[current]) active[current] = true
+                else if (current != v) active[current] = true
             }
             active[v] = false
         }
