@@ -51,28 +51,37 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
             val conflictClause = propagate() ?: return null
 
             if (conflictClause != -1) {
-                if (level == 0) return null
-                val lemma = analyzeConflict(clauses[conflictClause])
+                if (level == 0) return null //in case there is a conflict in CNF
+                val lemma = analyzeConflict(clauses[conflictClause]) //looks for conflict lemma
                 addClause(lemma)
                 backjump(lemma)
                 continue
             }
 
-            // checks if all satisfied and return answer
-            if (clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }) {
-                return vars.mapIndexed { index, v ->
-                    when (v.status) {
-                        VarStatus.TRUE -> index
-                        VarStatus.FALSE -> -index
-                        else -> 0
-                    }
-                }.sortedBy { abs(it) }.filter { abs(it) > 0 }
+            if (satisfiable()) {
+                return variableValues()
             }
 
             level++
-            addVariable(-1, vars.drop(1).indexOfFirst { it.status == VarStatus.UNDEFINED } + 1)
+            addVariable(-1, vars.firstUndefined())
         }
     }
+
+    private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
+
+    // checks if all clauses are satisfied and return answer
+    private fun MutableList<VarState>.firstUndefined() = this
+        .drop(1)
+        .indexOfFirst { it.status == VarStatus.UNDEFINED } + 1
+
+    private fun variableValues() = vars
+        .mapIndexed { index, v ->
+            when (v.status) {
+                VarStatus.TRUE -> index
+                VarStatus.FALSE -> -index
+                else -> 0
+            }
+        }.sortedBy { abs(it) }.filter { abs(it) > 0 }
 
     private fun addVariable(clause: Int, lit: Int) {
         setStatus(lit, VarStatus.TRUE)
