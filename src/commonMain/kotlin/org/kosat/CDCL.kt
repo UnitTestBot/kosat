@@ -48,8 +48,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         if (clauses.isEmpty()) return emptyList()
 
         while (true) {
-            val conflictClause = propagate() ?: return null
-
+            val conflictClause = propagate()
             if (conflictClause != -1) {
                 if (level == 0) return null //in case there is a conflict in CNF
                 val lemma = analyzeConflict(clauses[conflictClause]) //looks for conflict lemma
@@ -83,12 +82,15 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
             }
         }.sortedBy { abs(it) }.filter { abs(it) > 0 }
 
-    private fun addVariable(clause: Int, lit: Int) {
+    private fun addVariable(clause: Int, lit: Int): Boolean {
+        if (getStatus(lit) != VarStatus.UNDEFINED) return false
+
         setStatus(lit, VarStatus.TRUE)
         val v = abs(lit)
         vars[v].clause = clause
         vars[v].level = level
         trail.add(v)
+        return true
     }
 
     private fun delVariable(v: Int) {
@@ -99,12 +101,16 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
     //returns index of conflict clause, or -1 if there is no conflict clause
     //propogates
-    private fun propagate(): Int? { //TODO: watch literals
+    private fun propagate(): Int { //TODO: watch literals
+        clauses.indexOfFirst { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }.let {
+            if (it != -1) return it
+        }
         clauses.forEachIndexed { ind, clause ->
-            if (clause.isEmpty()) return null
-            if (clause.isUnit()) addVariable(ind, clause.forced())
-            clauses.indexOfFirst { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }.let {
-                if (it != -1) return it
+            if (ind == 840) {
+                println("DEBUG")
+            }
+            if (clause.isUnit() && addVariable(ind, clause.forced())) {
+                return propagate()
             }
         }
         return -1
@@ -119,7 +125,6 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     //change level, undefine variables and so on
     private fun backjump(clause: ArrayList<Int>) {
         level = clause.map { vars[abs(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
-        //require(prevLevel != null) { "previous level is null" }
 
         while (trail.size > 0 && vars[trail.last()].level > level) {
             delVariable(trail.removeLast())
@@ -129,6 +134,12 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     // add clause and change structures for it
     private fun addClause(clause: ArrayList<Int>) {
         clauses.add(ArrayList(clause.map { -it }))
+    }
+
+    private fun updateLemma(lemma: ArrayList<Int>, lit: Int) {
+        if (lemma.find { it == lit } == null) {
+            lemma.add(lit)
+        }
     }
 
     // analyze conflict and return new clause
@@ -149,17 +160,17 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
             if (vars[v].clause == -1) {
                 active.fill(false)
-                lemma.add(v)
+                updateLemma(lemma, v)
                 break
             }
             clauses[vars[v].clause].forEach { u ->
                 val current = abs(u)
-                if (vars[current].level != level) lemma.add(u)
+                if (vars[current].level != level) updateLemma(lemma, u)
                 else if (!seen[current]) active[current] = true
             }
             active[v] = false
         }
-        active.indexOfFirst { it }.let { if (it != -1) lemma.add(it) }
+        active.indexOfFirst { it }.let { if (it != -1) updateLemma(lemma, it) }
         return lemma
     }
 }
