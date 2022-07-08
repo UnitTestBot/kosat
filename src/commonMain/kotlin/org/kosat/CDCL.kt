@@ -48,6 +48,7 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
                 val conflictClause = propagate() ?: return null
 
                 if (conflictClause != -1) {
+                    if (level == 0) return null
                     val lemma = analyzeConflict(clauses[conflictClause])
                     addClause(lemma)
                     backjump(lemma)
