@@ -10,8 +10,10 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
 
 
 class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumber: Int) {
-    enum class VarStatus { TRUE, FALSE, UNDEFINED;
-        operator fun not(): NCDCL.VarStatus {
+    enum class VarStatus {
+        TRUE, FALSE, UNDEFINED;
+
+        operator fun not(): VarStatus {
             return when {
                 this == TRUE -> FALSE
                 this == FALSE -> TRUE
@@ -32,6 +34,7 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
     }
 
     data class VarState(var status: VarStatus, var clause: Int, var level: Int)
+
     // values of variables
     private val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
 
@@ -44,24 +47,26 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
         if (clauses.isEmpty()) return emptyList()
 
         while (true) {
-            while (true) {
-                val conflictClause = propagate() ?: return null
+            val conflictClause = propagate() ?: return null
 
-                if (conflictClause != -1) {
-                    if (level == 0) return null
-                    val lemma = analyzeConflict(clauses[conflictClause])
-                    addClause(lemma)
-                    backjump(lemma)
-                } else break
+            if (conflictClause != -1) {
+                if (level == 0) return null
+                val lemma = analyzeConflict(clauses[conflictClause])
+                addClause(lemma)
+                backjump(lemma)
+                continue
             }
 
 
-            if (clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE} }) {
-                return vars.mapIndexed { index, v -> when (v.status) {
-                    VarStatus.TRUE -> index
-                    VarStatus.FALSE -> -index
-                    else -> 0
-                } }.sortedBy { abs(it) }.filter { it > 0 }
+            // checks if all satisfied and return answer
+            if (clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }) {
+                return vars.mapIndexed { index, v ->
+                    when (v.status) {
+                        VarStatus.TRUE -> index
+                        VarStatus.FALSE -> -index
+                        else -> 0
+                    }
+                }.sortedBy { abs(it) }.filter { abs(it) > 0 }
             }
 
             vars[0].status = VarStatus.FALSE
@@ -102,6 +107,7 @@ class NCDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumb
 
     //return is clause a Unit or not
     private fun ArrayList<Int>.isUnit() = (size - 1 == this.count { getStatus(it) == VarStatus.FALSE })
+
     //return unfalse variable
     private fun ArrayList<Int>.forced() = this.first { getStatus(it) != VarStatus.FALSE }
 
