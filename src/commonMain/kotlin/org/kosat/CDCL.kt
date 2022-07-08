@@ -106,9 +106,6 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
             if (it != -1) return it
         }
         clauses.forEachIndexed { ind, clause ->
-            if (ind == 840) {
-                println("DEBUG")
-            }
             if (clause.isUnit() && addVariable(ind, clause.forced())) {
                 return propagate()
             }
@@ -147,10 +144,11 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
         val active = MutableList<Boolean>(varsNumber + 1) { false }
         val seen = MutableList<Boolean>(varsNumber + 1) { false }
-        conflict.forEach { lit ->
-            active[abs(lit)] = true
-        }
         val lemma = ArrayList<Int>()
+        conflict.forEach { lit ->
+            if (vars[abs(lit)].level == level) active[abs(lit)] = true
+            else updateLemma(lemma, lit)
+        }
         var ind = trail.size - 1
         while (active.count { it } > 1) {
 
@@ -161,6 +159,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
             if (vars[v].clause == -1) {
                 active.fill(false)
                 updateLemma(lemma, v)
+                require(false)
                 break
             }
             clauses[vars[v].clause].forEach { u ->
@@ -170,7 +169,9 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
             }
             active[v] = false
         }
-        active.indexOfFirst { it }.let { if (it != -1) updateLemma(lemma, it) }
+        active.indexOfFirst { it }.let { v ->
+            if (v != -1) updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
+        }
         return lemma
     }
 }
