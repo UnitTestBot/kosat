@@ -29,6 +29,16 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
 
+    - name: Download shared libs
+      run: ./gradlew :downloadLibs
+
+    - name: Set up ld cache
+      run: sudo ldconfig $(realpath libs)
+
+    - name: Check dependencies
+      run: |
+        ldd src/main/resources/lib/linux64/*.so
+
     - name: Build with Gradle
       uses: gradle/gradle-build-action@67421db6bd0bf253fb4bd25b31ebb98943c375e1
       with:
