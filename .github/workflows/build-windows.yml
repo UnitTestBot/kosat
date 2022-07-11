@@ -35,7 +35,7 @@ jobs:
 
       - name: Check dependencies
         run: |
-          ldd src/main/resources/lib/win64/*.dll
+          ldd src/jvmMain/resources/lib/win64/*.dll
 
       - name: Run tests
         run: ./gradlew cleanTest test --no-build-cache --stacktrace
