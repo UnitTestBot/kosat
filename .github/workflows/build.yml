@@ -26,18 +26,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Build project using Gradle
-        run: ./gradlew build -x test --stacktrace --scan
-
-      - name: Download shared libs
-        run: ./gradlew :downloadLibs
-
       - name: Set up ld cache
         run: sudo ldconfig $(realpath libs)
 
       - name: Check dependencies
         run: |
           ldd src/jvmMain/resources/lib/linux64/*.so
+
+      - name: Build project using Gradle
+        run: ./gradlew build -x test --stacktrace --scan
 
       - name: Run tests
         run: ./gradlew cleanTest test --no-build-cache --stacktrace
