@@ -23,10 +23,10 @@ dependencies {
     implementation("org.apache.logging.log4j:log4j-core:2.17.2")
 }
 
-/*
+
 tasks.withType<Test> {
     systemProperty("java.library.path", "/home/runner/work/kosat/kosat/src/jvmMain/resources/lib.linux64")
-}*/
+}
 
 fun Task.download(action: DownloadAction.() -> Unit) =
     download.configure(delegateClosureOf(action))
