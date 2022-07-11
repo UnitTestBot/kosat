@@ -1,10 +1,8 @@
 import org.junit.jupiter.api.Test
-import org.kosat.processCnfRequests
 import org.kosat.readCnfRequests
 import java.io.File
 import kotlin.system.measureTimeMillis
 import com.github.lipen.satlib.solver.MiniSatSolver
-import com.github.lipen.satlib.solver.addClause
 import org.kosat.Clause
 import org.kosat.solveCnf
 import kotlin.math.abs
@@ -50,7 +48,7 @@ fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boo
 }
 
 internal class DiamondTests {
-    val testNumber = 1
+    val testNumber = 18
     val groupName = "diamond"
     val name = packageName + groupName
     val format = ".cnf"
@@ -74,7 +72,6 @@ internal class DiamondTests {
             val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
 
-            if (solution != null) println(solution!!.size)
 
             println("${fill(testName)} | ${fill(timeKoSat.toString())} | ${fill(timeMiniSat.toString())} | ${fill(checkRes)} | ${if(isSolution) "SAT" else "UNSAT"}")
         }
