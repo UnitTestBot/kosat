@@ -78,7 +78,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
             when (v.status) {
                 VarStatus.TRUE -> index
                 VarStatus.FALSE -> -index
-                else -> 0
+                else -> index
             }
         }.sortedBy { abs(it) }.filter { abs(it) > 0 }
 
