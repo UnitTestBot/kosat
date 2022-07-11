@@ -27,7 +27,6 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         if (lit < 0) return !vars[-lit].status
         return vars[lit].status
     }
-
     private fun setStatus(lit: Int, status: VarStatus) {
         if (lit < 0) vars[-lit].status = !status
         else vars[lit].status = status
@@ -35,12 +34,19 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
     data class VarState(var status: VarStatus, var clause: Int, var level: Int)
 
+    // converting values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
+    private fun variableValues() = vars
+        .mapIndexed { index, v ->
+            when (v.status) {
+                VarStatus.TRUE -> index
+                VarStatus.FALSE -> -index
+                else -> index
+            }
+        }.sortedBy { abs(it) }.filter { abs(it) > 0 }
     // values of variables
     private val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
-
     // all decisions and consequences
     private val trail: ArrayList<Int> = ArrayList()
-
     // decision level
     private var level: Int = 0
 
@@ -66,22 +72,15 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         }
     }
 
+    // checks is clause satisfied or not
     private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
-
     // checks if all clauses are satisfied and return answer
     private fun MutableList<VarState>.firstUndefined() = this
         .drop(1)
         .indexOfFirst { it.status == VarStatus.UNDEFINED } + 1
 
-    private fun variableValues() = vars
-        .mapIndexed { index, v ->
-            when (v.status) {
-                VarStatus.TRUE -> index
-                VarStatus.FALSE -> -index
-                else -> index
-            }
-        }.sortedBy { abs(it) }.filter { abs(it) > 0 }
 
+    // add a variable to the trail
     private fun addVariable(clause: Int, lit: Int): Boolean {
         if (getStatus(lit) != VarStatus.UNDEFINED) return false
 
@@ -92,15 +91,14 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         trail.add(v)
         return true
     }
-
+    // del a variable from the trail
     private fun delVariable(v: Int) {
         setStatus(v, VarStatus.UNDEFINED)
         vars[v].clause = -1
         vars[v].level = -1
     }
 
-    //returns index of conflict clause, or -1 if there is no conflict clause
-    //propogates
+    // propogates; returns index of conflict clause, or -1 if there is no conflict clause
     private fun propagate(): Int { //TODO: watch literals
         clauses.indexOfFirst { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }.let {
             if (it != -1) return it
@@ -115,7 +113,6 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
     //return is clause a unit or not
     private fun ArrayList<Int>.isUnit() = (size - 1 == this.count { getStatus(it) == VarStatus.FALSE })
-
     //return unfalse variable in unit
     private fun ArrayList<Int>.forced() = this.first { getStatus(it) != VarStatus.FALSE }
 
@@ -127,12 +124,12 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
             delVariable(trail.removeLast())
         }
     }
-
     // add clause and change structures for it
     private fun addClause(clause: ArrayList<Int>) {
         clauses.add(ArrayList(clause.map { it }))
     }
 
+    // add a lit to lemma if it hasn't been added yet
     private fun updateLemma(lemma: ArrayList<Int>, lit: Int) {
         if (lemma.find { it == lit } == null) {
             lemma.add(lit)
