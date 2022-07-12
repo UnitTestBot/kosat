@@ -50,10 +50,19 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     // decision level
     private var level: Int = 0
 
+    private val watchers = MutableList(size = varsNumber + 1) { mutableSetOf<Int>() }
+    private fun litIndex(lit: Int): Int = abs(lit)
+
+    private val units = mutableListOf<Int>()
     fun solve(): List<Int>? {
         if (clauses.isEmpty()) return emptyList()
 
+        if (clauses.any { it.size == 0 }) return null
+
+        buildWatchers()
+
         while (true) {
+            println(clauses)
             val conflictClause = propagate()
             if (conflictClause != -1) {
                 if (level == 0) return null //in case there is a conflict in CNF
@@ -69,6 +78,38 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
             level++
             addVariable(-1, vars.firstUndefined())
+        }
+    }
+
+    private fun buildWatchers() {
+        clauses.forEachIndexed { index, clause ->
+            addWatchers(clause, index)
+        }
+    }
+
+    private fun addWatchers(clause: ArrayList<Int>, index: Int) {
+        if (clause.size == 1) {
+            units.add(index)
+            return
+        }
+        val undef = clause.count { getStatus(it) == VarStatus.UNDEFINED }
+
+        // building from start
+        if (undef != 0) {
+            watchers[litIndex(clause[0])].add(index)
+            watchers[litIndex(clause[1])].add(index)
+        } else {
+            require(clause.all { getStatus(it) != VarStatus.UNDEFINED })
+            var cnt = 0
+            val clauseVars = clause.map { abs(it) }
+            for (ind in trail.lastIndex downTo 0) {
+                if (trail[ind] in clauseVars) {
+                    cnt++
+                    watchers[litIndex(trail[ind])].add(index)
+                    if (cnt == 2)
+                        return
+                }
+            }
         }
     }
 
@@ -89,8 +130,26 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         vars[v].clause = clause
         vars[v].level = level
         trail.add(v)
+        updateWatchers(lit)
         return true
     }
+
+    private fun updateWatchers(lit: Int) {
+        val clausesToRemove = mutableSetOf<Int>()
+        watchers[litIndex(lit)].forEach { brokenClause ->
+            val undef = clauses[brokenClause].count { getStatus(it) == VarStatus.UNDEFINED }
+            val firstTrue = clauses[brokenClause].firstOrNull { getStatus(it) == VarStatus.TRUE }
+            if (undef > 1) {
+                val newWatcher = clauses[brokenClause].first {
+                    getStatus(it) == VarStatus.UNDEFINED && brokenClause !in watchers[litIndex(it)]
+                }
+                watchers[litIndex(newWatcher)].add(brokenClause)
+                clausesToRemove.add(brokenClause)
+            } else if (undef == 1 && firstTrue == null) units.add(brokenClause)
+        }
+        watchers[litIndex(lit)].removeAll(clausesToRemove)
+    }
+
     // del a variable from the trail
     private fun delVariable(v: Int) {
         setStatus(v, VarStatus.UNDEFINED)
@@ -99,15 +158,38 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     }
 
     // propogates; returns index of conflict clause, or -1 if there is no conflict clause
-    private fun propagate(): Int { //TODO: watch literals
-        clauses.indexOfFirst { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }.let {
-            if (it != -1) return it
-        }
-        clauses.forEachIndexed { ind, clause ->
-            if (clause.isUnit() && addVariable(ind, clause.forced())) {
-                return propagate()
+    private fun propagate(): Int {
+
+        while (units.size > 0) {
+            val clause = units.removeLast()
+            require(clauses[clause].any { getStatus(it) != VarStatus.FALSE })
+//            if (clauses[clause].any { getStatus(it) == VarStatus.TRUE }) continue
+            val lit = clauses[clause].first { getStatus(it) == VarStatus.UNDEFINED }
+            // check if we get a conflict
+            watchers[litIndex(lit)].forEach { brokenClause ->
+                if (brokenClause != clause) {
+                    val undef = clauses[brokenClause].count { getStatus(it) == VarStatus.UNDEFINED }
+                    if (undef == 1 && -lit in clauses[brokenClause] && clauses[brokenClause].all { getStatus(it) != VarStatus.TRUE }) {
+                        setStatus(lit, VarStatus.TRUE)
+                        val v = abs(lit)
+                        vars[v].clause = clause
+                        vars[v].level = level
+                        trail.add(v)
+                        return brokenClause
+                    }
+                }
             }
+            addVariable(clause, lit)
         }
+
+//        clauses.indexOfFirst { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }.let {
+//            if (it != -1) return it
+//        }
+//        clauses.forEachIndexed { ind, clause ->
+//            if (clause.isUnit() && addVariable(ind, clause.forced())) {
+//                return propagate()
+//            }
+//        }
         return -1
     }
 
@@ -123,10 +205,26 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         while (trail.size > 0 && vars[trail.last()].level > level) {
             delVariable(trail.removeLast())
         }
+        units.clear()
+        clauses.forEach { cl ->
+            val undef = cl.count { getStatus(it) == VarStatus.UNDEFINED }
+            if (undef == 1 && cl.all { getStatus(it) != VarStatus.TRUE }) units.add(clauses.lastIndex)
+        }
+
+        //todo uncomment
+//        units.removeAll { unit ->
+//            clauses[unit].count { getStatus(it) == VarStatus.UNDEFINED } != 1
+//        }
+//        units.add(clauses.lastIndex)
+
+
+//        val undef = clause.count { getStatus(it) == VarStatus.UNDEFINED }
+//        if (undef == 1 && clause.all { getStatus(it) != VarStatus.TRUE }) units.add(clauses.lastIndex)
     }
     // add clause and change structures for it
     private fun addClause(clause: ArrayList<Int>) {
         clauses.add(ArrayList(clause.map { it }))
+        addWatchers(clause, clauses.lastIndex)
     }
 
     // add a lit to lemma if it hasn't been added yet
