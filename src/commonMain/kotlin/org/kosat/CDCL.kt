@@ -62,7 +62,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         buildWatchers()
 
         while (true) {
-            println(clauses)
+//            println(clauses)
             val conflictClause = propagate()
             if (conflictClause != -1) {
                 if (level == 0) return null //in case there is a conflict in CNF
@@ -163,7 +163,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         while (units.size > 0) {
             val clause = units.removeLast()
             require(clauses[clause].any { getStatus(it) != VarStatus.FALSE })
-//            if (clauses[clause].any { getStatus(it) == VarStatus.TRUE }) continue
+            if (clauses[clause].any { getStatus(it) == VarStatus.TRUE }) continue
             val lit = clauses[clause].first { getStatus(it) == VarStatus.UNDEFINED }
             // check if we get a conflict
             watchers[litIndex(lit)].forEach { brokenClause ->
