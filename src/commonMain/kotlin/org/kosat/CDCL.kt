@@ -162,7 +162,15 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
         while (units.size > 0) {
             val clause = units.removeLast()
+
+            if (clauses[clause].size == 1) {
+                if (getStatus(clauses[clause][0]) == VarStatus.UNDEFINED) addVariable(clause, clauses[clause][0])
+                else if (getStatus(clauses[clause][0]) == VarStatus.FALSE) return clause
+                continue
+            }
+
             require(clauses[clause].any { getStatus(it) != VarStatus.FALSE })
+
             if (clauses[clause].any { getStatus(it) == VarStatus.TRUE }) continue
             val lit = clauses[clause].first { getStatus(it) == VarStatus.UNDEFINED }
             // check if we get a conflict
@@ -192,11 +200,6 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 //        }
         return -1
     }
-
-    //return is clause a unit or not
-    private fun ArrayList<Int>.isUnit() = (size - 1 == this.count { getStatus(it) == VarStatus.FALSE })
-    //return unfalse variable in unit
-    private fun ArrayList<Int>.forced() = this.first { getStatus(it) != VarStatus.FALSE }
 
     //change level, undefine variables and so on
     private fun backjump(clause: ArrayList<Int>) {
