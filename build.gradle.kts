@@ -22,7 +22,7 @@ dependencies {
 
 
 tasks.withType<Test> {
-    systemProperty("java.library.path", "/home/runner/work/kosat/kosat/src/jvmMain/resources/lib.linux64")
+    systemProperty("java.library.path", "/home/runner/work/kosat/kosat/src/jvmMain/resources/lib/linux64")
 }
 
 
