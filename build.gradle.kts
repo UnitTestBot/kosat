@@ -15,7 +15,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.Lipen:kotlin-satlib:master-SNAPSHOT")
+    implementation("com.github.Lipen.kotlin-satlib:core:0.24.2")
     implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.17.2")
     implementation("org.apache.logging.log4j:log4j-core:2.17.2")
 }
