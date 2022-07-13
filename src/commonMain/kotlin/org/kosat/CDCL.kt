@@ -14,10 +14,10 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         TRUE, FALSE, UNDEFINED;
 
         operator fun not(): VarStatus {
-            return when {
-                this == TRUE -> FALSE
-                this == FALSE -> TRUE
-                else -> UNDEFINED
+            return when (this) {
+                TRUE -> FALSE
+                FALSE -> TRUE
+                UNDEFINED -> UNDEFINED
             }
         }
     }
@@ -29,11 +29,18 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     }
 
     private fun setStatus(lit: Int, status: VarStatus) {
-        if (lit < 0) vars[-lit].status = !status
-        else vars[lit].status = status
+        if (lit < 0) {
+            vars[-lit].status = !status
+        } else {
+            vars[lit].status = status
+        }
     }
 
-    data class VarState(var status: VarStatus, var clause: Int, var level: Int)
+    data class VarState(
+        var status: VarStatus,
+        var clause: Int,
+        var level: Int,
+    )
 
     // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
     private fun variableValues() = vars
@@ -147,6 +154,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         return true
     }
 
+    // update watchers for clauses linked with lit
     private fun updateWatchers(lit: Int) {
         val clausesToRemove = mutableSetOf<Int>()
         watchers[litIndex(lit)].forEach { brokenClause ->
@@ -158,7 +166,9 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
                 }
                 watchers[litIndex(newWatcher)].add(brokenClause)
                 clausesToRemove.add(brokenClause)
-            } else if (undef == 1 && firstTrue == null) units.add(brokenClause)
+            } else if (undef == 1 && firstTrue == null) {
+                units.add(brokenClause)
+            }
         }
         watchers[litIndex(lit)].removeAll(clausesToRemove)
     }
@@ -220,7 +230,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
     // add a literal to lemma if it hasn't been added yet
     private fun updateLemma(lemma: ArrayList<Int>, lit: Int) {
-        if (lemma.find { it == lit } == null) {
+        if (lit !in lemma) {
             lemma.add(lit)
         }
     }
@@ -232,8 +242,11 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         val lemma = ArrayList<Int>()
 
         conflict.forEach { lit ->
-            if (vars[litIndex(lit)].level == level) active[litIndex(lit)] = true
-            else updateLemma(lemma, lit)
+            if (vars[litIndex(lit)].level == level) {
+                active[litIndex(lit)] = true
+            } else {
+                updateLemma(lemma, lit)
+            }
         }
         var ind = trail.size - 1
         while (active.count { it } > 1) {
@@ -243,8 +256,11 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
             clauses[vars[v].clause].forEach { u ->
                 val current = litIndex(u)
-                if (vars[current].level != level) updateLemma(lemma, u)
-                else if (current != v) active[current] = true
+                if (vars[current].level != level) {
+                    updateLemma(lemma, u)
+                } else if (current != v) {
+                    active[current] = true
+                }
             }
             active[v] = false
         }
