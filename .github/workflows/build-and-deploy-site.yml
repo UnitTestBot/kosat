@@ -1,14 +1,17 @@
 name: Build and Deploy Site
 
 on:
-  push:
-    branches: [ "main" ]
+  workflow_run:
+    workflows: [ build ]
+    types:
+      - completed
 
 jobs:
-  build-and-deploy-site:
+  on-success:
 
     runs-on: ubuntu-latest
 
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout latest code
         uses: actions/checkout@v3
@@ -30,10 +33,6 @@ jobs:
       - name: Set up ld cache
         run: sudo ldconfig $(realpath libs)
 
-      - name: Check dependencies
-        run: |
-                ldd src/jvmMain/resources/lib/linux64/*.so
-
       - name: Build project using Gradle
         run: ./gradlew build -x test --stacktrace --scan
 
@@ -52,3 +51,9 @@ jobs:
           git add .
           git commit -am "${{ github.event.head_commit.message }}"
           git push
+
+  on-failure:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - run: echo 'Build workflow failed'
