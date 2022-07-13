@@ -2,7 +2,7 @@ name: Build and Deploy Site
 
 on:
   workflow_run:
-    workflows: [ build ]
+    workflows: [ Build ]
     types:
       - completed
 
