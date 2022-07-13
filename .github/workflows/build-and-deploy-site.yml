@@ -2,13 +2,11 @@ name: Build and Deploy Site
 
 on:
   workflow_run:
-    workflows: [ Build ]
-    types:
-      - completed
+    workflows: [Build]
+    types: [completed]
 
 jobs:
   on-success:
-
     runs-on: ubuntu-latest
 
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
