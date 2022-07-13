@@ -25,9 +25,10 @@ jobs:
             path: ~/.gradle/caches
             key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
             restore-keys: |
-            ${{ runner.os }}-gradle-
-            - name: Set up ld cache
-              run: sudo ldconfig $(realpath libs)
+              ${{ runner.os }}-gradle-
+
+      - name: Set up ld cache
+        run: sudo ldconfig $(realpath libs)
 
       - name: Check dependencies
         run: |
