@@ -8,6 +8,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.abs
 import kotlin.math.sign
+import kotlin.streams.toList
 
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
