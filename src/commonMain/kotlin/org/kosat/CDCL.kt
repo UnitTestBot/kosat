@@ -27,6 +27,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         if (lit < 0) return !vars[-lit].status
         return vars[lit].status
     }
+
     private fun setStatus(lit: Int, status: VarStatus) {
         if (lit < 0) vars[-lit].status = !status
         else vars[lit].status = status
@@ -34,7 +35,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
 
     data class VarState(var status: VarStatus, var clause: Int, var level: Int)
 
-    // converting values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
+    // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
     private fun variableValues() = vars
         .mapIndexed { index, v ->
             when (v.status) {
@@ -43,51 +44,61 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
                 else -> index
             }
         }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
+
     // values of variables
     private val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
+
     // all decisions and consequences
     private val trail: ArrayList<Int> = ArrayList()
+
     // decision level
     private var level: Int = 0
 
+    // two watched literals heuristic
     private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() } // set of clauses watched by literal
     private fun litIndex(lit: Int): Int = abs(lit)
 
-    private val units = mutableListOf<Int>() // list of clauses to propagate
+    // list of clauses to propagate
+    private val units = mutableListOf<Int>()
 
     fun solve(): List<Int>? {
+        // extremal cases
         if (clauses.isEmpty()) return emptyList()
-
         if (clauses.any { it.size == 0 }) return null
 
         buildWatchers()
 
+        // main while
         while (true) {
             val conflictClause = propagate()
             if (conflictClause != -1) {
                 if (level == 0) return null //in case there is a conflict in CNF
-                val lemma = analyzeConflict(clauses[conflictClause]) //looks for conflict lemma
+                val lemma = analyzeConflict(clauses[conflictClause]) // build new clause by conflict clause
                 addClause(lemma)
                 backjump(lemma)
                 continue
             }
 
+            // check satisfiability
             if (satisfiable()) {
                 return variableValues()
             }
 
+            // try to guess variable
             level++
-            addVariable(-1, vars.firstUndefined()) // default
+            addVariable(-1, vars.firstUndefined())
         }
     }
 
-    private fun buildWatchers() { // runs only once
+    // run only once in the beginning
+    private fun buildWatchers() {
         clauses.forEachIndexed { index, clause ->
             addWatchers(clause, index)
         }
     }
 
-    private fun addWatchers(clause: ArrayList<Int>, index: Int) { // runs in buildWatchers and addClause
+    // add watchers to clause. Run in buildWatchers and addClause
+    private fun addWatchers(clause: ArrayList<Int>, index: Int) {
         if (clause.size == 1) {
             watchers[litIndex(clause[0])].add(index)
             units.add(index)
@@ -95,7 +106,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         }
         val undef = clause.count { getStatus(it) == VarStatus.UNDEFINED }
 
-        // building from start
+        // initial building
         if (undef != 0) { // happen only in buildWatchers
             watchers[litIndex(clause[0])].add(index)
             watchers[litIndex(clause[1])].add(index)
@@ -114,15 +125,16 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         }
     }
 
-    // checks is clause satisfied or not
+    // check is all clauses satisfied or not
     private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
-    // checks if all clauses are satisfied and return answer
+
+    // simple chose of undefined variable
     private fun MutableList<VarState>.firstUndefined() = this
         .drop(1)
         .indexOfFirst { it.status == VarStatus.UNDEFINED } + 1
 
 
-    // add a variable to the trail
+    // add a variable to the trail and update watchers of clauses linked to this variable
     private fun addVariable(clause: Int, lit: Int): Boolean {
         if (getStatus(lit) != VarStatus.UNDEFINED) return false
 
@@ -158,7 +170,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         vars[v].level = -1
     }
 
-    // propagates; returns index of conflict clause, or -1 if there is no conflict clause
+    // return index of conflict clause, or -1 if there is no conflict clause
     private fun propagate(): Int {
 
         while (units.size > 0) {
@@ -189,7 +201,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         return -1
     }
 
-    //change level, undefine variables and so on
+    //change level, undefine variables, clear units
     private fun backjump(clause: ArrayList<Int>) {
         level = clause.map { vars[litIndex(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
 
@@ -199,13 +211,14 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
         units.clear()
         units.add(clauses.lastIndex) // after backjump it's the only clause to propagate
     }
-    // add clause and change structures for it
+
+    // add clause and add watchers to it
     private fun addClause(clause: ArrayList<Int>) {
         clauses.add(ArrayList(clause.map { it }))
         addWatchers(clause, clauses.lastIndex)
     }
 
-    // add a lit to lemma if it hasn't been added yet
+    // add a literal to lemma if it hasn't been added yet
     private fun updateLemma(lemma: ArrayList<Int>, lit: Int) {
         if (lemma.find { it == lit } == null) {
             lemma.add(lit)
