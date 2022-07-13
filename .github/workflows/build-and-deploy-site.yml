@@ -2,7 +2,7 @@ name: Build and Deploy Site
 
 on:
   push:
-    branches: [ "main", "html_page" ]
+    branches: [ "main" ]
 
 jobs:
   build-and-deploy-site:
@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout latest code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup Java
         uses: actions/setup-java@v2
@@ -33,6 +33,7 @@ jobs:
       - name: Check dependencies
         run: |
                 ldd src/jvmMain/resources/lib/linux64/*.so
+
       - name: Build project using Gradle
         run: ./gradlew build -x test --stacktrace --scan
 
