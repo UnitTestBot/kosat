@@ -1,4 +1,11 @@
-import csstype.*
+import csstype.px
+import csstype.rgb
+import csstype.TextAlign
+import csstype.FontFamily
+import csstype.FontWeight
+import csstype.Display
+import csstype.Position
+import csstype.Margin
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import react.FC
