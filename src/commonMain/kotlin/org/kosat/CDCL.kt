@@ -265,7 +265,9 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
             active[v] = false
         }
         active.indexOfFirst { it }.let { v ->
-            if (v != -1) updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
+            if (v != -1) {
+                updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
+            }
         }
         return lemma
     }
