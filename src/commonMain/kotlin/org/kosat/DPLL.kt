@@ -5,13 +5,13 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlin.math.abs
 
 //DPLL
-fun solveCnf(cnf: CnfRequest) : List<Int>? {
+fun solveCnfDPLL(cnf: CnfRequest): List<Int>? {
     val clauses = ArrayList(cnf.clauses.map { ArrayList(it.lit.toList()) })
     return dpll(clauses)?.sortedBy { abs(it) }
 }
 
 
-fun unitPropagate(clauses: ArrayList<ArrayList<Int>>) : List<Int>? {
+fun unitPropagate(clauses: ArrayList<ArrayList<Int>>): List<Int>? {
     val res = mutableListOf<Int>()
     while (true) {
         // If a clause is a unit clause, i.e. it contains only a single unassigned literal, this clause can only be
@@ -27,13 +27,13 @@ fun unitPropagate(clauses: ArrayList<ArrayList<Int>>) : List<Int>? {
     }
 }
 
-fun chooseLiteral(clauses: ArrayList<ArrayList<Int>>) : Int {
+fun chooseLiteral(clauses: ArrayList<ArrayList<Int>>): Int {
     //dumb strategy, place your heuristics here
     return clauses.first()[0]
 }
 
 //returns false only if after substitution some clause becomes empty
-fun substitute(clauses: ArrayList<ArrayList<Int>>, literal: Int) : Boolean {
+fun substitute(clauses: ArrayList<ArrayList<Int>>, literal: Int): Boolean {
     //removing every clause containing literal
     clauses.removeAll { it.contains(literal) }
 
