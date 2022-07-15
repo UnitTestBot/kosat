@@ -65,17 +65,17 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() } // set of clauses watched by literal
     private fun litIndex(lit: Int): Int = abs(lit)
 
-    // list of clauses to propagate
-    private val units = mutableListOf<Int>()
+    // list of unit clauses to propagate
+    private val units: MutableList<Int> = mutableListOf()
 
     fun solve(): List<Int>? {
-        // extremal cases
+        // extreme cases
         if (clauses.isEmpty()) return emptyList()
         if (clauses.any { it.size == 0 }) return null
 
         buildWatchers()
 
-        // main while
+        // main loop
         while (true) {
             val conflictClause = propagate()
             if (conflictClause != -1) {
@@ -86,7 +86,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
                 continue
             }
 
-            // check satisfiability
+            // If (the problem is already) SAT, return the current assignment
             if (satisfiable()) {
                 return variableValues()
             }
