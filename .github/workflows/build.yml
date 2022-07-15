@@ -1,8 +1,6 @@
 name: Build
 
-on:
-  push:
-    branches: [ "deploy_site" ]
+on: [ push, pull_request ]
 
 jobs:
   build:
