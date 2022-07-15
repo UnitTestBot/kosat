@@ -1,0 +1,57 @@
+name: Build and Deploy Site
+
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+
+jobs:
+  on-success:
+    runs-on: ubuntu-latest
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v2
+        with:
+            distribution: zulu
+            java-version: 11
+
+      - name: Setup build cache
+        uses: pat-s/always-upload-cache@v2
+        with:
+            path: ~/.gradle/caches
+            key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+            restore-keys: |
+              ${{ runner.os }}-gradle-
+
+      - name: Set up ld cache
+        run: sudo ldconfig $(realpath libs)
+
+      - name: Build project using Gradle
+        run: ./gradlew build -x test --stacktrace --scan
+
+      - name: Deploy Site
+        run: |
+          set -o xtrace
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          sudo cp -r ./build/distributions /usr
+          git fetch
+          git stash
+          git checkout gh-pages
+          rm -rf docs
+          mkdir docs
+          sudo cp -r /usr/distributions/* ./docs/
+          git add .
+          git commit -am "${{ github.event.head_commit.message }}"
+          git push
+
+  on-failure:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - run: echo 'Build workflow failed'
