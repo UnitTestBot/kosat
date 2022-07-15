@@ -1,6 +1,6 @@
 package org.kosat
 
-class Clause(val lit: Array<Int>)
+class Clause(val lit: MutableList<Int>)
 
 class CnfRequest(val vars: Int, val clauses: List<Clause>)
 
@@ -58,7 +58,7 @@ fun readCnfRequests(dimacs: String) = sequence {
             error ("Illegal request $cnf. Only 'cnf' supported")
 
         val vars = scanner.nextInt() //don't need this variable
-        val clauses = Array(scanner.nextInt()) { mutableListOf<Int>()}
+        val clauses = List(scanner.nextInt()) { mutableListOf<Int>()}
         for (i in clauses.indices) {
             while (true) {
                 val nxt = scanner.nextInt()
@@ -68,7 +68,7 @@ fun readCnfRequests(dimacs: String) = sequence {
             }
         }
 
-        yield(CnfRequest(vars, clauses.map { Clause(it.toTypedArray()) }))
+        yield(CnfRequest(vars, clauses.map { Clause(it) }))
     }
 }
 

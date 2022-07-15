@@ -4,12 +4,12 @@ import kotlin.math.abs
 
 //CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
-    val clauses = ArrayList(cnf.clauses.map { ArrayList(it.lit.toList()) })
+    val clauses = (cnf.clauses.map { it.lit }).toMutableList()
     return CDCL(clauses, cnf.vars).solve()
 }
 
 
-class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumber: Int) {
+class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsNumber: Int) {
     enum class VarStatus {
         TRUE, FALSE, UNDEFINED;
 
@@ -56,7 +56,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     private val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
 
     // all decisions and consequences
-    private val trail: ArrayList<Int> = ArrayList()
+    private val trail: MutableList<Int> = mutableListOf()
 
     // decision level
     private var level: Int = 0
@@ -105,7 +105,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     }
 
     // add watchers to clause. Run in buildWatchers and addClause
-    private fun addWatchers(clause: ArrayList<Int>, index: Int) {
+    private fun addWatchers(clause: MutableList<Int>, index: Int) {
         if (clause.size == 1) {
             watchers[litIndex(clause[0])].add(index)
             units.add(index)
@@ -212,7 +212,7 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     }
 
     //change level, undefine variables, clear units
-    private fun backjump(clause: ArrayList<Int>) {
+    private fun backjump(clause: MutableList<Int>) {
         level = clause.map { vars[litIndex(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
 
         while (trail.size > 0 && vars[trail.last()].level > level) {
@@ -223,23 +223,23 @@ class CDCL(private var clauses: ArrayList<ArrayList<Int>>, private val varsNumbe
     }
 
     // add clause and add watchers to it
-    private fun addClause(clause: ArrayList<Int>) {
-        clauses.add(ArrayList(clause.map { it }))
+    private fun addClause(clause: MutableList<Int>) {
+        clauses.add(clause)
         addWatchers(clause, clauses.lastIndex)
     }
 
     // add a literal to lemma if it hasn't been added yet
-    private fun updateLemma(lemma: ArrayList<Int>, lit: Int) {
+    private fun updateLemma(lemma: MutableList<Int>, lit: Int) {
         if (lit !in lemma) {
             lemma.add(lit)
         }
     }
 
     // analyze conflict and return new clause
-    private fun analyzeConflict(conflict: ArrayList<Int>): ArrayList<Int> {
+    private fun analyzeConflict(conflict: MutableList<Int>): MutableList<Int> {
 
         val active = MutableList(varsNumber + 1) { false }
-        val lemma = ArrayList<Int>()
+        val lemma = mutableListOf<Int>()
 
         conflict.forEach { lit ->
             if (vars[litIndex(lit)].level == level) {
