@@ -56,8 +56,11 @@ internal class DiamondTests {
 
     private fun runTests(path: String) {
         val filenames = getAllFilenamesByPath(path)
+        println(filenames)
         println(buildPadding(headerNames))
-        MiniSatSolver()
+
+        // trigger the shared library loading
+        MiniSatSolver().close()
 
 
         filenames.forEach {
