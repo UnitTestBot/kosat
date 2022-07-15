@@ -1,6 +1,10 @@
 name: Build
 
-on: [ push, pull_request ]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
@@ -40,7 +44,7 @@ jobs:
         run: ./gradlew cleanTest test --no-build-cache --stacktrace
 
       - name: Deploy site
-        if: ${{ success() }}
+        if: ${{ success() }} && github.event_name == 'push'
         run: |
           set -o xtrace
           git config user.name 'github-actions[bot]'
