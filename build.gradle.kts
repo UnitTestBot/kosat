@@ -1,5 +1,6 @@
 plugins {
     kotlin("multiplatform") version "1.6.21"
+    id("de.undercouch.download") version "4.1.1"
     application
 }
 
@@ -10,7 +11,20 @@ repositories {
     jcenter()
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven")
+    maven("https://jitpack.io")
 }
+
+dependencies {
+    implementation("com.github.Lipen.kotlin-satlib:core:0.24.2")
+    implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.17.2")
+    implementation("org.apache.logging.log4j:log4j-core:2.17.2")
+}
+
+
+tasks.withType<Test> {
+    systemProperty("java.library.path", "/home/runner/work/kosat/kosat/src/jvmMain/resources/lib/linux64")
+}
+
 
 kotlin {
     jvm {
