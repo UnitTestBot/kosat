@@ -1,6 +1,8 @@
 name: Build
 
-on: [ push, pull_request ]
+on:
+  push:
+    branches: [ "deploy_site" ]
 
 jobs:
   build:
@@ -38,3 +40,20 @@ jobs:
 
       - name: Run tests
         run: ./gradlew cleanTest test --no-build-cache --stacktrace
+
+      - name: Deploy site
+        if: ${{ success() }}
+        run: |
+          set -o xtrace
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          sudo cp -r ./build/distributions /usr
+          git fetch
+          git stash
+          git checkout gh-pages
+          rm -rf docs
+          mkdir docs
+          sudo cp -r /usr/distributions/* ./docs/
+          git add .
+          git commit -am "${{ github.event.head_commit.message }}"
+          git push
