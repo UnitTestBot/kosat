@@ -69,6 +69,8 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
     private val units: MutableList<Int> = mutableListOf()
 
     fun solve(): List<Int>? {
+        removeUselessClauses()
+
         // extreme cases
         if (clauses.isEmpty()) return emptyList()
         if (clauses.any { it.size == 0 }) return null
@@ -95,6 +97,11 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
             level++
             addVariable(-1, vars.firstUndefined())
         }
+    }
+
+    // remove clauses which contain x and -x
+    private fun removeUselessClauses() {
+        clauses.removeAll { clause -> clause.any { -it in clause } }
     }
 
     // run only once in the beginning
