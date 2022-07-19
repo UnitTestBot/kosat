@@ -68,6 +68,9 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
     // list of unit clauses to propagate
     private val units: MutableList<Int> = mutableListOf()
 
+    // phase saving
+    private val phaseSaving: MutableList<VarStatus> = MutableList(varsNumber + 1) { VarStatus.UNDEFINED }
+
     fun solve(): List<Int>? {
         removeUselessClauses()
 
@@ -104,8 +107,11 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
 
             // try to guess variable
             level++
-            // addVariable(-1, vars.firstUndefined())
-            addVariable(-1, vsids())
+            var newVariable = vsids()
+            // if (phaseSaving[newVariable] == VarStatus.FALSE) {
+            //     newVariable = -newVariable
+            // }
+            addVariable(-1, newVariable)
         }
     }
 
@@ -192,6 +198,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
 
     // del a variable from the trail
     private fun delVariable(v: Int) {
+        phaseSaving[v] = getStatus(v)
         setStatus(v, VarStatus.UNDEFINED)
         vars[v].clause = -1
         vars[v].level = -1
