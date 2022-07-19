@@ -85,6 +85,15 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
                 val lemma = analyzeConflict(clauses[conflictClause]) // build new clause by conflict clause
                 addClause(lemma)
                 backjump(lemma)
+
+                //VSIDS
+                numberOfConflicts++
+                if (numberOfConflicts == decay) { // update scores
+                    numberOfConflicts = 0
+                    score.forEachIndexed { ind, _ -> score[ind] /= divisionCoeff }
+                    lemma.forEach { lit -> score[litIndex(lit)]++ }
+                }
+
                 continue
             }
 
@@ -95,7 +104,8 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
 
             // try to guess variable
             level++
-            addVariable(-1, vars.firstUndefined())
+            //addVariable(-1, vars.firstUndefined())
+            addVariable(-1, vsids())
         }
     }
 
@@ -277,5 +287,21 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
             }
         }
         return lemma
+    }
+
+    //VSIDS
+    val score = MutableList(varsNumber + 1) { clauses.count { clause -> clause.contains(it) || clause.contains(-it) }.toDouble() }
+    val decay = 50
+    val divisionCoeff = 2.0
+    var numberOfConflicts = 0
+
+    private fun vsids() : Int {
+        var ind = -1
+        for (i in 1..varsNumber) {
+            if (vars[i].status == VarStatus.UNDEFINED && (ind == -1 || score[ind] < score[i])) {
+                ind = i
+            }
+        }
+        return ind
     }
 }
