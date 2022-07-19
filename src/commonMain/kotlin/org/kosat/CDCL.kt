@@ -2,7 +2,7 @@ package org.kosat
 
 import kotlin.math.abs
 
-//CDCL
+// CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
     val clauses = (cnf.clauses.map { it.lit }).toMutableList()
     return CDCL(clauses, cnf.vars).solve()
@@ -81,12 +81,12 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
         while (true) {
             val conflictClause = propagate()
             if (conflictClause != -1) {
-                if (level == 0) return null //in case there is a conflict in CNF
+                if (level == 0) return null // in case there is a conflict in CNF
                 val lemma = analyzeConflict(clauses[conflictClause]) // build new clause by conflict clause
                 addClause(lemma)
                 backjump(lemma)
 
-                //VSIDS
+                // VSIDS
                 numberOfConflicts++
                 if (numberOfConflicts == decay) { // update scores
                     numberOfConflicts = 0
@@ -104,7 +104,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
 
             // try to guess variable
             level++
-            //addVariable(-1, vars.firstUndefined())
+            // addVariable(-1, vars.firstUndefined())
             addVariable(-1, vsids())
         }
     }
@@ -228,7 +228,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
         return -1
     }
 
-    //change level, undefine variables, clear units
+    // change level, undefine variables, clear units
     private fun backjump(clause: MutableList<Int>) {
         level = clause.map { vars[litIndex(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
 
@@ -289,13 +289,15 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
         return lemma
     }
 
-    //VSIDS
-    val score = MutableList(varsNumber + 1) { clauses.count { clause -> clause.contains(it) || clause.contains(-it) }.toDouble() }
-    val decay = 50
-    val divisionCoeff = 2.0
-    var numberOfConflicts = 0
+    // VSIDS
+    private val score = MutableList(varsNumber + 1) {
+        clauses.count { clause -> clause.contains(it) || clause.contains(-it) }.toDouble()
+    }
+    private val decay = 50
+    private val divisionCoeff = 2.0
+    private var numberOfConflicts = 0
 
-    private fun vsids() : Int {
+    private fun vsids(): Int {
         var ind = -1
         for (i in 1..varsNumber) {
             if (vars[i].status == VarStatus.UNDEFINED && (ind == -1 || score[ind] < score[i])) {
