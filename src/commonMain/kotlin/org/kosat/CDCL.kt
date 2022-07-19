@@ -58,7 +58,10 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
     // list of unit clauses to propagate
     private val units: MutableList<Int> = mutableListOf()
 
-    fun solve(assumptions: List<Int> = emptyList()): List<Int>? { // TODO: rework for incremental
+    private var assumptions: List<Int> = emptyList()
+
+    fun solve(currentAssumptions: List<Int> = emptyList()): List<Int>? {
+        assumptions = currentAssumptions
         removeUselessClauses()
 
         // extreme cases
@@ -94,10 +97,25 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
 
             // try to guess variable
             level++
-            // addVariable(-1, vars.firstUndefined())
-            addVariable(-1, vsids())
+            val nextVariable = getNextVariable(level)
+
+            // Check that assumption we want to make isn't controversial
+            if (wrongAssumption(nextVariable)) {
+                return null
+            }
+            addVariable(-1, nextVariable)
         }
     }
+
+    private fun getNextVariable(level: Int): Int {
+        return if (level > assumptions.size) {
+            vsids()
+        } else {
+            return assumptions[level - 1]
+        }
+    }
+
+    private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
 
     // remove clauses which contain x and -x
     private fun removeUselessClauses() {
@@ -105,7 +123,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
     }
 
     // add clause and add watchers to it
-    fun addClause(clause: MutableList<Int>) { // TODO: rework for incremental
+    fun addClause(clause: MutableList<Int>) {
         clauses.add(clause)
         addWatchers(clause, clauses.lastIndex)
     }
@@ -132,19 +150,29 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
         val undef = clause.count { getStatus(it) == VarStatus.UNDEFINED }
 
         // initial building
-        if (undef != 0) { // happen only in buildWatchers
-            watchers[litIndex(clause[0])].add(index)
-            watchers[litIndex(clause[1])].add(index)
+        if (undef >= 2) {
+            val a = clause.indexOfFirst { getStatus(it) == VarStatus.UNDEFINED }
+            val b = clause.drop(a + 1).indexOfFirst { getStatus(it) == VarStatus.UNDEFINED } + a + 1
+            watchers[litIndex(clause[a])].add(index)
+            watchers[litIndex(clause[b])].add(index)
+        } else if (undef == 1) {
+            val a = clause.indexOfFirst { getStatus(it) == VarStatus.UNDEFINED }
+            watchers[litIndex(clause[a])].add(index)
+            addForLastInTrail(1, clause, index)
         } else { // for clauses added by conflict
-            var cnt = 0
-            val clauseVars = clause.map { litIndex(it) }
-            for (ind in trail.lastIndex downTo 0) { // want to watch on last 2 literals from trail for conflict clause
-                if (trail[ind] in clauseVars) {
-                    cnt++
-                    watchers[trail[ind]].add(index)
-                    if (cnt == 2) {
-                        return
-                    }
+            addForLastInTrail(2, clause, index)
+        }
+    }
+
+    private fun addForLastInTrail(n: Int, clause: List<Int>, index: Int) {
+        var cnt = 0
+        val clauseVars = clause.map { litIndex(it) }
+        for (ind in trail.lastIndex downTo 0) { // want to watch on last 2 literals from trail for conflict clause
+            if (trail[ind] in clauseVars) {
+                cnt++
+                watchers[trail[ind]].add(index)
+                if (cnt == n) {
+                    return
                 }
             }
         }
@@ -162,12 +190,6 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
                 else -> index
             }
         }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
-
-    // simple chose of undefined variable
-    private fun MutableList<VarState>.firstUndefined() = this
-        .drop(1)
-        .indexOfFirst { it.status == VarStatus.UNDEFINED } + 1
-
 
     // add a variable to the trail and update watchers of clauses linked to this variable
     private fun addVariable(clause: Int, lit: Int): Boolean {
