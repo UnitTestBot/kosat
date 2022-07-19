@@ -47,8 +47,6 @@ interface Solver {
      * Query the Boolean value of a literal.
      *
      * **Note:** the solver should be in the SAT state.
-     * The result of [getValue] when the solver is not in the SAT state
-     * depends on the backend implementation.
      */
     fun getValue(lit: Lit): Boolean
 
