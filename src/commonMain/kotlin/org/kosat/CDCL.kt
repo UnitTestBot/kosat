@@ -42,16 +42,6 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
         var level: Int,
     )
 
-    // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
-    private fun variableValues() = vars
-        .mapIndexed { index, v ->
-            when (v.status) {
-                VarStatus.TRUE -> index
-                VarStatus.FALSE -> -index
-                else -> index
-            }
-        }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
-
     // values of variables
     private val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
 
@@ -68,7 +58,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
     // list of unit clauses to propagate
     private val units: MutableList<Int> = mutableListOf()
 
-    fun solve(): List<Int>? {
+    fun solve(assumptions: List<Int> = emptyList()): List<Int>? { // TODO: rework for incremental
         removeUselessClauses()
 
         // extreme cases
@@ -114,6 +104,17 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
         clauses.removeAll { clause -> clause.any { -it in clause } }
     }
 
+    // add clause and add watchers to it
+    fun addClause(clause: MutableList<Int>) { // TODO: rework for incremental
+        clauses.add(clause)
+        addWatchers(clause, clauses.lastIndex)
+    }
+
+    fun newVar(): Int { // TODO
+
+        return 0
+    }
+
     // run only once in the beginning
     private fun buildWatchers() {
         clauses.forEachIndexed { index, clause ->
@@ -151,6 +152,16 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
 
     // check is all clauses satisfied or not
     private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
+
+    // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
+    private fun variableValues() = vars
+        .mapIndexed { index, v ->
+            when (v.status) {
+                VarStatus.TRUE -> index
+                VarStatus.FALSE -> -index
+                else -> index
+            }
+        }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
 
     // simple chose of undefined variable
     private fun MutableList<VarState>.firstUndefined() = this
@@ -237,12 +248,6 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
         }
         units.clear()
         units.add(clauses.lastIndex) // after backjump it's the only clause to propagate
-    }
-
-    // add clause and add watchers to it
-    private fun addClause(clause: MutableList<Int>) {
-        clauses.add(clause)
-        addWatchers(clause, clauses.lastIndex)
     }
 
     // add a literal to lemma if it hasn't been added yet
