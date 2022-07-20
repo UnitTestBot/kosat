@@ -76,6 +76,8 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         // simplifying given cnf formula
         preprocessing()
 
+        countScore()
+
         // extremal cases
         if (clauses.isEmpty()) return emptyList()
         if (clauses.any { it.size == 0 }) return null
@@ -123,6 +125,9 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
 
     // run only once in the beginning
     private fun buildWatchers() {
+        while (watchers.size > varsNumber + 1) {
+            watchers.removeLast()
+        }
         clauses.forEachIndexed { index, clause ->
             addWatchers(clause, index)
         }
@@ -304,7 +309,8 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         removeTautologies()
         removeSubsumedClauses()
         bve()
-        removeTautologies()
+        println("$varsNumber, ${clauses.size}")
+        //clauses.forEach { println(it) }
         //removePureLiterals()
     }
 
@@ -411,18 +417,20 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         buildWatchers()
     }
 
-    private val clauseLimit = 1200
+    private val clauseLimit = 1000
 
     private fun addResolvents(ind: Int) {
         for (cl1 in litOccurrence[litPos(ind)]) {
             for (cl2 in litOccurrence[litPos(-ind)]) {
-                //println("$ind, ----, $cl1, $cl2")
                 val newClause = clauses[cl1].toMutableSet()
-                newClause.addAll(clauses[cl2])
                 newClause.remove(ind)
+                // check if clause is tautology
+                if (clauses[cl2].any { newClause.contains(-it) }) {
+                    continue
+                }
+                newClause.addAll(clauses[cl2])
                 newClause.remove(-ind)
                 clauses.add(ArrayList(newClause))
-                //println(newClause)
                 for (lit in newClause) {
                     litOccurrence[litPos(lit)].add(clauses.lastIndex)
                 }
@@ -470,9 +478,6 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         varsNumber = newSize
         countOccurrence()
         updateSig()
-
-        println("$varsNumber, ${clauses.size}")
-        //clauses.forEach { println(it) }
     }
 
     private fun removeTautologies() {
@@ -511,9 +516,14 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
     }
 
     // VSIDS
-    private val score = MutableList(varsNumber + 1) {
-        clauses.count { clause -> clause.contains(it) || clause.contains(-it) }.toDouble()
+    private val score = mutableListOf<Double>()
+    private fun countScore() {
+        score.add(0.0)
+        for(ind in 1..varsNumber) {
+            score.add(clauses.count { clause -> clause.contains(ind) || clause.contains(-ind) }.toDouble())
+        }
     }
+
     private val decay = 50
     private val divisionCoeff = 2.0
     private var numberOfConflicts = 0
