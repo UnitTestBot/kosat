@@ -44,5 +44,3 @@ class Kosat(clauses: MutableList<MutableList<Lit>>): Solver {
         return model?.get(abs(lit) - 1) == lit
     }
 }
-
-
