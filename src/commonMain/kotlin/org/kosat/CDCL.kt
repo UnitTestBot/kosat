@@ -89,11 +89,9 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, private val initNumber: I
         val result = solve()
         assumptions.forEach {
             if (getStatus(it) == VarStatus.FALSE) {
-                clearTrail(0)
                 return null
             }
         }
-        clearTrail(0)
         return  result
     }
 
@@ -109,6 +107,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, private val initNumber: I
         // extreme cases
         if (clauses.isEmpty()) return emptyList()
         if (clauses.any { it.size == 0 }) return null
+        if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE }}) return null
 
         buildWatchers()
 
@@ -116,15 +115,18 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, private val initNumber: I
         while (true) {
             val conflictClause = propagate()
             if (conflictClause != -1) {
-                if (level == 0) return null // in case there is a conflict in CNF
-                val lemma = analyzeConflict(clauses[conflictClause]) // build new clause by conflict clause
+                // in case there is a conflict in CNF and trail is already in 0 state
+                if (level == 0) return null
+                // build new clause by conflict clause
+                val lemma = analyzeConflict(clauses[conflictClause])
 
                 addClause(lemma)
                 backjump(lemma)
 
                 // VSIDS
                 numberOfConflicts++
-                if (numberOfConflicts == decay) { // update scores
+                if (numberOfConflicts == decay) {
+                    // update scores
                     numberOfConflicts = 0
                     score.forEachIndexed { ind, _ -> score[ind] /= divisionCoeff }
                     lemma.forEach { lit -> score[litIndex(lit)]++ }
@@ -135,6 +137,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, private val initNumber: I
 
             // If (the problem is already) SAT, return the current assignment
             if (satisfiable()) {
+                clearTrail(0)
                 return variableValues()
             }
 
@@ -144,6 +147,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, private val initNumber: I
 
             // Check that assumption we want to make isn't controversial
             if (wrongAssumption(nextVariable)) {
+                clearTrail(0)
                 return null
             }
             addVariable(-1, nextVariable)
