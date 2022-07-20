@@ -6,11 +6,11 @@ import kotlin.math.max
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
     val clauses = (cnf.clauses.map { it.lit }).toMutableList()
-    val solver = Kosat(clauses)
+    val solver = Kosat(clauses, cnf.vars)
     return if (solver.solve()) solver.getModel() else null
 }
 
-class CDCL(val clauses: MutableList<MutableList<Int>>, private val initNumber: Int = 0) {
+class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     var varsNumber = initNumber
         private set
 

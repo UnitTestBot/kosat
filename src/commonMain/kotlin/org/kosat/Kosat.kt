@@ -2,12 +2,12 @@ package org.kosat
 
 import kotlin.math.abs
 
-class Kosat(clauses: MutableList<MutableList<Lit>>): Solver {
+class Kosat(clauses: MutableList<MutableList<Lit>>, vars: Int = 0): Solver {
     override val numberOfVariables get() = solver.varsNumber
     override val numberOfClauses get() = solver.clauses.size
 
     private var model: List<Lit>? = null
-    private val solver = CDCL(clauses)
+    private val solver = CDCL(clauses, vars)
 
     override fun addVariable(): Int {
         return solver.newVar()
