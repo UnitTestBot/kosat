@@ -14,7 +14,7 @@ class Kosat(clauses: MutableList<MutableList<Lit>>): Solver {
     }
 
     override fun addClause(literals: List<Lit>) {
-        solver.addClause(literals.toMutableList())
+        solver.newClause(literals.toMutableList())
     }
 
     override fun addClause(lit: Lit) = addClause(listOf(lit))

@@ -1,6 +1,7 @@
 package org.kosat
 
 import kotlin.math.abs
+import kotlin.math.max
 
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
@@ -9,12 +10,12 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
     return if (solver.solve()) solver.getModel() else null
 }
 
-class CDCL(val clauses: MutableList<MutableList<Int>>) {
-    var varsNumber = 0
+class CDCL(val clauses: MutableList<MutableList<Int>>, private val initNumber: Int = 0) {
+    var varsNumber = initNumber
         private set
 
     init {
-        varsNumber = clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0 }
+        varsNumber = max(initNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0})
     }
 
     enum class VarStatus {
@@ -77,7 +78,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>) {
 
     private var assumptions: List<Int> = emptyList()
 
-    private fun clearTrail(until: Int) {
+    private fun clearTrail(until: Int = -1) {
         while (trail.isNotEmpty() && vars[trail.last()].level > until) {
             delVariable(trail.removeLast())
         }
@@ -96,9 +97,16 @@ class CDCL(val clauses: MutableList<MutableList<Int>>) {
         return  result
     }
 
-    fun solve(): List<Int>? {
+    // remove clauses which contain x and -x
+    private fun removeUselessClauses() {
+        clauses.removeAll { clause -> clause.any { -it in clause } }
+    }
 
-        // extremal cases
+
+    fun solve(): List<Int>? {
+        removeUselessClauses()
+
+        // extreme cases
         if (clauses.isEmpty()) return emptyList()
         if (clauses.any { it.size == 0 }) return null
 
@@ -153,9 +161,15 @@ class CDCL(val clauses: MutableList<MutableList<Int>>) {
     private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
 
     // add clause and add watchers to it
-    fun addClause(clause: MutableList<Int>) {
+    private fun addClause(clause: MutableList<Int>) {
         clauses.add(clause)
         addWatchers(clause, clauses.lastIndex)
+    }
+
+    fun newClause(clause: MutableList<Int>) {
+        addClause(clause)
+        val maxVar = clause.maxOf { abs(it) }
+        while (newVar() < maxVar) { }
     }
 
     fun newVar(): Int {
@@ -189,6 +203,9 @@ class CDCL(val clauses: MutableList<MutableList<Int>>) {
         } else if (undef == 1) {
             val a = clause.indexOfFirst { getStatus(it) == VarStatus.UNDEFINED }
             watchers[litIndex(clause[a])].add(index)
+            if (clause.count { getStatus(it) == VarStatus.FALSE } == clause.size - 1) {
+                units.add(index)
+            }
             addForLastInTrail(1, clause, index)
         } else { // for clauses added by conflict
             addForLastInTrail(2, clause, index)
