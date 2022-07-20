@@ -71,6 +71,14 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
     // phase saving
     private val phaseSaving: MutableList<VarStatus> = MutableList(varsNumber + 1) { VarStatus.UNDEFINED }
 
+    // counters for restarts
+    private var numberOfConflictsAfterRestart = 0
+    private var numberOfRestarts = 0
+
+    // variable coefficients
+    private var restartNumber = 500.0
+    private val restartCoeff = 1.1
+
     fun solve(): List<Int>? {
         removeUselessClauses()
 
@@ -88,6 +96,14 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
                 val lemma = analyzeConflict(clauses[conflictClause]) // build new clause by conflict clause
                 addClause(lemma)
                 backjump(lemma)
+
+
+                numberOfConflictsAfterRestart++
+                // restarting after some number of conflicts
+                if (numberOfConflictsAfterRestart >= restartNumber) {
+                    numberOfConflictsAfterRestart = 0
+                    restart()
+                }
 
                 // VSIDS
                 numberOfConflicts++
@@ -108,9 +124,9 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
             // try to guess variable
             level++
             var newVariable = vsids()
-            // if (phaseSaving[newVariable] == VarStatus.FALSE) {
-            //     newVariable = -newVariable
-            // }
+            if (phaseSaving[newVariable] == VarStatus.FALSE) {
+                newVariable = -newVariable
+            }
             addVariable(-1, newVariable)
         }
     }
@@ -312,5 +328,18 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private val varsN
             }
         }
         return ind
+    }
+
+    private fun restart() {
+        numberOfRestarts++
+        restartNumber *= restartCoeff
+        level = 0
+        trail.clear()
+        units.clear()
+        watchers.forEach {it.clear()}
+        vars.forEachIndexed { ind, _ ->
+            delVariable(ind)
+        }
+        buildWatchers()
     }
 }
