@@ -32,7 +32,7 @@ class Kosat(clauses: MutableList<MutableList<Lit>>): Solver {
     }
 
     override fun solve(assumptions: List<Lit>): Boolean {
-        model = solver.solve(assumptions)
+        model = solver.solveWithAssumptions(assumptions)
         return model != null
     }
 

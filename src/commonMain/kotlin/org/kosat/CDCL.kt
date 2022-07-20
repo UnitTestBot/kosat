@@ -77,8 +77,27 @@ class CDCL(val clauses: MutableList<MutableList<Int>>) {
 
     private var assumptions: List<Int> = emptyList()
 
-    fun solve(currentAssumptions: List<Int> = emptyList()): List<Int>? {
+    private fun clearTrail() {
+        while (trail.isNotEmpty()) {
+            delVariable(trail.removeLast())
+        }
+    }
+
+    fun solveWithAssumptions(currentAssumptions: List<Int> = emptyList()): List<Int>? {
         assumptions = currentAssumptions
+        val result = solve()
+        assumptions.forEach {
+            if (getStatus(it) == VarStatus.FALSE) {
+                clearTrail()
+                return null
+            }
+        }
+        clearTrail()
+        return  result
+    }
+
+    fun solve(): List<Int>? {
+
         countOccurrence()
         updateSig()
 
@@ -282,7 +301,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>) {
     private fun backjump(clause: MutableList<Int>) {
         level = clause.map { vars[litIndex(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
 
-        while (trail.size > 0 && vars[trail.last()].level > level) {
+        while (trail.isNotEmpty() && vars[trail.last()].level > level) {
             delVariable(trail.removeLast())
         }
         units.clear()
