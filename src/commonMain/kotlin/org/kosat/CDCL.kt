@@ -5,11 +5,18 @@ import kotlin.math.abs
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
     val clauses = (cnf.clauses.map { it.lit }).toMutableList()
-    return CDCL(clauses, cnf.vars).solve()
+    val solver = Kosat(clauses)
+    return if (solver.solve()) solver.getModel() else null
 }
 
+class CDCL(val clauses: MutableList<MutableList<Int>>) {
+    var varsNumber = 0
+        private set
 
-class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsNumber: Int) {
+    init {
+        varsNumber = clauses.flatten().let { if (it.isNotEmpty()) it.maxOf { abs(it) } else 0 }
+    }
+
     enum class VarStatus {
         TRUE, FALSE, UNDEFINED;
 
@@ -139,7 +146,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
     private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
 
     // add clause and add watchers to it
-    private fun addClause(clause: MutableList<Int>) {
+    fun addClause(clause: MutableList<Int>) {
         clauses.add(clause)
         addWatchers(clause, clauses.lastIndex)
         // add clause to litOccurrence
@@ -147,9 +154,10 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         clauseSig.add(countSig(clauses.lastIndex))
     }
 
-    fun newVar(): Int { // TODO
-
-        return 0
+    fun newVar(): Int {
+        varsNumber++
+        vars.add(VarState(VarStatus.UNDEFINED, -1, -1))
+        return varsNumber
     }
 
     // run only once in the beginning

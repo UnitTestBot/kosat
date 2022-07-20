@@ -4,7 +4,7 @@ typealias Lit = Int
 
 interface Solver {
     /**
-     * Number of variables added to the SAT solver.
+     * Number of variables added (via [addVariable]) to the SAT solver.
      */
     val numberOfVariables: Int
 
@@ -14,7 +14,12 @@ interface Solver {
     val numberOfClauses: Int
 
     /**
-     * add a clause to CNF as pure literals or list of literals
+     * Add a variable to CNF and return its number
+     */
+    fun addVariable(): Int
+
+    /**
+     * Add a clause to CNF as pure literals or list of literals
      */
     fun addClause(lit: Lit)
     fun addClause(lit1: Lit, lit2: Lit)
