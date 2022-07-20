@@ -524,7 +524,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>) {
         countOccurrence()
         updateSig()
 
-        println("$varsNumber, ${clauses.size}")
+        //println("$varsNumber, ${clauses.size}")
         //clauses.forEach { println(it) }
     }
 
