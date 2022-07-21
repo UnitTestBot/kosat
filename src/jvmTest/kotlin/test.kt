@@ -4,6 +4,7 @@ import java.io.File
 import kotlin.system.measureTimeMillis
 import com.github.lipen.satlib.solver.MiniSatSolver
 import org.kosat.solveCnf
+import org.kosat.solveWithAssumptions
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.abs
@@ -132,7 +133,7 @@ internal class DiamondTests {
                 println(assumptions)
 
                 val timeKoSat = (measureTimeMillis {
-                    solution = solveCnf(readCnfRequests(input).first())
+                    solution = solveWithAssumptions(readCnfRequests(input).first())
                 }.toDouble() / 1000).toString()
 
                 val timeMiniSat = measureTimeMillis { isSolution = processMiniSatSolver(input) }.toDouble() / 1000

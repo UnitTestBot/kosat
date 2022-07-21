@@ -2,12 +2,23 @@ package org.kosat
 
 import kotlin.math.abs
 
-class Kosat(clauses: MutableList<MutableList<Lit>>, vars: Int = 0): Solver {
+fun solveWithAssumptions(cnf: CnfRequest): List<Int>? {
+    val clauses = (cnf.clauses.map { it.lit }).toMutableList()
+    val solver = KoSat(clauses, cnf.vars)
+    return if (solver.solve()) solver.getModel() else null
+}
+
+fun solveCnf(cnf: CnfRequest): List<Int>? {
+    val clauses = (cnf.clauses.map { it.lit }).toMutableList()
+    return NonIncremental(clauses, cnf.vars).solve()
+}
+
+class KoSat(clauses: MutableList<MutableList<Lit>>, vars: Int = 0): Solver {
     override val numberOfVariables get() = solver.varsNumber
     override val numberOfClauses get() = solver.clauses.size
 
     private var model: List<Lit>? = null
-    private val solver = CDCL(clauses, vars)
+    private val solver = Incremental(clauses, vars)
 
     override fun addVariable(): Int {
         return solver.newVar()
