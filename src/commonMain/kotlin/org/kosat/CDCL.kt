@@ -14,7 +14,8 @@ abstract class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int 
 
     init {
         // set varsNumber equal to either initNumber(from constructor of class) either maximal variable from cnf
-        varsNumber = max(initNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0})
+        varsNumber =
+            max(initNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0 })
     }
 
     enum class VarStatus {
@@ -289,10 +290,11 @@ abstract class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int 
     private val score = mutableListOf<Double>()
     protected fun countScore() {
         score.add(0.0)
-        for(ind in 1..varsNumber) {
+        for (ind in 1..varsNumber) {
             score.add(clauses.count { clause -> clause.contains(ind) || clause.contains(-ind) }.toDouble())
         }
     }
+
     private val decay = 50
     private val divisionCoeff = 2.0
     private var numberOfConflicts = 0
@@ -317,4 +319,3 @@ abstract class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int 
         return ind
     }
 }
-

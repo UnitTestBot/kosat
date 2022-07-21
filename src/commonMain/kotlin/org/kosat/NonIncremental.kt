@@ -1,6 +1,6 @@
 package org.kosat
 
-class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int = 0): CDCL(initClauses, initNumber) {
+class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int = 0) : CDCL(initClauses, initNumber) {
 
     override fun getNextVariable(level: Int): Int = vsids()
 
@@ -130,7 +130,7 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
         }
     }
 
-    // remove subsumed clauses
+    // removes subsumed clauses
     private fun removeSubsumedClauses() {
         val uselessClauses = mutableSetOf<Int>()
         val markedClauses = MutableList(clauses.size) { false }
@@ -152,7 +152,7 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
         updateSig()
     }
 
-    //do restart to remove useless clauses
+    //making restart to remove useless clauses
     private fun makeRestart() {
         numberOfRestarts++
         restartNumber *= restartCoeff
