@@ -1,6 +1,6 @@
 package org.kosat
 
-class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int = 0): CDCL(initClauses, initNumber) {
+class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int = 0) : CDCL(initClauses, initNumber) {
 
     override fun getNextVariable(level: Int): Int = vsids()
 
@@ -86,6 +86,7 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
         clause.forEach { lit -> litOccurrence[litIndex(lit)].add(clauses.lastIndex) }
         clauseSig.add(countSig(clauses.lastIndex))
     }
+
     // preprocessing
     private fun preprocessing() {
         removeTautologies()
@@ -98,15 +99,16 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
 
     private var restartNumber = 500.0
     private val restartCoeff = 1.1
-    private val hash = LongArray(2 * varsNumber + 1) { 1L.shl(it % 64)}
+    private val hash = LongArray(2 * varsNumber + 1) { 1L.shl(it % 64) }
     private var numberOfConflictsAfterRestart = 0
     private var numberOfRestarts = 0
 
     // for each literal provides a list of clauses containing it (for 'x' it's in pos x, for 'not x' in pos varsNumber + x)
-    private var litOccurrence = mutableListOf<MutableList<Int>>()//vars.mapIndexed { ind, _ -> clauses.mapIndexed { ind, _ -> ind}.filter { clauses[it].contains(ind) || clauses[it].contains(-ind) }.toMutableList()}
+    private var litOccurrence =
+        mutableListOf<MutableList<Int>>()//vars.mapIndexed { ind, _ -> clauses.mapIndexed { ind, _ -> ind}.filter { clauses[it].contains(ind) || clauses[it].contains(-ind) }.toMutableList()}
 
     // return position of literal in occurrence array
-    private fun litPos(lit : Int): Int {
+    private fun litPos(lit: Int): Int {
         return if (lit >= 0) {
             lit
         } else {
@@ -132,7 +134,7 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
 
     private fun countSig(clause: Int): Long {
         var sz = 0L
-        clauses[clause].forEach { lit -> sz = sz.or(hash[litPos(lit)])}
+        clauses[clause].forEach { lit -> sz = sz.or(hash[litPos(lit)]) }
         return sz
     }
 
@@ -146,7 +148,12 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
 
     private fun findSubsumed(clause: Int): Set<Int> {
         val lit = clauses[clause].minByOrNull { lit -> litOccurrence[litIndex(lit)].size } ?: 0
-        return litOccurrence[litPos(lit)].filter { clause != it && clause.clauseSize() <= it.clauseSize() && subset(clause, it) }.toSet()
+        return litOccurrence[litPos(lit)].filter {
+            clause != it && clause.clauseSize() <= it.clauseSize() && subset(
+                clause,
+                it
+            )
+        }.toSet()
     }
 
     private fun subset(cl1: Int, cl2: Int): Boolean {
@@ -186,7 +193,7 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
         level = 0
         trail.clear()
         units.clear()
-        watchers.forEach {it.clear()}
+        watchers.forEach { it.clear() }
         vars.forEachIndexed { ind, _ ->
             delVariable(ind)
         }
@@ -249,7 +256,7 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
             }
         }
         for (clause in clauses) {
-            clause.forEachIndexed {ind, lit ->
+            clause.forEachIndexed { ind, lit ->
                 if (lit > 0) {
                     clause[ind] = newNumeration[lit]
                 } else {

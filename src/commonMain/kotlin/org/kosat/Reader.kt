@@ -51,14 +51,14 @@ fun readCnfRequests(dimacs: String) = sequence {
         }
 
         if (token != "p")
-            error ("Illegal token $token. Only 'c' and 'p' command are supported")
+            error("Illegal token $token. Only 'c' and 'p' command are supported")
 
         val cnf = scanner.next()
         if (cnf != "cnf")
-            error ("Illegal request $cnf. Only 'cnf' supported")
+            error("Illegal request $cnf. Only 'cnf' supported")
 
         val vars = scanner.nextInt() //don't need this variable
-        val clauses = List(scanner.nextInt()) { mutableListOf<Int>()}
+        val clauses = List(scanner.nextInt()) { mutableListOf<Int>() }
         for (i in clauses.indices) {
             while (true) {
                 val nxt = scanner.nextInt()

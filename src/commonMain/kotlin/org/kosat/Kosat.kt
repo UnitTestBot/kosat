@@ -13,7 +13,7 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
     return NonIncremental(clauses, cnf.vars).solve()
 }
 
-class KoSat(clauses: MutableList<MutableList<Lit>>, vars: Int = 0): Solver {
+class KoSat(clauses: MutableList<MutableList<Lit>>, vars: Int = 0) : Solver {
     override val numberOfVariables get() = solver.varsNumber
     override val numberOfClauses get() = solver.clauses.size
 

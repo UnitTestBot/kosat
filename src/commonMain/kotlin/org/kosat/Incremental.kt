@@ -2,7 +2,7 @@ package org.kosat
 
 import kotlin.math.abs
 
-class Incremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int = 0): CDCL(initClauses, initNumber) {
+class Incremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int = 0) : CDCL(initClauses, initNumber) {
     // assumptions for incremental sat-solver
     private var assumptions: List<Int> = emptyList()
 
@@ -16,7 +16,7 @@ class Incremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int = 
             }
         }
         assumptions = emptyList()
-        return  result
+        return result
     }
 
     override fun getNextVariable(level: Int): Int {
@@ -34,7 +34,7 @@ class Incremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int = 
         // extreme cases
         if (clauses.isEmpty()) return emptyList()
         if (clauses.any { it.size == 0 }) return null
-        if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE }}) return null
+        if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
         countScore()
 
@@ -80,8 +80,8 @@ class Incremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int = 
     fun newClause(clause: MutableList<Int>) {
         addClause(clause)
         val maxVar = clause.maxOf { abs(it) }
-        while (newVar() < maxVar) { }
+        while (newVar() < maxVar) {
+        }
     }
 
 }
-
