@@ -142,8 +142,9 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
             // If (the problem is already) SAT, return the current assignment
             if (satisfiable()) {
+                val model = variableValues()
                 clearTrail(0)
-                return variableValues()
+                return model
             }
 
             // try to guess variable
