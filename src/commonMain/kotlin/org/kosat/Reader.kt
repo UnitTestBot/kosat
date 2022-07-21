@@ -44,7 +44,7 @@ fun readCnfRequests(dimacs: String) = sequence {
         if (token == "c") {
             scanner.nextLine()
             continue
-        } //skip comment
+        } // skip comment
 
         if (token == "%") {
             break
@@ -57,7 +57,7 @@ fun readCnfRequests(dimacs: String) = sequence {
         if (cnf != "cnf")
             error("Illegal request $cnf. Only 'cnf' supported")
 
-        val vars = scanner.nextInt() //don't need this variable
+        val vars = scanner.nextInt() // don't need this variable
         val clauses = List(scanner.nextInt()) { mutableListOf<Int>() }
         for (i in clauses.indices) {
             while (true) {

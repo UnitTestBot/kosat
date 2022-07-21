@@ -17,7 +17,7 @@ internal class DiamondTests {
     private val format = ".cnf"
     private val headerNames = listOf("Name:", "KoSAT time:", "MiniSAT time:", "Result:", "Solvable:")
 
-    private fun getAllFilenamesByPath(path: String) : List<String> {
+    private fun getAllFilenamesByPath(path: String): List<String> {
         val resourcesPath = Paths.get(projectDirAbsolutePath, path)
         return Files.walk(resourcesPath)
             .filter { item -> Files.isRegularFile(item) }
@@ -82,13 +82,15 @@ internal class DiamondTests {
             val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
             println(
-                buildPadding(listOf(
-                    it.dropLast(format.length), // test name
-                    timeKoSat,
-                    timeMiniSat.toString(),
-                    checkRes,
-                    if (isSolution) "SAT" else "UNSAT"
-                ))
+                buildPadding(
+                    listOf(
+                        it.dropLast(format.length), // test name
+                        timeKoSat,
+                        timeMiniSat.toString(),
+                        checkRes,
+                        if (isSolution) "SAT" else "UNSAT"
+                    )
+                )
             )
         }
     }
@@ -98,8 +100,8 @@ internal class DiamondTests {
         val path = "src/jvmTest/resources/small/"
 
         val filenames = getAllFilenamesByPath(path)
-        //println(filenames)
-        //println(buildPadding(headerNames))
+        // println(filenames)
+        // println(buildPadding(headerNames))
 
         // trigger the shared library loading
         MiniSatSolver().close()
@@ -128,7 +130,7 @@ internal class DiamondTests {
                         (variables.toInt() + 1).toString() + " " +
                         (clauses.toInt() + assumptions.size).toString() + "\n" +
                         lines.drop(1).joinToString(separator = "\n") +
-                        assumptions.joinToString(separator = " 0\n", postfix =  " 0")
+                        assumptions.joinToString(separator = " 0\n", postfix = " 0")
 
                 println(assumptions)
 
@@ -141,13 +143,15 @@ internal class DiamondTests {
                 val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
                 println(
-                    buildPadding(listOf(
-                        filename.dropLast(format.length), // test name
-                        timeKoSat,
-                        timeMiniSat.toString(),
-                        checkRes,
-                        if (isSolution) "SAT" else "UNSAT"
-                    ))
+                    buildPadding(
+                        listOf(
+                            filename.dropLast(format.length), // test name
+                            timeKoSat,
+                            timeMiniSat.toString(),
+                            checkRes,
+                            if (isSolution) "SAT" else "UNSAT"
+                        )
+                    )
                 )
             }
         }
