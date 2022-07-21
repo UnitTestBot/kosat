@@ -11,6 +11,7 @@ import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
+import kotlin.test.assertEquals
 
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
@@ -21,7 +22,7 @@ internal class DiamondTests {
         val resourcesPath = Paths.get(projectDirAbsolutePath, path)
         return Files.walk(resourcesPath)
             .filter { item -> Files.isRegularFile(item) }
-            .map { item -> item.toString().substring(projectDirAbsolutePath.length + path.length + 1) }.toList()
+            .map { item -> item.toString().substring(projectDirAbsolutePath.length + path.length + 1) }.filter { it.endsWith(format) }.toList()
     }
 
 
@@ -56,13 +57,15 @@ internal class DiamondTests {
         return cnfRequest.clauses.all { clause -> clause.lit.any { ans.contains(it) } }
     }
 
-    private fun runTests(path: String) {
-        val filenames = getAllFilenamesByPath(path)
+    private fun runTests(path: String) : Boolean {
+        val filenames = getAllFilenamesByPath(path).filter { !it.startsWith("superHard") }
         println(filenames)
         println(buildPadding(headerNames))
 
         // trigger the shared library loading
         MiniSatSolver().close()
+
+        var allCorrect = true
 
 
         filenames.forEach {
@@ -81,6 +84,10 @@ internal class DiamondTests {
 
             val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
+            if (checkRes == "WA") {
+                allCorrect = false
+            }
+
             println(
                 buildPadding(
                     listOf(
@@ -93,11 +100,12 @@ internal class DiamondTests {
                 )
             )
         }
+        return allCorrect
     }
 
     @Test
     fun testAssumptions() {
-        val path = "src/jvmTest/resources/small/"
+        val path = "src/jvmTest/resources/testCover/small"
 
         val filenames = getAllFilenamesByPath(path)
         // println(filenames)
@@ -111,12 +119,12 @@ internal class DiamondTests {
             val filepath = path + filename
 
             val fileInput = File(filepath).readText()
-            val lines = fileInput.split('\n').filter { line ->
+            val lines = fileInput.split("\n", "\r", "\r\n").filter { line ->
                 line.isNotEmpty() && line[0] != 'c'
             }
             val fileFirstLine = lines[0].split(' ')
             val variables = fileFirstLine[2]
-            val clauses = fileFirstLine[3].dropLast(1)
+            val clauses = fileFirstLine[3]
 
             var solution: List<Int>?
             var isSolution: Boolean
@@ -130,7 +138,7 @@ internal class DiamondTests {
                         (variables.toInt() + 1).toString() + " " +
                         (clauses.toInt() + assumptions.size).toString() + "\n" +
                         lines.drop(1).joinToString(separator = "\n") +
-                        assumptions.joinToString(separator = " 0\n", postfix = " 0")
+                        assumptions.joinToString(prefix = "\n", separator = " 0\n", postfix =  " 0")
 
                 println(assumptions)
 
@@ -159,7 +167,7 @@ internal class DiamondTests {
 
     @Test
     fun test() {
-        runTests("src/jvmTest/resources/")
+        assertEquals(runTests("src/jvmTest/resources/"), true)
     }
 
 }
