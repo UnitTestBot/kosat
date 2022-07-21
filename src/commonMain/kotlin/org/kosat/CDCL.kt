@@ -15,6 +15,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         private set
 
     init {
+        // set varsNumber equal to either initNumber(from constructor of class) either maximal variable from cnf
         varsNumber = max(initNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0})
     }
 
@@ -69,15 +70,17 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     // decision level
     private var level: Int = 0
 
-    // two watched literals heuristic
-    private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() } // set of clauses watched by literal
+    // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
+    private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() }
     private fun litIndex(lit: Int): Int = abs(lit)
 
     // list of unit clauses to propagate
     private val units: MutableList<Int> = mutableListOf()
 
+    // assumptions for incremental sat-solver
     private var assumptions: List<Int> = emptyList()
 
+    // clear trail until given level
     private fun clearTrail(until: Int = -1) {
         while (trail.isNotEmpty() && vars[trail.last()].level > until) {
             delVariable(trail.removeLast())
@@ -92,6 +95,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
                 return null
             }
         }
+        // assumptions = emptyList()
         return  result
     }
 
@@ -198,7 +202,6 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
         val undef = clause.count { getStatus(it) == VarStatus.UNDEFINED }
 
-        // initial building
         if (undef >= 2) {
             val a = clause.indexOfFirst { getStatus(it) == VarStatus.UNDEFINED }
             val b = clause.drop(a + 1).indexOfFirst { getStatus(it) == VarStatus.UNDEFINED } + a + 1
@@ -211,11 +214,13 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
                 units.add(index)
             }
             addForLastInTrail(1, clause, index)
-        } else { // for clauses added by conflict
+        } else {
+            // for clauses added by conflict and by newClause if it already controversial
             addForLastInTrail(2, clause, index)
         }
     }
 
+    // find n last assigned variables from given clause
     private fun addForLastInTrail(n: Int, clause: List<Int>, index: Int) {
         var cnt = 0
         val clauseVars = clause.map { litIndex(it) }
@@ -280,7 +285,8 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
             if (clauses[clause].any { getStatus(it) == VarStatus.TRUE }) continue
 
-            require(clauses[clause].any { getStatus(it) != VarStatus.FALSE }) // guarantees that clauses in unit don't become defined incorrect
+            // guarantees that clauses in unit don't become defined incorrect
+            require(clauses[clause].any { getStatus(it) != VarStatus.FALSE })
 
             val lit = clauses[clause].first { getStatus(it) == VarStatus.UNDEFINED }
             // check if we get a conflict
@@ -288,6 +294,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
                 if (brokenClause != clause) {
                     val undef = clauses[brokenClause].count { getStatus(it) == VarStatus.UNDEFINED }
                     if (undef == 1 && -lit in clauses[brokenClause] && clauses[brokenClause].all { getStatus(it) != VarStatus.TRUE }) {
+                        // quick fix for analyzeConflict
                         setStatus(lit, VarStatus.TRUE)
                         val v = litIndex(lit)
                         vars[v].clause = clause
