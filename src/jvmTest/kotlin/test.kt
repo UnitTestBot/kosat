@@ -10,6 +10,7 @@ import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
+import kotlin.test.assertEquals
 
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
@@ -55,13 +56,15 @@ internal class DiamondTests {
         return cnfRequest.clauses.all { clause -> clause.lit.any { ans.contains(it) } }
     }
 
-    private fun runTests(path: String) {
+    private fun runTests(path: String) : Boolean {
         val filenames = getAllFilenamesByPath(path).filter { !it.startsWith("superHard") }
         println(filenames)
         println(buildPadding(headerNames))
 
         // trigger the shared library loading
         MiniSatSolver().close()
+
+        var allCorrect = true
 
 
         filenames.forEach {
@@ -80,6 +83,10 @@ internal class DiamondTests {
 
             val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
+            if (checkRes == "WA") {
+                allCorrect = false
+            }
+
             println(
                 buildPadding(listOf(
                     it.dropLast(format.length), // test name
@@ -90,6 +97,7 @@ internal class DiamondTests {
                 ))
             )
         }
+        return allCorrect
     }
 
     @Test
@@ -154,7 +162,7 @@ internal class DiamondTests {
 
     @Test
     fun test() {
-        runTests("src/jvmTest/resources/")
+        assertEquals(runTests("src/jvmTest/resources/"), true)
     }
 
 }
