@@ -49,34 +49,6 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
         }
     }
 
-/*    // add watchers to clause. Run in buildWatchers and addClause
-    private fun addWatchers(clause: MutableList<Int>, index: Int) {
-        if (clause.size == 1) {
-            watchers[litIndex(clause[0])].add(index)
-            units.add(index)
-            return
-        }
-        val undef = clause.count { getStatus(it) == VarStatus.UNDEFINED }
-
-        // initial building
-        if (undef != 0) { // happen only in buildWatchers
-            watchers[litIndex(clause[0])].add(index)
-            watchers[litIndex(clause[1])].add(index)
-        } else { // for clauses added by conflict
-            var cnt = 0
-            val clauseVars = clause.map { litIndex(it) }
-            for (ind in trail.lastIndex downTo 0) { // want to watch on last 2 literals from trail for conflict clause
-                if (trail[ind] in clauseVars) {
-                    cnt++
-                    watchers[trail[ind]].add(index)
-                    if (cnt == 2) {
-                        return
-                    }
-                }
-            }
-        }
-    }*/
-
     // add clause and add watchers to it
     override fun addClause(clause: MutableList<Int>) {
         clauses.add(clause)
@@ -103,7 +75,8 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
     private var numberOfRestarts = 0
 
     // for each literal provides a list of clauses containing it (for 'x' it's in pos x, for 'not x' in pos varsNumber + x)
-    private var litOccurrence = mutableListOf<MutableList<Int>>()//vars.mapIndexed { ind, _ -> clauses.mapIndexed { ind, _ -> ind}.filter { clauses[it].contains(ind) || clauses[it].contains(-ind) }.toMutableList()}
+    //vars.mapIndexed { ind, _ -> clauses.mapIndexed { ind, _ -> ind}.filter { clauses[it].contains(ind) || clauses[it].contains(-ind) }.toMutableList()}
+    private var litOccurrence = mutableListOf<MutableList<Int>>()
 
     // return position of literal in occurrence array
     private fun litPos(lit : Int): Int {
@@ -157,7 +130,7 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
         }
     }
 
-    // removes subsumed clauses
+    // remove subsumed clauses
     private fun removeSubsumedClauses() {
         val uselessClauses = mutableSetOf<Int>()
         val markedClauses = MutableList(clauses.size) { false }
@@ -179,7 +152,7 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
         updateSig()
     }
 
-    //making restart to remove useless clauses
+    //do restart to remove useless clauses
     private fun makeRestart() {
         numberOfRestarts++
         restartNumber *= restartCoeff

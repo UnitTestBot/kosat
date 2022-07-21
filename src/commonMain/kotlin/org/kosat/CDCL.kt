@@ -224,8 +224,9 @@ abstract class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int 
 
         clearTrail(level)
 
+        // after backjump it's the only clause to propagate
         units.clear()
-        units.add(clauses.lastIndex) // after backjump it's the only clause to propagate
+        units.add(clauses.lastIndex)
     }
 
     // add a literal to lemma if it hasn't been added yet
