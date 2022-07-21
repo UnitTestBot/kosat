@@ -11,7 +11,6 @@ import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
-import kotlin.test.assertEquals
 
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
@@ -167,7 +166,7 @@ internal class DiamondTests {
 
     @Test
     fun test() {
-        assertEquals(runTests("src/jvmTest/resources/"), true)
+        runTests("src/jvmTest/resources/")
     }
 
 }
