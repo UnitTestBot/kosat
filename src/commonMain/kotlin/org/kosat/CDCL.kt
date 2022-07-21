@@ -92,10 +92,11 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         val result = solve()
         assumptions.forEach {
             if (getStatus(it) == VarStatus.FALSE) {
+                assumptions = emptyList()
                 return null
             }
         }
-        // assumptions = emptyList()
+        assumptions = emptyList()
         return  result
     }
 
