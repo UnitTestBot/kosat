@@ -152,9 +152,9 @@ internal class DiamondTests {
         }
     }
 
-   /* @Test
+    @Test
     fun test() {
         runTests("src/jvmTest/resources/")
-    }*/
+    }
 
 }
