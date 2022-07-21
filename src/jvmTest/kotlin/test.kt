@@ -19,7 +19,7 @@ internal class DiamondTests {
         val resourcesPath = Paths.get(projectDirAbsolutePath, path)
         return Files.walk(resourcesPath)
             .filter { item -> Files.isRegularFile(item) }
-            .map { item -> item.toString().substring(projectDirAbsolutePath.length + path.length + 1) }.toList()
+            .map { item -> item.toString().substring(projectDirAbsolutePath.length + path.length + 1) }.filter { it.endsWith(format) }.toList()
     }
 
 
@@ -55,7 +55,7 @@ internal class DiamondTests {
     }
 
     private fun runTests(path: String) {
-        val filenames = getAllFilenamesByPath(path)
+        val filenames = getAllFilenamesByPath(path).filter { !it.startsWith("superHard") }
         println(filenames)
         println(buildPadding(headerNames))
 
