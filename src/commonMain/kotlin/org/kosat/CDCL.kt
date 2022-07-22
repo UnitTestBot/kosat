@@ -43,7 +43,45 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
     )
 
     // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
-    private fun variableValues() = vars
+    private fun variableValues(): List<Int> {
+        // updating vars for bve
+        val oldStatus = oldNumeration.mapIndexed { ind, _ -> vars[ind].status }
+        for (ind in 1..varsNumber) {
+            vars[ind].status = VarStatus.UNDEFINED
+        }
+        for (ind in 1..varsNumber) {
+            vars[oldNumeration[ind]].status = oldStatus[ind]
+            if (vars[oldNumeration[ind]].status == VarStatus.UNDEFINED) {
+                vars[oldNumeration[ind]].status = VarStatus.TRUE
+            }
+        }
+        varsNumber += deletingOrder.size
+        for (ind in deletingOrder.reversed()) {
+            var allTrue = true
+            for (clause in startOccurrence[ind]) {
+                var isTrue = false
+                for (lit in startClauses[clause]) {
+                    if (lit == ind) {
+                        continue
+                    }
+                    if (getStatus(lit) != VarStatus.FALSE) {
+                        isTrue = true
+                        break
+                    }
+                }
+                if (!isTrue) {
+                    allTrue = false
+                    break
+                }
+            }
+            if (allTrue) {
+                vars[ind].status = VarStatus.FALSE
+            } else {
+                vars[ind].status = VarStatus.TRUE
+            }
+        }
+
+        return vars
         .mapIndexed { index, v ->
             when (v.status) {
                 VarStatus.TRUE -> index
@@ -51,6 +89,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
                 else -> index
             }
         }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
+    }
 
     // values of variables
     private val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
@@ -69,17 +108,16 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
     private val units: MutableList<Int> = mutableListOf()
 
     fun solve(): List<Int>? {
-
         countOccurrence()
         updateSig()
 
         // simplifying given cnf formula
         preprocessing()
-
         countScore()
 
+
         // extremal cases
-        if (clauses.isEmpty()) return emptyList()
+        if (clauses.isEmpty()) return variableValues()
         if (clauses.any { it.size == 0 }) return null
 
         buildWatchers()
@@ -119,7 +157,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
             // try to guess variable
             level++
             // addVariable(-1, vars.firstUndefined())
-            addVariable(-1, vsids())
+            addVariable(-1, -vsids())
         }
     }
 
@@ -309,6 +347,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         removeTautologies()
         removeSubsumedClauses()
         bve()
+        removeSubsumedClauses()
         println("$varsNumber, ${clauses.size}")
         //clauses.forEach { println(it) }
         //removePureLiterals()
@@ -417,11 +456,17 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         buildWatchers()
     }
 
-    private val clauseLimit = 1000
+    private val clauseLimit = 600
 
     private fun addResolvents(ind: Int) {
         for (cl1 in litOccurrence[litPos(ind)]) {
+            if (isClauseDeleted[cl1]) {
+                continue
+            }
             for (cl2 in litOccurrence[litPos(-ind)]) {
+                if (isClauseDeleted[cl2]) {
+                    continue
+                }
                 val newClause = clauses[cl1].toMutableSet()
                 newClause.remove(ind)
                 // check if clause is tautology
@@ -431,12 +476,25 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
                 newClause.addAll(clauses[cl2])
                 newClause.remove(-ind)
                 clauses.add(ArrayList(newClause))
+                isClauseDeleted.add(false)
                 for (lit in newClause) {
                     litOccurrence[litPos(lit)].add(clauses.lastIndex)
                 }
             }
         }
+        for (clause in litOccurrence[litPos(ind)]) {
+            isClauseDeleted[clause] = true
+        }
+        for (clause in litOccurrence[litPos(-ind)]) {
+            isClauseDeleted[clause] = true
+        }
     }
+
+    private val oldNumeration = MutableList(varsNumber + 1) {index -> index}
+    private var startClauses = listOf<MutableList<Int>>()
+    private var startOccurrence = listOf<MutableList<Int>>()
+    private val deletingOrder = mutableListOf<Int>()
+    private val isClauseDeleted = MutableList(clauses.size) { false }
 
     private fun bve() {
         val isLiteralRemoved = MutableList(varsNumber + 1) { false }
@@ -445,6 +503,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         while (clauses.size < clauseLimit && currentInd <= varsNumber) {
             if (litOccurrence[litPos(currentInd)].size * litOccurrence[litPos(-currentInd)].size <= clauseLimit) {
                 isLiteralRemoved[currentInd] = true
+                deletingOrder.add(currentInd)
                 addResolvents(currentInd)
             }
             currentInd++
@@ -458,12 +517,15 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
                 }
             }
         }
+        startClauses = clauses.map { it }
+        startOccurrence = litOccurrence.map { it }
         clauses.removeAll(deletedClauses.map { clauses[it] })
         var newSize = 0
         for (ind in 1..varsNumber) {
             if (!isLiteralRemoved[ind]) {
                 newSize++
                 newNumeration[ind] = newSize
+                oldNumeration[newSize] = ind
             }
         }
         for (clause in clauses) {
