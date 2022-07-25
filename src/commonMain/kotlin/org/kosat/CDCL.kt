@@ -417,6 +417,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
     // removes subsumed clauses
     private fun removeSubsumedClauses() {
         val uselessClauses = mutableSetOf<Int>()
+        val duplicateClauses = mutableSetOf<Int>()
         val markedClauses = MutableList(clauses.size) { false }
 
         // going from the end because smaller clauses appear after big one
@@ -424,14 +425,23 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
             if (!markedClauses[ind]) {
                 findSubsumed(ind).forEach {
                     if (!markedClauses[it]) {
-                        markedClauses[it] = true
-                        uselessClauses.add(it)
+                        if (ind.clauseSize() < it.clauseSize()) {
+                            markedClauses[it] = true
+                            uselessClauses.add(it)
+                        } else if (ind.clauseSize() == it.clauseSize()) {
+                            duplicateClauses.add(it)
+                        }
                     }
                 }
             }
         }
 
+        val copiedClauses = duplicateClauses.map { clauses[it] }
+
         clauses.removeAll(uselessClauses.map { clauses[it] })
+        // remove duplicate clauses and leave 1 copy of each
+        clauses.removeAll(copiedClauses)
+        clauses.addAll(copiedClauses)
         countOccurrence()
         updateSig()
     }
