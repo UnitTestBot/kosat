@@ -2,6 +2,21 @@ package org.kosat
 
 class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int = 0) : CDCL(initClauses, initNumber) {
 
+    private val lubySeq: MutableList<Int> = mutableListOf(1)
+
+    private val u = 100.0
+
+    private var curr = 1
+
+    init {
+        var pw = 1
+        while (lubySeq.size < 1e5) {
+            pw *= 2
+            lubySeq.addAll(lubySeq)
+            lubySeq.add(pw)
+        }
+    }
+
     override fun getNextVariable(level: Int): Int = vsids()
 
     override fun solve(): List<Int>? {
@@ -70,7 +85,7 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
     }
 
     private var restartNumber = 500.0
-    private val restartCoeff = 1.1
+    //private val restartCoeff = 1.1
     private val hash = LongArray(2 * varsNumber + 1) { 1L.shl(it % 64) }
     private var numberOfConflictsAfterRestart = 0
     private var numberOfRestarts = 0
@@ -158,7 +173,7 @@ class NonIncremental(initClauses: MutableList<MutableList<Int>>, initNumber: Int
     // making restart to remove useless clauses
     private fun makeRestart() {
         numberOfRestarts++
-        restartNumber *= restartCoeff
+        restartNumber = u * lubySeq[curr++]
         level = 0
         trail.clear()
         units.clear()
