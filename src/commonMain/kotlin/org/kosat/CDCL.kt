@@ -107,6 +107,29 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
     // list of unit clauses to propagate
     private val units: MutableList<Int> = mutableListOf()
 
+    // assumptions for incremental sat-solver
+    private var assumptions: List<Int> = emptyList()
+
+    // clear trail until given level
+    private fun clearTrail(until: Int = -1) {
+        while (trail.isNotEmpty() && vars[trail.last()].level > until) {
+            delVariable(trail.removeLast())
+        }
+    }
+
+    fun solveWithAssumptions(currentAssumptions: List<Int> = emptyList()): List<Int>? {
+        assumptions = currentAssumptions
+        val result = solve()
+        assumptions.forEach {
+            if (getStatus(it) == VarStatus.FALSE) {
+                assumptions = emptyList()
+                return null
+            }
+        }
+        assumptions = emptyList()
+        return  result
+    }
+
     fun solve(): List<Int>? {
         countOccurrence()
         updateSig()
@@ -114,7 +137,6 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         // simplifying given cnf formula
         preprocessing()
         countScore()
-
 
         // extremal cases
         if (clauses.isEmpty()) return variableValues()
@@ -151,15 +173,33 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
 
             // If (the problem is already) SAT, return the current assignment
             if (satisfiable()) {
-                return variableValues()
+                val model = variableValues()
+                clearTrail(0)
+                return model
             }
 
             // try to guess variable
             level++
-            // addVariable(-1, vars.firstUndefined())
-            addVariable(-1, -vsids())
+            val nextVariable = getNextVariable(level)
+
+            // Check that assumption we want to make isn't controversial
+            if (level <= assumptions.size && wrongAssumption(nextVariable)) {
+                clearTrail(0)
+                return null
+            }
+            addVariable(-1, nextVariable)
         }
     }
+
+    private fun getNextVariable(level: Int): Int {
+        return if (level > assumptions.size) {
+            vsids()
+        } else {
+            return assumptions[level - 1]
+        }
+    }
+
+    private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
 
     // run only once in the beginning
     private fun buildWatchers() {
