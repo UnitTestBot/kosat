@@ -1,6 +1,7 @@
 package org.kosat
 
 import kotlin.math.abs
+import kotlin.math.max
 
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
@@ -9,7 +10,15 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
 }
 
 
-class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsNumber: Int) {
+class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
+    var varsNumber = initNumber
+        private set
+
+    init {
+        // set varsNumber equal to either initNumber(from constructor of class) either maximal variable from cnf
+        varsNumber = max(initNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0})
+    }
+
     enum class VarStatus {
         TRUE, FALSE, UNDEFINED;
 
@@ -82,13 +91,13 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         }
 
         return vars
-        .mapIndexed { index, v ->
-            when (v.status) {
-                VarStatus.TRUE -> index
-                VarStatus.FALSE -> -index
-                else -> index
-            }
-        }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
+            .mapIndexed { index, v ->
+                when (v.status) {
+                    VarStatus.TRUE -> index
+                    VarStatus.FALSE -> -index
+                    else -> index
+                }
+            }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
     }
 
     // values of variables
@@ -100,8 +109,8 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
     // decision level
     private var level: Int = 0
 
-    // two watched literals heuristic
-    private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() } // set of clauses watched by literal
+    // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
+    private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() }
     private fun litIndex(lit: Int): Int = abs(lit)
 
     // list of unit clauses to propagate
@@ -138,9 +147,10 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         preprocessing()
         countScore()
 
-        // extremal cases
+        // extreme cases
         if (clauses.isEmpty()) return variableValues()
         if (clauses.any { it.size == 0 }) return null
+        if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE }}) return null
 
         buildWatchers()
 
@@ -148,21 +158,18 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         while (true) {
             val conflictClause = propagate()
             if (conflictClause != -1) {
-                if (level == 0) return null // in case there is a conflict in CNF
-                val lemma = analyzeConflict(clauses[conflictClause]) // build new clause by conflict clause
+                // in case there is a conflict in CNF and trail is already in 0 state
+                if (level == 0) return null
+                // build new clause by conflict clause
+                val lemma = analyzeConflict(clauses[conflictClause])
 
                 addClause(lemma)
                 backjump(lemma)
 
-                numberOfConflictsAfterRestart++
-                // restarting after some number of conflicts
-                if (numberOfConflictsAfterRestart >= restartNumber) {
-                    numberOfConflictsAfterRestart = 0
-                    makeRestart()
-                }
                 // VSIDS
                 numberOfConflicts++
-                if (numberOfConflicts == decay) { // update scores
+                if (numberOfConflicts == decay) {
+                    // update scores
                     numberOfConflicts = 0
                     score.forEachIndexed { ind, _ -> score[ind] /= divisionCoeff }
                     lemma.forEach { lit -> score[litIndex(lit)]++ }
@@ -191,6 +198,8 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         }
     }
 
+    private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
+
     private fun getNextVariable(level: Int): Int {
         return if (level > assumptions.size) {
             vsids()
@@ -199,7 +208,23 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         }
     }
 
-    private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
+    // add clause and add watchers to it
+    private fun addClause(clause: MutableList<Int>) {
+        clauses.add(clause)
+        addWatchers(clause, clauses.lastIndex)
+    }
+
+    fun newClause(clause: MutableList<Int>) {
+        addClause(clause)
+        val maxVar = clause.maxOf { abs(it) }
+        while (newVar() < maxVar) { }
+    }
+
+    fun newVar(): Int {
+        varsNumber++
+        vars.add(VarState(VarStatus.UNDEFINED, -1, -1))
+        return varsNumber
+    }
 
     // run only once in the beginning
     private fun buildWatchers() {
@@ -220,20 +245,34 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         }
         val undef = clause.count { getStatus(it) == VarStatus.UNDEFINED }
 
-        // initial building
-        if (undef != 0) { // happen only in buildWatchers
-            watchers[litIndex(clause[0])].add(index)
-            watchers[litIndex(clause[1])].add(index)
-        } else { // for clauses added by conflict
-            var cnt = 0
-            val clauseVars = clause.map { litIndex(it) }
-            for (ind in trail.lastIndex downTo 0) { // want to watch on last 2 literals from trail for conflict clause
-                if (trail[ind] in clauseVars) {
-                    cnt++
-                    watchers[trail[ind]].add(index)
-                    if (cnt == 2) {
-                        return
-                    }
+        if (undef >= 2) {
+            val a = clause.indexOfFirst { getStatus(it) == VarStatus.UNDEFINED }
+            val b = clause.drop(a + 1).indexOfFirst { getStatus(it) == VarStatus.UNDEFINED } + a + 1
+            watchers[litIndex(clause[a])].add(index)
+            watchers[litIndex(clause[b])].add(index)
+        } else if (undef == 1) {
+            val a = clause.indexOfFirst { getStatus(it) == VarStatus.UNDEFINED }
+            watchers[litIndex(clause[a])].add(index)
+            if (clause.count { getStatus(it) == VarStatus.FALSE } == clause.size - 1) {
+                units.add(index)
+            }
+            addForLastInTrail(1, clause, index)
+        } else {
+            // for clauses added by conflict and by newClause if it already controversial
+            addForLastInTrail(2, clause, index)
+        }
+    }
+
+    // find n last assigned variables from given clause
+    private fun addForLastInTrail(n: Int, clause: List<Int>, index: Int) {
+        var cnt = 0
+        val clauseVars = clause.map { litIndex(it) }
+        for (ind in trail.lastIndex downTo 0) { // want to watch on last 2 literals from trail for conflict clause
+            if (trail[ind] in clauseVars) {
+                cnt++
+                watchers[trail[ind]].add(index)
+                if (cnt == n) {
+                    return
                 }
             }
         }
@@ -241,12 +280,6 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
 
     // check is all clauses satisfied or not
     private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
-
-    // simple chose of undefined variable
-    private fun MutableList<VarState>.firstUndefined() = this
-        .drop(1)
-        .indexOfFirst { it.status == VarStatus.UNDEFINED } + 1
-
 
     // add a variable to the trail and update watchers of clauses linked to this variable
     private fun addVariable(clause: Int, lit: Int): Boolean {
@@ -295,7 +328,8 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
 
             if (clauses[clause].any { getStatus(it) == VarStatus.TRUE }) continue
 
-            require(clauses[clause].any { getStatus(it) != VarStatus.FALSE }) // guarantees that clauses in unit don't become defined incorrect
+            // guarantees that clauses in unit don't become defined incorrect
+            require(clauses[clause].any { getStatus(it) != VarStatus.FALSE })
 
             val lit = clauses[clause].first { getStatus(it) == VarStatus.UNDEFINED }
             // check if we get a conflict
@@ -303,6 +337,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
                 if (brokenClause != clause) {
                     val undef = clauses[brokenClause].count { getStatus(it) == VarStatus.UNDEFINED }
                     if (undef == 1 && -lit in clauses[brokenClause] && clauses[brokenClause].all { getStatus(it) != VarStatus.TRUE }) {
+                        // quick fix for analyzeConflict
                         setStatus(lit, VarStatus.TRUE)
                         val v = litIndex(lit)
                         vars[v].clause = clause
@@ -322,20 +357,10 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
     private fun backjump(clause: MutableList<Int>) {
         level = clause.map { vars[litIndex(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
 
-        while (trail.size > 0 && vars[trail.last()].level > level) {
-            delVariable(trail.removeLast())
-        }
+        clearTrail(level)
+
         units.clear()
         units.add(clauses.lastIndex) // after backjump it's the only clause to propagate
-    }
-
-    // add clause and add watchers to it
-    private fun addClause(clause: MutableList<Int>) {
-        clauses.add(clause)
-        addWatchers(clause, clauses.lastIndex)
-        // add clause to litOccurrence
-        clause.forEach { lit -> litOccurrence[litIndex(lit)].add(clauses.lastIndex) }
-        clauseSig.add(countSig(clauses.lastIndex))
     }
 
     // add a literal to lemma if it hasn't been added yet
