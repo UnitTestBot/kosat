@@ -6,7 +6,7 @@ import kotlin.math.abs
 
 //DPLL
 fun solveCnfDPLL(cnf: CnfRequest): List<Int>? {
-    val clauses = ArrayList(cnf.clauses.map { ArrayList(it.lit.toList()) })
+    val clauses = ArrayList(cnf.clauses.map { ArrayList(it.lits.toList()) })
     return dpll(clauses)?.sortedBy { abs(it) }
 }
 

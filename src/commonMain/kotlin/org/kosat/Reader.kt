@@ -1,7 +1,5 @@
 package org.kosat
 
-class Clause(val lit: MutableList<Int>)
-
 class CnfRequest(val vars: Int, val clauses: List<Clause>)
 
 /**

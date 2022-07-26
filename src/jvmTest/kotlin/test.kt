@@ -41,7 +41,7 @@ internal class DiamondTests {
         with(MiniSatSolver()) {
             val lit = List(data.vars) { newLiteral() }
             for (clause in data.clauses)
-                addClause(clause.lit.map { it.sign * lit[abs(it) - 1] })
+                addClause(clause.lits.map { it.sign * lit[abs(it) - 1] })
 
             return solve()
         }
@@ -53,7 +53,7 @@ internal class DiamondTests {
         val cnfRequest = readCnfRequests(input).first()
         if (ans.size != cnfRequest.vars) return false
 
-        return cnfRequest.clauses.all { clause -> clause.lit.any { ans.contains(it) } }
+        return cnfRequest.clauses.all { clause -> clause.lits.any { ans.contains(it) } }
     }
 
     private fun runTests(path: String) : Boolean {

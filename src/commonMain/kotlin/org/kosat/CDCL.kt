@@ -5,7 +5,7 @@ import kotlin.math.max
 
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
-    val clauses = (cnf.clauses.map { it.lit }).toMutableList()
+    val clauses = (cnf.clauses.map { it.lits }).toMutableList()
     return CDCL(clauses, cnf.vars).solve()
 }
 
