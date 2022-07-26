@@ -16,7 +16,8 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
     init {
         // set varsNumber equal to either initNumber(from constructor of class) either maximal variable from cnf
-        varsNumber = max(initNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0})
+        varsNumber =
+            max(initNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0 })
     }
 
     enum class VarStatus {
@@ -31,12 +32,14 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
     }
 
+    // get status of literal
     private fun getStatus(lit: Int): VarStatus {
         if (vars[litIndex(lit)].status == VarStatus.UNDEFINED) return VarStatus.UNDEFINED
         if (lit < 0) return !vars[-lit].status
         return vars[lit].status
     }
 
+    // set status for literal
     private fun setStatus(lit: Int, status: VarStatus) {
         if (lit < 0) {
             vars[-lit].status = !status
@@ -53,6 +56,19 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
     // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
     private fun variableValues(): List<Int> {
+        recoverAnswer()
+        return vars
+            .mapIndexed { index, v ->
+                when (v.status) {
+                    VarStatus.TRUE -> index
+                    VarStatus.FALSE -> -index
+                    else -> index
+                }
+            }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
+    }
+
+    // recover answer in terms of initial variables
+    private fun recoverAnswer() {
         // updating vars for bve
         val oldStatus = oldNumeration.mapIndexed { ind, _ -> vars[ind].status }
         for (ind in 1..varsNumber) {
@@ -89,15 +105,6 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
                 vars[ind].status = VarStatus.TRUE
             }
         }
-
-        return vars
-            .mapIndexed { index, v ->
-                when (v.status) {
-                    VarStatus.TRUE -> index
-                    VarStatus.FALSE -> -index
-                    else -> index
-                }
-            }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
     }
 
     // values of variables
@@ -136,22 +143,25 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
             }
         }
         assumptions = emptyList()
-        return  result
+        return result
     }
 
     fun solve(): List<Int>? {
-        countOccurrence()
-        updateSig()
+        // countOccurrence()
+        // updateSig()
 
         // simplifying given cnf formula
-        preprocessing()
-        countScore()
+        // preprocessing()
 
         // extreme cases
         if (clauses.isEmpty()) return variableValues()
         if (clauses.any { it.size == 0 }) return null
-        if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE }}) return null
+        if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
+        // branching heuristic
+        countScore()
+
+        // TODO: remove
         buildWatchers()
 
         // main loop
@@ -160,6 +170,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
             if (conflictClause != -1) {
                 // in case there is a conflict in CNF and trail is already in 0 state
                 if (level == 0) return null
+
                 // build new clause by conflict clause
                 val lemma = analyzeConflict(clauses[conflictClause])
 
@@ -214,19 +225,22 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         addWatchers(clause, clauses.lastIndex)
     }
 
+    // public function for adding new clauses
     fun newClause(clause: MutableList<Int>) {
         addClause(clause)
         val maxVar = clause.maxOf { abs(it) }
-        while (newVar() < maxVar) { }
+        while (newVar() < maxVar) {
+        }
     }
 
+    // public function for adding new variables
     fun newVar(): Int {
         varsNumber++
         vars.add(VarState(VarStatus.UNDEFINED, -1, -1))
         return varsNumber
     }
 
-    // run only once in the beginning
+    // run only once in the beginning TODO: not anymore
     private fun buildWatchers() {
         while (watchers.size > varsNumber + 1) {
             watchers.removeLast()
@@ -238,6 +252,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
     // add watchers to clause. Run in buildWatchers and addClause
     private fun addWatchers(clause: MutableList<Int>, index: Int) {
+        // every clause of size 1 watched by it only variable
         if (clause.size == 1) {
             watchers[litIndex(clause[0])].add(index)
             units.add(index)
@@ -246,11 +261,13 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         val undef = clause.count { getStatus(it) == VarStatus.UNDEFINED }
 
         if (undef >= 2) {
+            // in case there are at least 2 undefined variable in clause
             val a = clause.indexOfFirst { getStatus(it) == VarStatus.UNDEFINED }
             val b = clause.drop(a + 1).indexOfFirst { getStatus(it) == VarStatus.UNDEFINED } + a + 1
             watchers[litIndex(clause[a])].add(index)
             watchers[litIndex(clause[b])].add(index)
         } else if (undef == 1) {
+            // in case there are exactly 1 undefined variable in clause (only in case newClause)
             val a = clause.indexOfFirst { getStatus(it) == VarStatus.UNDEFINED }
             watchers[litIndex(clause[a])].add(index)
             if (clause.count { getStatus(it) == VarStatus.FALSE } == clause.size - 1) {
@@ -258,7 +275,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
             }
             addForLastInTrail(1, clause, index)
         } else {
-            // for clauses added by conflict and by newClause if it already controversial
+            // for clauses added by conflict and by newClause if it already has all defined literals
             addForLastInTrail(2, clause, index)
         }
     }
@@ -267,7 +284,8 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     private fun addForLastInTrail(n: Int, clause: List<Int>, index: Int) {
         var cnt = 0
         val clauseVars = clause.map { litIndex(it) }
-        for (ind in trail.lastIndex downTo 0) { // want to watch on last 2 literals from trail for conflict clause
+        // want to watch to last n literals from trail
+        for (ind in trail.lastIndex downTo 0) {
             if (trail[ind] in clauseVars) {
                 cnt++
                 watchers[trail[ind]].add(index)
@@ -294,7 +312,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         return true
     }
 
-    // update watchers for clauses linked with lit
+    // update watchers for clauses linked with literal
     private fun updateWatchers(lit: Int) {
         val clausesToRemove = mutableSetOf<Int>()
         watchers[litIndex(lit)].forEach { brokenClause ->
@@ -313,7 +331,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         watchers[litIndex(lit)].removeAll(clausesToRemove)
     }
 
-    // del a variable from the trail
+    // delete a variable from the trail
     private fun delVariable(v: Int) {
         setStatus(v, VarStatus.UNDEFINED)
         vars[v].clause = -1
@@ -322,10 +340,8 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
     // return index of conflict clause, or -1 if there is no conflict clause
     private fun propagate(): Int {
-
         while (units.size > 0) {
             val clause = units.removeLast()
-
             if (clauses[clause].any { getStatus(it) == VarStatus.TRUE }) continue
 
             // guarantees that clauses in unit don't become defined incorrect
@@ -359,8 +375,9 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
         clearTrail(level)
 
+        // after backjump it's the only clause to propagate
         units.clear()
-        units.add(clauses.lastIndex) // after backjump it's the only clause to propagate
+        units.add(clauses.lastIndex)
     }
 
     // add a literal to lemma if it hasn't been added yet
@@ -407,28 +424,28 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         return lemma
     }
 
-    // preprocessing
     private fun preprocessing() {
         removeTautologies()
         removeSubsumedClauses()
         bve()
         removeSubsumedClauses()
         println("$varsNumber, ${clauses.size}")
-        //clauses.forEach { println(it) }
-        //removePureLiterals()
+        // clauses.forEach { println(it) }
+        // removePureLiterals()
     }
 
     private var restartNumber = 500.0
     private val restartCoeff = 1.1
-    private val hash = LongArray(2 * varsNumber + 1) { 1L.shl(it % 64)}
+    private val hash = LongArray(2 * varsNumber + 1) { 1L.shl(it % 64) }
     private var numberOfConflictsAfterRestart = 0
     private var numberOfRestarts = 0
 
     // for each literal provides a list of clauses containing it (for 'x' it's in pos x, for 'not x' in pos varsNumber + x)
-    private var litOccurrence = mutableListOf<MutableList<Int>>()//vars.mapIndexed { ind, _ -> clauses.mapIndexed { ind, _ -> ind}.filter { clauses[it].contains(ind) || clauses[it].contains(-ind) }.toMutableList()}
+    private var litOccurrence = mutableListOf<MutableList<Int>>()
+    // vars.mapIndexed { ind, _ -> clauses.mapIndexed { ind, _ -> ind}.filter { clauses[it].contains(ind) || clauses[it].contains(-ind) }.toMutableList()}
 
     // return position of literal in occurrence array
-    private fun litPos(lit : Int): Int {
+    private fun litPos(lit: Int): Int {
         return if (lit >= 0) {
             lit
         } else {
@@ -454,7 +471,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
     private fun countSig(clause: Int): Long {
         var sz = 0L
-        clauses[clause].forEach { lit -> sz = sz.or(hash[litPos(lit)])}
+        clauses[clause].forEach { lit -> sz = sz.or(hash[litPos(lit)]) }
         return sz
     }
 
@@ -468,7 +485,9 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
     private fun findSubsumed(clause: Int): Set<Int> {
         val lit = clauses[clause].minByOrNull { lit -> litOccurrence[litIndex(lit)].size } ?: 0
-        return litOccurrence[litPos(lit)].filter { clause != it && clause.clauseSize() <= it.clauseSize() && subset(clause, it) }.toSet()
+        return litOccurrence[litPos(lit)].filter {
+            clause != it && clause.clauseSize() <= it.clauseSize() && subset(clause, it)
+        }.toSet()
     }
 
     private fun subset(cl1: Int, cl2: Int): Boolean {
@@ -479,7 +498,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
     }
 
-    // removes subsumed clauses
+    // remove subsumed clauses
     private fun removeSubsumedClauses() {
         val uselessClauses = mutableSetOf<Int>()
         val duplicateClauses = mutableSetOf<Int>()
@@ -511,14 +530,14 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         updateSig()
     }
 
-    //making restart to remove useless clauses
+    // making restart to remove useless clauses
     private fun makeRestart() {
         numberOfRestarts++
         restartNumber *= restartCoeff
         level = 0
         trail.clear()
         units.clear()
-        watchers.forEach {it.clear()}
+        watchers.forEach { it.clear() }
         vars.forEachIndexed { ind, _ ->
             delVariable(ind)
         }
@@ -565,7 +584,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
     }
 
-    private val oldNumeration = MutableList(varsNumber + 1) {index -> index}
+    private val oldNumeration = MutableList(varsNumber + 1) { index -> index }
     private var startClauses = listOf<MutableList<Int>>()
     private var startOccurrence = listOf<MutableList<Int>>()
     private val deletingOrder = mutableListOf<Int>()
@@ -604,7 +623,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
             }
         }
         for (clause in clauses) {
-            clause.forEachIndexed {ind, lit ->
+            clause.forEachIndexed { ind, lit ->
                 if (lit > 0) {
                     clause[ind] = newNumeration[lit]
                 } else {
@@ -656,7 +675,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     private val score = mutableListOf<Double>()
     private fun countScore() {
         score.add(0.0)
-        for(ind in 1..varsNumber) {
+        for (ind in 1..varsNumber) {
             score.add(clauses.count { clause -> clause.contains(ind) || clause.contains(-ind) }.toDouble())
         }
     }
