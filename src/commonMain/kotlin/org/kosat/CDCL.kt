@@ -1,5 +1,7 @@
 package org.kosat
 
+import org.kosat.heuristics.Selector
+import org.kosat.heuristics.VSIDS
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -13,6 +15,8 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
 class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     var varsNumber = initNumber
         private set
+
+    private val selector: Selector = VSIDS(varsNumber)
 
     init {
         // set varsNumber equal to either initNumber(from constructor of class) either maximal variable from cnf
@@ -159,7 +163,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
         // branching heuristic
-        countScore()
+        selector.build(clauses.map { Clause(it) })
 
         // TODO: remove
         buildWatchers()
@@ -178,13 +182,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
                 backjump(lemma)
 
                 // VSIDS
-                numberOfConflicts++
-                if (numberOfConflicts == decay) {
-                    // update scores
-                    numberOfConflicts = 0
-                    score.forEachIndexed { ind, _ -> score[ind] /= divisionCoeff }
-                    lemma.forEach { lit -> score[litIndex(lit)]++ }
-                }
+                selector.update(Clause(lemma))
 
                 continue
             }
@@ -198,26 +196,18 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
             // try to guess variable
             level++
-            val nextVariable = getNextVariable(level)
+            val nextVariable = selector.nextDecisionVariable(vars, level)
 
             // Check that assumption we want to make isn't controversial
             if (level <= assumptions.size && wrongAssumption(nextVariable)) {
                 clearTrail(0)
                 return null
             }
-            addVariable(-1, nextVariable)
+            setVariableValues(-1, nextVariable)
         }
     }
 
     private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
-
-    private fun getNextVariable(level: Int): Int {
-        return if (level > assumptions.size) {
-            vsids()
-        } else {
-            return assumptions[level - 1]
-        }
-    }
 
     // add clause and add watchers to it
     private fun addClause(clause: MutableList<Int>) {
@@ -235,6 +225,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
     // public function for adding new variables
     fun newVar(): Int {
+        selector.addVariable()
         varsNumber++
         vars.add(VarState(VarStatus.UNDEFINED, -1, -1))
         return varsNumber
@@ -300,7 +291,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
 
     // add a variable to the trail and update watchers of clauses linked to this variable
-    private fun addVariable(clause: Int, lit: Int): Boolean {
+    private fun setVariableValues(clause: Int, lit: Int): Boolean {
         if (getStatus(lit) != VarStatus.UNDEFINED) return false
 
         setStatus(lit, VarStatus.TRUE)
@@ -363,7 +354,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
                     }
                 }
             }
-            addVariable(clause, lit)
+            setVariableValues(clause, lit)
         }
 
         return -1
@@ -669,28 +660,5 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
         countOccurrence()
         updateSig()
-    }
-
-    // VSIDS
-    private val score = mutableListOf<Double>()
-    private fun countScore() {
-        score.add(0.0)
-        for (ind in 1..varsNumber) {
-            score.add(clauses.count { clause -> clause.contains(ind) || clause.contains(-ind) }.toDouble())
-        }
-    }
-
-    private val decay = 50
-    private val divisionCoeff = 2.0
-    private var numberOfConflicts = 0
-
-    private fun vsids(): Int {
-        var ind = -1
-        for (i in 1..varsNumber) {
-            if (vars[i].status == VarStatus.UNDEFINED && (ind == -1 || score[ind] < score[i])) {
-                ind = i
-            }
-        }
-        return ind
     }
 }
