@@ -4,13 +4,59 @@ import org.kosat.CDCL
 import kotlin.math.abs
 
 class Restarter(val solver: CDCL) {
-    
-    
-    private var restartNumber = 500.0
+
+    private val u = 200.0
+
+    private var restartNumber = u
     private val restartCoeff = 1.1
 
     private var numberOfConflictsAfterRestart = 0
     private var numberOfRestarts = 0
+
+    private val lubySeq: MutableList<Int> = mutableListOf(1)
+
+    private var curr = 1
+
+    init {
+        var pw = 1
+        while (lubySeq.size < 1e5) {
+            pw *= 2
+            lubySeq.addAll(lubySeq)
+            lubySeq.add(pw)
+        }
+    }
+
+
+    // making restart to remove useless clauses
+    private fun restart() {
+        numberOfRestarts++
+        // restartNumber *= restartCoeff
+        restartNumber = u * lubySeq[curr++]
+        solver.level = 0
+
+        solver.units.clear()
+
+        //watchers.forEach { it.clear() }
+        //buildWatchers()
+
+        solver.clearTrail(0)
+
+        /*removeSubsumedClauses()
+        countOccurrence()
+
+        updateSig()*/
+    }
+
+
+    fun update() {
+        // Restart after adding a clause to maintain correct watchers
+        numberOfConflictsAfterRestart++
+        // restarting after some number of conflicts
+        if (numberOfConflictsAfterRestart >= restartNumber) {
+            numberOfConflictsAfterRestart = 0
+            restart()
+        }
+    }
 
     // for each literal provides a list of clauses containing it (for 'x' it's in pos x, for 'not x' in pos solver.varsNumber + x)
     private var litOccurrence = mutableListOf<MutableList<Int>>()
@@ -104,37 +150,9 @@ class Restarter(val solver: CDCL) {
         }
     }
 
-    fun update() {
-        // Restart after adding a clause to maintain correct watchers
-        numberOfConflictsAfterRestart++
-        // restarting after some number of conflicts
-        if (numberOfConflictsAfterRestart >= restartNumber) {
-            numberOfConflictsAfterRestart = 0
-            restart()
-        }
-    }
-
     fun addClause(clause: MutableList<Int>) {
         clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.clauses.lastIndex) } //todo litIndex
         clauseSig.add(countSig(solver.clauses.lastIndex))
     }
 
-    // making restart to remove useless clauses
-    private fun restart() {
-        numberOfRestarts++
-        restartNumber *= restartCoeff
-        solver.level = 0
-
-        solver.units.clear()
-
-        //watchers.forEach { it.clear() }
-        //buildWatchers()
-
-        solver.clearTrail(0)
-
-        /*removeSubsumedClauses()
-        countOccurrence()
-
-        updateSig()*/
-    }
 }
