@@ -130,7 +130,7 @@ class Restarter(val solver: CDCL) {
         //watchers.forEach { it.clear() }
         //buildWatchers()
 
-        solver.clearTrail(0)
+        solver.trail.clear(0)
 
         /*removeSubsumedClauses()
         countOccurrence()

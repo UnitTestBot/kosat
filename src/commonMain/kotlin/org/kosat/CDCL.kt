@@ -73,14 +73,13 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
             }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
     }
 
+    val trail = Trail(this)
+    
     private var preprocessor: Preprocessor? = null
 
     // values of variables
-    private val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
-
-    // all decisions and consequences
-    private val trail: MutableList<Int> = mutableListOf()
-
+    val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
+    
     // decision level
     var level: Int = 0
 
@@ -95,13 +94,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
     // assumptions for incremental sat-solver
     private var assumptions: List<Int> = emptyList()
-
-    // clear trail until given level
-    fun clearTrail(until: Int = -1) {
-        while (trail.isNotEmpty() && vars[trail.last()].level > until) {
-            delVariable(trail.removeLast())
-        }
-    }
+    
 
     fun solve(currentAssumptions: List<Int>): List<Int>? {
         assumptions = currentAssumptions
@@ -163,7 +156,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
             // If (the problem is already) SAT, return the current assignment
             if (satisfiable()) {
                 val model = variableValues()
-                clearTrail(0)
+                trail.clear(0)
                 return model
             }
 
@@ -173,7 +166,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
             // Check that assumption we want to make isn't controversial
             if (level <= assumptions.size && wrongAssumption(nextVariable)) {
-                clearTrail(0)
+                trail.clear(0)
                 return null
             }
             setVariableValues(-1, nextVariable)
@@ -298,7 +291,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     }
 
     // delete a variable from the trail
-    private fun delVariable(v: Int) {
+    fun delVariable(v: Int) {
         setStatus(v, VarStatus.UNDEFINED)
         vars[v].clause = -1
         vars[v].level = -1
@@ -339,7 +332,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     private fun backjump(clause: MutableList<Int>) {
         level = clause.map { vars[litIndex(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
 
-        clearTrail(level)
+        trail.clear(level)
 
         // after backjump it's the only clause to propagate
         units.clear()
