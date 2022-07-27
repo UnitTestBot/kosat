@@ -15,16 +15,36 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
 
 
 class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
+
+    /** Interface **/ //TODO: better ctors
+    //TODO solve here?
+
     var varsNumber = initNumber
         private set
-
-    private val selector: Selector = VSIDS(varsNumber)
 
     init {
         // set varsNumber equal to either initNumber(from constructor of class) either maximal variable from cnf
         varsNumber =
             max(initNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0 })
     }
+
+    // public function for adding new variables
+    fun newVar(): Int {
+        selector.addVariable()
+        varsNumber++
+        vars.add(VarState(VarStatus.UNDEFINED, -1, -1))
+        return varsNumber
+    }
+
+    // public function for adding new clauses
+    fun newClause(clause: MutableList<Int>) {
+        addClause(clause)
+        val maxVar = clause.maxOf { abs(it) }
+        while (newVar() < maxVar) {
+        }
+    }
+
+    /** Variable states **/
 
     enum class VarStatus {
         TRUE, FALSE, UNDEFINED;
@@ -38,15 +58,11 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
     }
 
-    // all decisions and consequences
-    private val trail: MutableList<Int> = mutableListOf()
-
-    // clear trail until given level
-    fun clearTrail(until: Int = -1) {
-        while (trail.isNotEmpty() && vars[trail.last()].level > until) {
-            delVariable(trail.removeLast())
-        }
-    }
+    data class VarState(
+        var status: VarStatus,
+        var clause: Int,
+        var level: Int,
+    )
 
     // get status of literal
     private fun getStatus(lit: Int): VarStatus {
@@ -64,42 +80,33 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
     }
 
-    data class VarState(
-        var status: VarStatus,
-        var clause: Int,
-        var level: Int,
-    )
-
-    // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
-    private fun variableValues(): List<Int> {
-        preprocessor?.recoverAnswer(vars)
-        return vars
-            .mapIndexed { index, v ->
-                when (v.status) {
-                    VarStatus.TRUE -> index
-                    VarStatus.FALSE -> -index
-                    else -> index
-                }
-            }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
-    }
-    
-    private var preprocessor: Preprocessor? = null
-
     // values of variables
     private val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
-    
-    // decision level
-    var level: Int = 0
 
-    // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
-    private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() }
-
+    // TODO why not abs..
     private fun litIndex(lit: Int): Int = abs(lit)
 
-    // list of unit clauses to propagate
-    val units: MutableList<Int> = mutableListOf()
+    /** Trail: **/
+
+    // all decisions and consequences
+    private val trail: MutableList<Int> = mutableListOf()
+
+    // clear trail until given level
+    fun clearTrail(until: Int = -1) {
+        while (trail.isNotEmpty() && vars[trail.last()].level > until) {
+            delVariable(trail.removeLast())
+        }
+    }
+
+    /** Heuristics **/
+
+    private val selector: Selector = VSIDS(varsNumber)
+
+    private var preprocessor: Preprocessor? = null
 
     private val restarter = Restarter(this)
+
+    /** Solve with assumptions **/
 
     // assumptions for incremental sat-solver
     private var assumptions: List<Int> = emptyList()
@@ -117,6 +124,10 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         assumptions = emptyList()
         return result
     }
+
+    private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
+
+    /** Solve **/
 
     fun solve(): List<Int>? {
         restarter.countOccurrence()
@@ -181,31 +192,26 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
     }
 
-    private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
-
-    // add clause and add watchers to it
-    private fun addClause(clause: MutableList<Int>) {
-        clauses.add(clause)
-        addWatchers(clause, clauses.lastIndex)
-
-        restarter.addClause(clause)
+    // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE //TODO where to place
+    private fun variableValues(): List<Int> {
+        preprocessor?.recoverAnswer(vars)
+        return vars
+            .mapIndexed { index, v ->
+                when (v.status) {
+                    VarStatus.TRUE -> index
+                    VarStatus.FALSE -> -index
+                    else -> index
+                }
+            }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
     }
 
-    // public function for adding new clauses
-    fun newClause(clause: MutableList<Int>) {
-        addClause(clause)
-        val maxVar = clause.maxOf { abs(it) }
-        while (newVar() < maxVar) {
-        }
-    }
+    /** Two watchers **/
 
-    // public function for adding new variables
-    fun newVar(): Int {
-        selector.addVariable()
-        varsNumber++
-        vars.add(VarState(VarStatus.UNDEFINED, -1, -1))
-        return varsNumber
-    }
+    // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
+    private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() }
+
+    // list of unit clauses to propagate
+    val units: MutableList<Int> = mutableListOf()
 
     // run only once in the beginning TODO: not anymore
     private fun buildWatchers() {
@@ -217,7 +223,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
     }
 
-    // add watchers to clause. Run in buildWatchers and addClause
+    // add watchers to new clause. Run in buildWatchers and addClause
     private fun addWatchers(clause: MutableList<Int>, index: Int) {
         // every clause of size 1 watched by it only variable
         if (clause.size == 1) {
@@ -263,22 +269,6 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
     }
 
-    // check is all clauses satisfied or not
-    private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
-
-    // add a variable to the trail and update watchers of clauses linked to this variable
-    private fun setVariableValues(clause: Int, lit: Int): Boolean {
-        if (getStatus(lit) != VarStatus.UNDEFINED) return false
-
-        setStatus(lit, VarStatus.TRUE)
-        val v = litIndex(lit)
-        vars[v].clause = clause
-        vars[v].level = level
-        trail.add(v)
-        updateWatchers(lit)
-        return true
-    }
-
     // update watchers for clauses linked with literal
     private fun updateWatchers(lit: Int) {
         val clausesToRemove = mutableSetOf<Int>()
@@ -298,7 +288,23 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         watchers[litIndex(lit)].removeAll(clausesToRemove)
     }
 
-    // delete a variable from the trail
+    /** CDCL functions **/
+
+    // decision level
+    var level: Int = 0
+
+    // check is all clauses satisfied or not
+    private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
+
+    // add clause and add watchers to it TODO: rename
+    private fun addClause(clause: MutableList<Int>) {
+        clauses.add(clause)
+        addWatchers(clause, clauses.lastIndex)
+
+        restarter.addClause(clause)
+    }
+
+    // delete a variable from the trail TODO: rename
     private fun delVariable(v: Int) {
         setStatus(v, VarStatus.UNDEFINED)
         vars[v].clause = -1
@@ -334,6 +340,19 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
 
         return -1
+    }
+
+    // add a variable to the trail and update watchers of clauses linked to this variable
+    private fun setVariableValues(clause: Int, lit: Int): Boolean {
+        if (getStatus(lit) != VarStatus.UNDEFINED) return false
+
+        setStatus(lit, VarStatus.TRUE)
+        val v = litIndex(lit)
+        vars[v].clause = clause
+        vars[v].level = level
+        trail.add(v)
+        updateWatchers(lit)
+        return true
     }
 
     // change level, undefine variables, clear units
@@ -390,10 +409,5 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
         return lemma
     }
-
-
-
-
-
 
 }
