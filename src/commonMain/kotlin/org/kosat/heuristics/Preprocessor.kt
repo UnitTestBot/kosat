@@ -70,7 +70,6 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
     }
 
 
-
     private fun addResolvents(ind: Int) {
         for (cl1 in litOccurrence[litPos(ind)]) {
             if (isClauseDeleted[cl1]) {
@@ -215,7 +214,7 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
     }
 
     private fun findSubsumed(clause: Int): Set<Int> {
-        val lit = clauses[clause].minByOrNull { lit -> litOccurrence[abs(lit)].size } ?: 0 //TODO litIndex
+        val lit = clauses[clause].minByOrNull { lit -> litOccurrence[litPos(lit)].size } ?: 0 //TODO litIndex
         return litOccurrence[litPos(lit)].filter {
             clause != it && clause.clauseSize() <= it.clauseSize() && subset(clause, it)
         }.toSet()

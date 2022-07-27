@@ -1,6 +1,7 @@
 package org.kosat
 
 import org.kosat.heuristics.Preprocessor
+import org.kosat.heuristics.Restarter
 import org.kosat.heuristics.Selector
 import org.kosat.heuristics.VSIDS
 import kotlin.math.abs
@@ -81,20 +82,22 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     private val trail: MutableList<Int> = mutableListOf()
 
     // decision level
-    private var level: Int = 0
+    var level: Int = 0
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
     private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() }
     private fun litIndex(lit: Int): Int = abs(lit)
 
     // list of unit clauses to propagate
-    private val units: MutableList<Int> = mutableListOf()
+    val units: MutableList<Int> = mutableListOf()
+
+    private val restarter = Restarter(this)
 
     // assumptions for incremental sat-solver
     private var assumptions: List<Int> = emptyList()
 
     // clear trail until given level
-    private fun clearTrail(until: Int = -1) {
+    fun clearTrail(until: Int = -1) {
         while (trail.isNotEmpty() && vars[trail.last()].level > until) {
             delVariable(trail.removeLast())
         }
@@ -115,8 +118,8 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     }
 
     fun solve(): List<Int>? {
-        // countOccurrence()
-        // updateSig()
+        restarter.countOccurrence()
+        restarter.updateSig()
 
         // simplifying given cnf formula
         // preprocessing()
@@ -148,6 +151,8 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
                 addClause(lemma)
                 backjump(lemma)
+
+                restarter.update()
 
                 // VSIDS
                 selector.update(Clause(lemma))
@@ -181,6 +186,8 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     private fun addClause(clause: MutableList<Int>) {
         clauses.add(clause)
         addWatchers(clause, clauses.lastIndex)
+
+        restarter.addClause(clause)
     }
 
     // public function for adding new clauses
@@ -385,31 +392,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
 
 
-    private var restartNumber = 500.0
-    private val restartCoeff = 1.1
 
-    private var numberOfConflictsAfterRestart = 0
-    private var numberOfRestarts = 0
-
-    // making restart to remove useless clauses
-    private fun makeRestart() {
-        numberOfRestarts++
-        restartNumber *= restartCoeff
-        level = 0
-        trail.clear()
-        units.clear()
-        watchers.forEach { it.clear() }
-        vars.forEachIndexed { ind, _ ->
-            delVariable(ind)
-        }
-
-        // removeSubsumedClauses()
-        // countOccurrence()
-
-        // updateSig()
-
-        buildWatchers()
-    }
 
 
 }
