@@ -154,5 +154,4 @@ class Restarter(val solver: CDCL) {
         clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.clauses.lastIndex) } //todo litIndex
         clauseSig.add(countSig(solver.clauses.lastIndex))
     }
-
 }

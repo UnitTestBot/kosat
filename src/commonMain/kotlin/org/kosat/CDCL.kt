@@ -13,14 +13,13 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
     return CDCL(clauses, cnf.vars).solve()
 }
 
-
 class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
 
     /** Interface **/ //TODO: better ctors
     //TODO solve here?
 
     var varsNumber = initNumber
-        private set
+        //private set TODO: bad idea for preprocessor fix
 
     init {
         // set varsNumber equal to either initNumber(from constructor of class) either maximal variable from cnf
@@ -65,7 +64,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     )
 
     // get status of literal
-    private fun getStatus(lit: Int): VarStatus {
+    fun getStatus(lit: Int): VarStatus {
         if (vars[litIndex(lit)].status == VarStatus.UNDEFINED) return VarStatus.UNDEFINED
         if (lit < 0) return !vars[-lit].status
         return vars[lit].status
@@ -81,7 +80,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     }
 
     // values of variables
-    private val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
+    val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
 
     // TODO why not abs..
     private fun litIndex(lit: Int): Int = abs(lit)
@@ -133,11 +132,10 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         restarter.countOccurrence()
         restarter.updateSig()
 
-        // simplifying given cnf formula
-        // preprocessing()
-        if (assumptions.isEmpty()) { //TODO users give the state
-            //FIXME
-            //preprocessor = Preprocessor(clauses.map { Clause(it) }.toMutableList(), varsNumber)
+        preprocessor = if (assumptions.isEmpty()) {
+            Preprocessor(this)
+        } else {
+            null
         }
 
         // extreme cases
@@ -192,9 +190,11 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
     }
 
-    // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE //TODO where to place
+    // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
+    // TODO where to place
     private fun variableValues(): List<Int> {
-        preprocessor?.recoverAnswer(vars)
+        preprocessor?.recoverAnswer()
+
         return vars
             .mapIndexed { index, v ->
                 when (v.status) {
@@ -302,6 +302,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         addWatchers(clause, clauses.lastIndex)
 
         restarter.addClause(clause)
+        preprocessor?.addClause(clause)
     }
 
     // delete a variable from the trail TODO: rename

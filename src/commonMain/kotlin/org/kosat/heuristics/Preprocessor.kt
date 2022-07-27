@@ -1,42 +1,54 @@
 package org.kosat.heuristics
 
 import org.kosat.CDCL
-import org.kosat.Clause
 import kotlin.math.abs
 
-class Preprocessor(private val clauses: MutableList<Clause>, private var varsNumber: Int) {
+class Preprocessor(private val solver: CDCL) {
+
+    private val oldNumeration = MutableList(solver.varsNumber + 1) { index -> index }
+    private var startClauses = listOf<MutableList<Int>>()
+    private var startOccurrence = listOf<MutableList<Int>>()
+    private val deletingOrder = mutableListOf<Int>()
+    private val isClauseDeleted = MutableList(solver.clauses.size) { false }
+    private val clauseLimit = 600
+    private val hash = LongArray(2 * solver.varsNumber + 1) { 1L.shl(it % 64) }
+
+    fun addClause(clause: MutableList<Int>) {
+        clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.clauses.lastIndex) } //todo litIndex
+        clauseSig.add(countSig(solver.clauses.lastIndex))
+    }
+
+    // for each literal provides a list of clauses containing it (for 'x' it's in pos x, for 'not x' in pos varsNumber + x)
+    private var litOccurrence: MutableList<MutableList<Int>> = mutableListOf()
+
     init {
+        countOccurrence()
+        updateSig()
         removeTautologies()
         removeSubsumedClauses()
         bve()
         removeSubsumedClauses()
-        println("$varsNumber, ${clauses.size}")
+        println("${solver.varsNumber}, ${solver.clauses.size}")
         // clauses.forEach { println(it) }
         // removePureLiterals()
     }
 
-    private val oldNumeration = MutableList(varsNumber + 1) { index -> index }
-    private var startClauses = listOf<MutableList<Int>>()
-    private var startOccurrence = listOf<MutableList<Int>>()
-    private val deletingOrder = mutableListOf<Int>()
-    private val isClauseDeleted = MutableList(clauses.size) { false }
-    private val clauseLimit = 600
-    private val hash = LongArray(2 * varsNumber + 1) { 1L.shl(it % 64) }
+
 
     private fun bve() {
-        val isLiteralRemoved = MutableList(varsNumber + 1) { false }
-        val newNumeration = MutableList(varsNumber + 1) { 0 }
+        val isLiteralRemoved = MutableList(solver.varsNumber + 1) { false }
+        val newNumeration = MutableList(solver.varsNumber + 1) { 0 }
         var currentInd = 1
-        while (clauses.size < clauseLimit && currentInd <= varsNumber) {
+        while (solver.clauses.size < clauseLimit && currentInd <= solver.varsNumber) {
             if (litOccurrence[litPos(currentInd)].size * litOccurrence[litPos(-currentInd)].size <= clauseLimit) {
                 isLiteralRemoved[currentInd] = true
                 deletingOrder.add(currentInd)
-                addResolvents(currentInd)
+                addResolvernts(currentInd)
             }
             currentInd++
         }
         val deletedClauses = mutableListOf<Int>()
-        clauses.forEachIndexed { ind, clause ->
+        solver.clauses.forEachIndexed { ind, clause ->
             for (lit in clause) {
                 if (isLiteralRemoved[abs(lit)]) { //TODO: litIndex
                     deletedClauses.add(ind)
@@ -44,18 +56,18 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
                 }
             }
         }
-        startClauses = clauses.map { it.lits.toMutableList() }
+        startClauses = solver.clauses.map { it } // TODO: Clauses..
         startOccurrence = litOccurrence.map { it }
-        clauses.removeAll(deletedClauses.map { clauses[it] })
+        solver.clauses.removeAll(deletedClauses.map { solver.clauses[it] })
         var newSize = 0
-        for (ind in 1..varsNumber) {
+        for (ind in 1..solver.varsNumber) {
             if (!isLiteralRemoved[ind]) {
                 newSize++
                 newNumeration[ind] = newSize
                 oldNumeration[newSize] = ind
             }
         }
-        for (clause in clauses) {
+        for (clause in solver.clauses) {
             clause.forEachIndexed { ind, lit ->
                 if (lit > 0) {
                     clause[ind] = newNumeration[lit]
@@ -64,13 +76,13 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
                 }
             }
         }
-        varsNumber = newSize
+        solver.varsNumber = newSize
         countOccurrence()
         updateSig()
     }
 
 
-    private fun addResolvents(ind: Int) {
+    private fun addResolvernts(ind: Int) {
         for (cl1 in litOccurrence[litPos(ind)]) {
             if (isClauseDeleted[cl1]) {
                 continue
@@ -79,18 +91,18 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
                 if (isClauseDeleted[cl2]) {
                     continue
                 }
-                val newClause = clauses[cl1].toMutableSet()
+                val newClause = solver.clauses[cl1].toMutableSet()
                 newClause.remove(ind)
                 // check if clause is tautology
-                if (clauses[cl2].any { newClause.contains(-it) }) {
+                if (solver.clauses[cl2].any { newClause.contains(-it) }) {
                     continue
                 }
-                newClause.addAll(clauses[cl2])
+                newClause.addAll(solver.clauses[cl2])
                 newClause.remove(-ind)
-                clauses.add(Clause(newClause.toMutableList()))
+                solver.clauses.add(newClause.toMutableList())
                 isClauseDeleted.add(false)
                 for (lit in newClause) {
-                    litOccurrence[litPos(lit)].add(clauses.lastIndex)
+                    litOccurrence[litPos(lit)].add(solver.clauses.lastIndex)
                 }
             }
         }
@@ -106,10 +118,10 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
     private fun removeSubsumedClauses() {
         val uselessClauses = mutableSetOf<Int>()
         val duplicateClauses = mutableSetOf<Int>()
-        val markedClauses = MutableList(clauses.size) { false }
+        val markedClauses = MutableList(solver.clauses.size) { false }
 
         // going from the end because smaller clauses appear after big one
-        for (ind in clauses.lastIndex downTo 0) {
+        for (ind in solver.clauses.lastIndex downTo 0) {
             if (!markedClauses[ind]) {
                 findSubsumed(ind).forEach {
                     if (!markedClauses[it]) {
@@ -124,19 +136,19 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
             }
         }
 
-        val copiedClauses = duplicateClauses.map { clauses[it] }
+        val copiedClauses = duplicateClauses.map { solver.clauses[it] }
 
-        clauses.removeAll(uselessClauses.map { clauses[it] })
+        solver.clauses.removeAll(uselessClauses.map { solver.clauses[it] })
         // remove duplicate clauses and leave 1 copy of each
-        clauses.removeAll(copiedClauses)
-        clauses.addAll(copiedClauses)
+        solver.clauses.removeAll(copiedClauses)
+        solver.clauses.addAll(copiedClauses)
         countOccurrence()
         updateSig()
     }
 
     private fun removeTautologies() {
-        val isClauseRemoved = MutableList(clauses.size) { false }
-        for (lit in 1..varsNumber) {
+        val isClauseRemoved = MutableList(solver.clauses.size) { false }
+        for (lit in 1..solver.varsNumber) {
             val sz1 = litOccurrence[litPos(lit)].size
             val sz2 = litOccurrence[litPos(-lit)].size
             if (sz1 == 0 || sz2 == 0) {
@@ -163,37 +175,33 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
                 deletedClauses.add(ind)
             }
         }
-        clauses.removeAll(deletedClauses.map { clauses[it] })
+        solver.clauses.removeAll(deletedClauses.map { solver.clauses[it] })
 
         countOccurrence()
         updateSig()
     }
-
-
-    // for each literal provides a list of clauses containing it (for 'x' it's in pos x, for 'not x' in pos varsNumber + x)
-    private var litOccurrence = mutableListOf<MutableList<Int>>()
-    // vars.mapIndexed { ind, _ -> clauses.mapIndexed { ind, _ -> ind}.filter { clauses[it].contains(ind) || clauses[it].contains(-ind) }.toMutableList()}
 
     // return position of literal in occurrence array
     private fun litPos(lit: Int): Int {
         return if (lit >= 0) {
             lit
         } else {
-            varsNumber - lit
+            solver.varsNumber - lit
         }
     }
 
     private fun countOccurrence() {
-        litOccurrence.clear()
-        for (ind in 1..(2 * varsNumber + 1)) {
+        litOccurrence = mutableListOf()
+        //litOccurrence.clear()
+        for (ind in 1..(2 * solver.varsNumber + 1)) {
             litOccurrence.add(mutableListOf())
         }
-        clauses.forEachIndexed { ind, clause ->
+        solver.clauses.forEachIndexed { ind, clause ->
             for (lit in clause) {
                 if (lit > 0) {
                     litOccurrence[lit].add(ind)
                 } else {
-                    litOccurrence[varsNumber - lit].add(ind)
+                    litOccurrence[solver.varsNumber - lit].add(ind)
                 }
             }
         }
@@ -201,20 +209,20 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
 
     private fun countSig(clause: Int): Long {
         var sz = 0L
-        clauses[clause].forEach { lit -> sz = sz.or(hash[litPos(lit)]) }
+        solver.clauses[clause].forEach { lit -> sz = sz.or(hash[litPos(lit)]) }
         return sz
     }
 
-    private fun Int.clauseSize() = clauses[this].size
+    private fun Int.clauseSize() = solver.clauses[this].size
 
     private var clauseSig = mutableListOf<Long>()
 
     private fun updateSig() {
-        clauseSig = List(clauses.size) { ind -> countSig(ind) }.toMutableList()
+        clauseSig = List(solver.clauses.size) { ind -> countSig(ind) }.toMutableList()
     }
 
     private fun findSubsumed(clause: Int): Set<Int> {
-        val lit = clauses[clause].minByOrNull { lit -> litOccurrence[litPos(lit)].size } ?: 0 //TODO litIndex
+        val lit = solver.clauses[clause].minByOrNull { lit -> litOccurrence[litPos(lit)].size } ?: 0 //TODO litIndex
         return litOccurrence[litPos(lit)].filter {
             clause != it && clause.clauseSize() <= it.clauseSize() && subset(clause, it)
         }.toSet()
@@ -224,24 +232,24 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
         return if (clauseSig[cl2].or(clauseSig[cl1]) != clauseSig[cl2]) {
             false
         } else {
-            clauses[cl2].containsAll(clauses[cl1])
+            solver.clauses[cl2].containsAll(solver.clauses[cl1])
         }
     }
 
     // recover answer in terms of initial variables
-    fun recoverAnswer(vars: List<CDCL.VarState>) {
+    fun recoverAnswer() {
         // updating vars for bve
-        val oldStatus = List(oldNumeration.size) { ind -> vars[ind].status }
-        for (ind in 1..varsNumber) {
-            vars[ind].status = CDCL.VarStatus.UNDEFINED
+        val oldStatus = List(oldNumeration.size) { ind -> solver.vars[ind].status }
+        for (ind in 1..solver.varsNumber) {
+            solver.vars[ind].status = CDCL.VarStatus.UNDEFINED
         }
-        for (ind in 1..varsNumber) {
-            vars[oldNumeration[ind]].status = oldStatus[ind]
-            if (vars[oldNumeration[ind]].status == CDCL.VarStatus.UNDEFINED) {
-                vars[oldNumeration[ind]].status = CDCL.VarStatus.TRUE
+        for (ind in 1..solver.varsNumber) {
+            solver.vars[oldNumeration[ind]].status = oldStatus[ind]
+            if (solver.vars[oldNumeration[ind]].status == CDCL.VarStatus.UNDEFINED) {
+                solver.vars[oldNumeration[ind]].status = CDCL.VarStatus.TRUE
             }
         }
-        varsNumber += deletingOrder.size
+        solver.varsNumber += deletingOrder.size
         for (ind in deletingOrder.reversed()) {
             var allTrue = true
             for (clause in startOccurrence[ind]) {
@@ -250,13 +258,7 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
                     if (lit == ind) {
                         continue
                     }
-                    //FIXME remove
-                    fun getStatus(lit: Int): CDCL.VarStatus {
-                        if (vars[abs(lit)].status == CDCL.VarStatus.UNDEFINED) return CDCL.VarStatus.UNDEFINED
-                        if (lit < 0) return !vars[-lit].status
-                        return vars[lit].status
-                    }
-                    if (getStatus(lit) != CDCL.VarStatus.FALSE) { //FIXME
+                    if (solver.getStatus(lit) != CDCL.VarStatus.FALSE) {
                         isTrue = true
                         break
                     }
@@ -267,9 +269,9 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
                 }
             }
             if (allTrue) {
-                vars[ind].status = CDCL.VarStatus.FALSE
+                solver.vars[ind].status = CDCL.VarStatus.FALSE
             } else {
-                vars[ind].status = CDCL.VarStatus.TRUE
+                solver.vars[ind].status = CDCL.VarStatus.TRUE
             }
         }
     }
