@@ -210,7 +210,7 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
     private var clauseSig = mutableListOf<Long>()
 
     private fun updateSig() {
-        clauseSig = clauses.mapIndexed { ind, _ -> countSig(ind) }.toMutableList()
+        clauseSig = List(clauses.size) { ind -> countSig(ind) }.toMutableList()
     }
 
     private fun findSubsumed(clause: Int): Set<Int> {
@@ -231,7 +231,7 @@ class Preprocessor(private val clauses: MutableList<Clause>, private var varsNum
     // recover answer in terms of initial variables
     fun recoverAnswer(vars: List<CDCL.VarState>) {
         // updating vars for bve
-        val oldStatus = oldNumeration.mapIndexed { ind, _ -> vars[ind].status }
+        val oldStatus = List(oldNumeration.size) { ind -> vars[ind].status }
         for (ind in 1..varsNumber) {
             vars[ind].status = CDCL.VarStatus.UNDEFINED
         }
