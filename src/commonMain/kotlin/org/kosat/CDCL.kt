@@ -13,18 +13,24 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
     return CDCL(clauses, cnf.vars).solve()
 }
 
-class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
+class CDCL(
+    val clauses: MutableList<MutableList<Int>>,
+    var varsNumber: Int = 0,
+    val solverType: SolverType = SolverType.NON_INCREMENTAL
+    ) {
 
-    /** Interface **/ //TODO: better ctors
-    //TODO solve here?
+    /** Interface **/
 
-    var varsNumber = initNumber
-        //private set TODO: bad idea for preprocessor fix
+    enum class SolverType {
+        INCREMENTAL, NON_INCREMENTAL;
+    }
+
+    constructor(): this(mutableListOf<MutableList<Int>>())
 
     init {
         // set varsNumber equal to either initNumber(from constructor of class) either maximal variable from cnf
         varsNumber =
-            max(initNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0 })
+            max(varsNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0 })
     }
 
     // public function for adding new variables
@@ -111,6 +117,8 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     private var assumptions: List<Int> = emptyList()
 
     fun solve(currentAssumptions: List<Int>): List<Int>? {
+        require(solverType == SolverType.INCREMENTAL)
+
         assumptions = currentAssumptions
         selector.initAssumptions(assumptions)
         val result = solve()
@@ -132,7 +140,7 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         restarter.countOccurrence()
         restarter.updateSig()
 
-        preprocessor = if (assumptions.isEmpty()) {
+        preprocessor = if (solverType == SolverType.NON_INCREMENTAL) {
             Preprocessor(this)
         } else {
             null
@@ -193,7 +201,9 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
     // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
     // TODO where to place
     private fun variableValues(): List<Int> {
-        preprocessor?.recoverAnswer()
+        if (solverType == SolverType.NON_INCREMENTAL) {
+            preprocessor?.recoverAnswer()
+        }
 
         return vars
             .mapIndexed { index, v ->
