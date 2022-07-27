@@ -100,8 +100,9 @@ class CDCL(val clauses: MutableList<MutableList<Int>>, initNumber: Int = 0) {
         }
     }
 
-    fun solve(currentAssumptions: List<Int> = emptyList()): List<Int>? {
+    fun solve(currentAssumptions: List<Int>): List<Int>? {
         assumptions = currentAssumptions
+        selector.initAssumptions(assumptions)
         val result = solve()
         assumptions.forEach {
             if (getStatus(it) == VarStatus.FALSE) {

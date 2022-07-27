@@ -6,7 +6,12 @@ import org.kosat.Lit
 import kotlin.math.abs
 
 abstract class Selector {
-    abstract fun initAssumptions(assumptions: List<Lit>)
+    protected var assumptions: List<Lit> = emptyList()
+
+    fun initAssumptions(assumptions: List<Lit>) {
+        this.assumptions = assumptions
+    }
+
     abstract fun build(clauses: List<Clause>)
     abstract fun nextDecisionVariable(vars: List<CDCL.VarState>, level: Int): Int
     abstract fun addVariable()
@@ -24,14 +29,8 @@ class VSIDS(private var varsNumber: Int = 0) : Selector() {
             // update scores
             numberOfConflicts = 0
             activity.forEachIndexed { ind, _ -> activity[ind] /= divisionCoeff }
-            lemma.forEach { lit -> activity[abs(lit)]++ } //todo litIndex?????
+            lemma.forEach { lit -> activity[abs(lit)]++ } //todo litIndex
         }
-    }
-
-    private var assumptions: List<Lit> = emptyList()
-
-    override fun initAssumptions(assumptions: List<Lit>) {
-        this.assumptions = assumptions
     }
 
     override fun addVariable() {

@@ -1,7 +1,5 @@
 package org.kosat
 
-typealias Lit = Int
-
 interface Solver {
     /**
      * Number of variables added (via [addVariable]) to the SAT solver.
