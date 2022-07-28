@@ -35,6 +35,7 @@ class VSIDS(private var varsNumber: Int = 0) : Selector() {
 
     override fun addVariable() {
         activity.add(0.0)
+        varsNumber++
     }
 
     private val activity = mutableListOf<Double>()
@@ -49,7 +50,7 @@ class VSIDS(private var varsNumber: Int = 0) : Selector() {
         return if (level > assumptions.size) {
             vsids(vars)
         } else {
-            return assumptions[level - 1]
+            assumptions[level - 1]
         }
     }
 

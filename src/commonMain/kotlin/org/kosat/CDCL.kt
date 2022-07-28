@@ -5,7 +5,6 @@ import org.kosat.heuristics.Restarter
 import org.kosat.heuristics.Selector
 import org.kosat.heuristics.VSIDS
 import kotlin.math.abs
-import kotlin.math.max
 
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
@@ -13,40 +12,50 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
     return CDCL(clauses, cnf.vars).solve()
 }
 
-class CDCL(
-    val clauses: MutableList<MutableList<Int>>,
-    var varsNumber: Int = 0,
-    val solverType: SolverType = SolverType.NON_INCREMENTAL
-    ) {
+enum class SolverType {
+    INCREMENTAL, NON_INCREMENTAL;
+}
+
+class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Incremental {
 
     /** Interface **/
 
-    enum class SolverType {
-        INCREMENTAL, NON_INCREMENTAL;
-    }
+    val clauses = mutableListOf<MutableList<Int>>()
+    var varsNumber: Int = 0
 
-    constructor(): this(mutableListOf<MutableList<Int>>())
+    constructor() : this(mutableListOf<MutableList<Int>>())
 
-    init {
-        // set varsNumber equal to either initNumber(from constructor of class) either maximal variable from cnf
-        varsNumber =
-            max(varsNumber, clauses.flatten().let { all -> if (all.isNotEmpty()) all.maxOf { abs(it) } else 0 })
+    constructor(
+        initClauses: MutableList<MutableList<Int>>,
+        initVarsNumber: Int = 0,
+        solverType: SolverType = SolverType.INCREMENTAL
+    ) : this(solverType) {
+        while (varsNumber < initVarsNumber) {
+            addVariable()
+        }
+        initClauses.forEach { newClause(it) }
     }
 
     // public function for adding new variables
-    fun newVar(): Int {
-        selector.addVariable()
+    override fun addVariable() {
         varsNumber++
+
+        selector.addVariable()
+        restarter.addVariable()
+
         vars.add(VarState(VarStatus.UNDEFINED, -1, -1))
-        return varsNumber
+        watchers.add(mutableSetOf())
+
+        //TODO: add new vars everywhere it need!!!
     }
 
     // public function for adding new clauses
     fun newClause(clause: MutableList<Int>) {
-        addClause(clause)
-        val maxVar = clause.maxOf { abs(it) }
-        while (newVar() < maxVar) {
+        val maxVar = clause.maxOfOrNull { abs(it) } ?: 0
+        while (varsNumber < maxVar) {
+            addVariable()
         }
+        addClause(clause)
     }
 
     /** Variable states **/
@@ -154,9 +163,6 @@ class CDCL(
         // branching heuristic
         selector.build(clauses.map { Clause(it) })
 
-        // TODO: remove
-        buildWatchers()
-
         // main loop
         while (true) {
             val conflictClause = propagate()
@@ -222,16 +228,6 @@ class CDCL(
 
     // list of unit clauses to propagate
     val units: MutableList<Int> = mutableListOf()
-
-    // run only once in the beginning TODO: not anymore
-    private fun buildWatchers() {
-        while (watchers.size > varsNumber + 1) {
-            watchers.removeLast()
-        }
-        clauses.forEachIndexed { index, clause ->
-            addWatchers(clause, index)
-        }
-    }
 
     // add watchers to new clause. Run in buildWatchers and addClause
     private fun addWatchers(clause: MutableList<Int>, index: Int) {

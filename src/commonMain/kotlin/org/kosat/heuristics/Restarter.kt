@@ -1,10 +1,10 @@
 package org.kosat.heuristics
 
 import org.kosat.CDCL
+import org.kosat.Incremental
 import kotlin.math.abs
 
-class Restarter(val solver: CDCL) {
-
+class Restarter(private val solver: CDCL): Incremental {
     private val u = 200.0
 
     private var restartNumber = u
@@ -65,9 +65,9 @@ class Restarter(val solver: CDCL) {
     // return position of literal in occurrence array
     private fun litPos(lit: Int): Int {
         return if (lit >= 0) {
-            lit
+            lit * 2 - 1 // odd indexes
         } else {
-            solver.varsNumber - lit
+            -lit * 2 // even indexes
         }
     }
 
@@ -77,13 +77,7 @@ class Restarter(val solver: CDCL) {
             litOccurrence.add(mutableListOf())
         }
         solver.clauses.forEachIndexed { ind, clause ->
-            for (lit in clause) {
-                if (lit > 0) {
-                    litOccurrence[lit].add(ind)
-                } else {
-                    litOccurrence[solver.varsNumber - lit].add(ind)
-                }
-            }
+            clause.forEach { lit -> litOccurrence[litPos(lit)].add(ind) }
         }
     }
 
@@ -119,7 +113,7 @@ class Restarter(val solver: CDCL) {
         updateSig()
     }
 
-    private val hash = LongArray(2 * solver.varsNumber + 1) { 1L.shl(it % 64) }
+    private val hash = MutableList(2 * solver.varsNumber + 1) { 1L.shl(it % 64) }
 
     private fun countSig(clause: Int): Long {
         var sz = 0L
@@ -133,6 +127,13 @@ class Restarter(val solver: CDCL) {
 
     fun updateSig() {
         clauseSig = solver.clauses.mapIndexed { ind, _ -> countSig(ind) }.toMutableList()
+    }
+
+    override fun addVariable() {
+        for (i in 0..1) {
+            hash.add(1L.shl(hash.size % 64))
+            litOccurrence.add(mutableListOf())
+        }
     }
 
     private fun findSubsumed(clause: Int): Set<Int> {
