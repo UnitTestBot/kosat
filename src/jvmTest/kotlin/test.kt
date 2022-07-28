@@ -1,9 +1,8 @@
 import org.junit.jupiter.api.Test
-import org.kosat.readCnfRequests
 import java.io.File
 import kotlin.system.measureTimeMillis
 import com.github.lipen.satlib.solver.MiniSatSolver
-import org.kosat.solveCnf
+import org.kosat.*
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.abs
@@ -126,8 +125,13 @@ internal class DiamondTests {
             var solution: List<Int>?
             var isSolution: Boolean
 
+            val first = readCnfRequests(fileInput).first()
+
+            val solver = CDCL(first.clauses as MutableList<Clause>, first.vars, SolverType.INCREMENTAL)
+
             repeat(5) { ind ->
-                val assumptions = List(ind) { Random.nextInt(1, variables.toInt() + 2) }.map {
+                val assumptions = if (first.vars == 0) listOf() else List(ind)
+                { Random.nextInt(1, first.vars + 1 ) }.map {
                     if (Random.nextBoolean()) it else -it
                 }
 
@@ -139,11 +143,11 @@ internal class DiamondTests {
 
                 println(assumptions)
 
-                val timeKoSat = (measureTimeMillis {
-                    solution = solveCnf(readCnfRequests(input).first())
-                }.toDouble() / 1000).toString()
-
                 val timeMiniSat = measureTimeMillis { isSolution = processMiniSatSolver(input) }.toDouble() / 1000
+
+                val timeKoSat = (measureTimeMillis {
+                    solution = solver.solve(assumptions)
+                }.toDouble() / 1000).toString()
 
                 val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
