@@ -1,19 +1,20 @@
 package org.kosat.heuristics
 
 import org.kosat.CDCL
+import org.kosat.Clause
 import kotlin.math.abs
 
 class Preprocessor(private val solver: CDCL) {
 
     private val oldNumeration = MutableList(solver.varsNumber + 1) { index -> index }
-    private var startClauses = listOf<MutableList<Int>>()
+    private var startClauses = listOf<Clause>()
     private var startOccurrence = listOf<MutableList<Int>>()
     private val deletingOrder = mutableListOf<Int>()
     private val isClauseDeleted = MutableList(solver.clauses.size) { false }
     private val clauseLimit = 600
     private val hash = LongArray(2 * solver.varsNumber + 1) { 1L.shl(it % 64) }
 
-    fun addClause(clause: MutableList<Int>) {
+    fun addClause(clause: Clause) {
         clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.clauses.lastIndex) } //todo litIndex
         clauseSig.add(countSig(solver.clauses.lastIndex))
     }
@@ -99,7 +100,7 @@ class Preprocessor(private val solver: CDCL) {
                 }
                 newClause.addAll(solver.clauses[cl2])
                 newClause.remove(-ind)
-                solver.clauses.add(newClause.toMutableList())
+                solver.clauses.add(Clause(newClause.toMutableList()))
                 isClauseDeleted.add(false)
                 for (lit in newClause) {
                     litOccurrence[litPos(lit)].add(solver.clauses.lastIndex)

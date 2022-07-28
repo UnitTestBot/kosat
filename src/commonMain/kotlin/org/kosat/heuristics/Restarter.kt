@@ -1,6 +1,7 @@
 package org.kosat.heuristics
 
 import org.kosat.CDCL
+import org.kosat.Clause
 import org.kosat.Incremental
 import kotlin.math.abs
 
@@ -151,7 +152,7 @@ class Restarter(private val solver: CDCL): Incremental {
         }
     }
 
-    fun addClause(clause: MutableList<Int>) {
+    fun addClause(clause: Clause) {
         clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.clauses.lastIndex) } //todo litIndex
         clauseSig.add(countSig(solver.clauses.lastIndex))
     }

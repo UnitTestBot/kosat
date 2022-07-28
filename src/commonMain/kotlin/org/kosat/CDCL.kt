@@ -9,7 +9,7 @@ import kotlin.math.abs
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
     val clauses = (cnf.clauses.map { it.lits }).toMutableList()
-    return CDCL(clauses, cnf.vars).solve()
+    return CDCL(clauses.map { Clause(it) }.toMutableList(), cnf.vars).solve()
 }
 
 enum class SolverType {
@@ -20,13 +20,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
     /** Interface **/
 
-    val clauses = mutableListOf<MutableList<Int>>()
+    val clauses = mutableListOf<Clause>()
     var varsNumber: Int = 0
 
-    constructor() : this(mutableListOf<MutableList<Int>>())
+    constructor() : this(mutableListOf<Clause>())
 
     constructor(
-        initClauses: MutableList<MutableList<Int>>,
+        initClauses: MutableList<Clause>,
         initVarsNumber: Int = 0,
         solverType: SolverType = SolverType.INCREMENTAL
     ) : this(solverType) {
@@ -50,7 +50,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     }
 
     // public function for adding new clauses
-    fun newClause(clause: MutableList<Int>) {
+    fun newClause(clause: Clause) {
         val maxVar = clause.maxOfOrNull { abs(it) } ?: 0
         while (varsNumber < maxVar) {
             addVariable()
@@ -161,7 +161,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
         // branching heuristic
-        selector.build(clauses.map { Clause(it) })
+        selector.build(clauses)
 
         // main loop
         while (true) {
@@ -179,7 +179,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
                 restarter.update()
 
                 // VSIDS
-                selector.update(Clause(lemma))
+                selector.update(lemma)
 
                 continue
             }
@@ -230,7 +230,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     val units: MutableList<Int> = mutableListOf()
 
     // add watchers to new clause. Run in buildWatchers and addClause
-    private fun addWatchers(clause: MutableList<Int>, index: Int) {
+    private fun addWatchers(clause: Clause, index: Int) {
         // every clause of size 1 watched by it only variable
         if (clause.size == 1) {
             watchers[litIndex(clause[0])].add(index)
@@ -260,7 +260,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     }
 
     // find n last assigned variables from given clause
-    private fun addForLastInTrail(n: Int, clause: List<Int>, index: Int) {
+    private fun addForLastInTrail(n: Int, clause: Clause, index: Int) {
         var cnt = 0
         val clauseVars = clause.map { litIndex(it) }
         // want to watch to last n literals from trail
@@ -303,7 +303,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
 
     // add clause and add watchers to it TODO: rename
-    private fun addClause(clause: MutableList<Int>) {
+    private fun addClause(clause: Clause) {
         clauses.add(clause)
         addWatchers(clause, clauses.lastIndex)
 
@@ -363,7 +363,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     }
 
     // change level, undefine variables, clear units
-    private fun backjump(clause: MutableList<Int>) {
+    private fun backjump(clause: Clause) {
         level = clause.map { vars[litIndex(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
 
         clearTrail(level)
@@ -374,17 +374,17 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     }
 
     // add a literal to lemma if it hasn't been added yet
-    private fun updateLemma(lemma: MutableList<Int>, lit: Int) {
+    private fun updateLemma(lemma: Clause, lit: Int) {
         if (lit !in lemma) {
             lemma.add(lit)
         }
     }
 
     // analyze conflict and return new clause
-    private fun analyzeConflict(conflict: MutableList<Int>): MutableList<Int> {
+    private fun analyzeConflict(conflict: Clause): Clause {
 
         val active = MutableList(varsNumber + 1) { false }
-        val lemma = mutableListOf<Int>()
+        val lemma = Clause()
 
         conflict.forEach { lit ->
             if (vars[litIndex(lit)].level == level) {

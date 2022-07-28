@@ -4,6 +4,8 @@ typealias Lit = Int
 
 class Clause(val lits: MutableList<Lit>): Collection<Lit> {
 
+    constructor(): this(mutableListOf<Lit>())
+
     override operator fun iterator() = lits.iterator()
 
     operator fun get(index: Int) = lits[index]
@@ -20,4 +22,8 @@ class Clause(val lits: MutableList<Lit>): Collection<Lit> {
     override fun contains(element: Lit): Boolean = lits.contains(element)
 
     override fun isEmpty(): Boolean = lits.isEmpty()
+
+    fun add(lit: Int) {
+        lits.add(lit)
+    }
 }
