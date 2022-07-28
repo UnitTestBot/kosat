@@ -18,45 +18,31 @@ enum class SolverType {
 
 class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Incremental {
 
-    /** Interface **/
-
     val clauses = mutableListOf<Clause>()
     var varsNumber: Int = 0
 
-    constructor() : this(mutableListOf<Clause>())
+    // values of variables
+    val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
 
-    constructor(
-        initClauses: MutableList<Clause>,
-        initVarsNumber: Int = 0,
-        solverType: SolverType = SolverType.INCREMENTAL
-    ) : this(solverType) {
-        while (varsNumber < initVarsNumber) {
-            addVariable()
-        }
-        initClauses.forEach { newClause(it) }
-    }
+    // all decisions and consequences
+    private val trail: MutableList<Int> = mutableListOf()
 
-    // public function for adding new variables
-    override fun addVariable() {
-        varsNumber++
+    // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
+    private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() }
 
-        selector.addVariable()
-        restarter.addVariable()
+    // list of unit clauses to propagate
+    val units: MutableList<Int> = mutableListOf()
 
-        vars.add(VarState(VarStatus.UNDEFINED, -1, -1))
-        watchers.add(mutableSetOf())
+    // decision level
+    var level: Int = 0
 
-        //TODO: add new vars everywhere it need!!!
-    }
+    /** Heuristics **/
 
-    // public function for adding new clauses
-    fun newClause(clause: Clause) {
-        val maxVar = clause.maxOfOrNull { abs(it) } ?: 0
-        while (varsNumber < maxVar) {
-            addVariable()
-        }
-        addClause(clause)
-    }
+    private val selector: Selector = VSIDS(varsNumber)
+
+    private var preprocessor: Preprocessor? = null
+
+    private val restarter = Restarter(this)
 
     /** Variable states **/
 
@@ -94,16 +80,45 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         }
     }
 
-    // values of variables
-    val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, -1, -1) }
-
     // TODO why not abs..
     private fun litIndex(lit: Int): Int = abs(lit)
 
-    /** Trail: **/
+    /** Interface **/
 
-    // all decisions and consequences
-    private val trail: MutableList<Int> = mutableListOf()
+    constructor() : this(mutableListOf<Clause>())
+
+    constructor(
+        initClauses: MutableList<Clause>,
+        initVarsNumber: Int = 0,
+        solverType: SolverType = SolverType.INCREMENTAL
+    ) : this(solverType) {
+        while (varsNumber < initVarsNumber) {
+            addVariable()
+        }
+        initClauses.forEach { newClause(it) }
+    }
+
+    // public function for adding new variables
+    override fun addVariable() {
+        varsNumber++
+
+        selector.addVariable()
+        restarter.addVariable()
+
+        vars.add(VarState(VarStatus.UNDEFINED, -1, -1))
+        watchers.add(mutableSetOf())
+    }
+
+    // public function for adding new clauses
+    fun newClause(clause: Clause) {
+        val maxVar = clause.maxOfOrNull { abs(it) } ?: 0
+        while (varsNumber < maxVar) {
+            addVariable()
+        }
+        addClause(clause)
+    }
+
+    /** Trail: **/
 
     // clear trail until given level
     fun clearTrail(until: Int = -1) {
@@ -111,14 +126,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
             delVariable(trail.removeLast())
         }
     }
-
-    /** Heuristics **/
-
-    private val selector: Selector = VSIDS(varsNumber)
-
-    private var preprocessor: Preprocessor? = null
-
-    private val restarter = Restarter(this)
 
     /** Solve with assumptions **/
 
@@ -157,7 +164,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
         // extreme cases
         if (clauses.isEmpty()) return variableValues()
-        if (clauses.any { it.size == 0 }) return null
+        if (clauses.any { it.isEmpty() }) return null
         if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
         // branching heuristic
@@ -222,12 +229,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     }
 
     /** Two watchers **/
-
-    // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
-    private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Int>() }
-
-    // list of unit clauses to propagate
-    val units: MutableList<Int> = mutableListOf()
 
     // add watchers to new clause. Run in buildWatchers and addClause
     private fun addWatchers(clause: Clause, index: Int) {
@@ -295,9 +296,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     }
 
     /** CDCL functions **/
-
-    // decision level
-    var level: Int = 0
 
     // check is all clauses satisfied or not
     private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
@@ -416,5 +414,4 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         }
         return lemma
     }
-
 }
