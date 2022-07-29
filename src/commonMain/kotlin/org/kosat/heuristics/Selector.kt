@@ -24,12 +24,12 @@ class VSIDS(private var varsNumber: Int = 0) : Selector() {
     private var numberOfConflicts = 0
 
     override fun update(lemma: Clause) {
+        lemma.forEach { lit -> activity[abs(lit)]++ } //todo litIndex
         numberOfConflicts++
         if (numberOfConflicts == decay) {
             // update scores
             numberOfConflicts = 0
             activity.forEachIndexed { ind, _ -> activity[ind] /= divisionCoeff }
-            lemma.forEach { lit -> activity[abs(lit)]++ } //todo litIndex
         }
     }
 
