@@ -96,6 +96,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
             addVariable()
         }
         initClauses.forEach { newClause(it) }
+        phaseSaving = MutableList(varsNumber + 1) { VarStatus.UNDEFINED }
     }
 
     // public function for adding new variables
@@ -131,6 +132,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
     // assumptions for incremental sat-solver
     private var assumptions: List<Int> = emptyList()
+
+    // phase saving
+    private var phaseSaving: MutableList<VarStatus> = mutableListOf()
 
     fun solve(currentAssumptions: List<Int>): List<Int>? {
         require(solverType == SolverType.INCREMENTAL)
@@ -207,7 +211,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
                 clearTrail(0)
                 return null
             }
-            setVariableValues(-1, nextVariable)
+
+            if (phaseSaving[nextVariable] == VarStatus.FALSE) {
+                nextVariable = -nextVariable
+            }
+            setVariableValues(null, nextVariable)
         }
     }
 
@@ -311,6 +319,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
     // delete a variable from the trail TODO: rename
     private fun delVariable(v: Int) {
+        phaseSaving[v] = getStatus(v)
         setStatus(v, VarStatus.UNDEFINED)
         vars[v].clause = -1
         vars[v].level = -1

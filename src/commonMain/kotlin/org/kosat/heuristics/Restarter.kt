@@ -6,7 +6,8 @@ import org.kosat.Incremental
 import kotlin.math.abs
 
 class Restarter(private val solver: CDCL): Incremental {
-    private val u = 200.0
+
+    private val u = 50.0
 
     private var restartNumber = u
     private val restartCoeff = 1.1
