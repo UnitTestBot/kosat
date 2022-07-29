@@ -187,6 +187,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
                 addClause(lemma)
                 backjump(lemma)
 
+                // Restart after adding a clause to maintain correct watchers
                 restarter.update()
 
                 // VSIDS

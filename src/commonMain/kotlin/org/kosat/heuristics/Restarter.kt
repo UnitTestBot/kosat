@@ -50,7 +50,6 @@ class Restarter(private val solver: CDCL): Incremental {
 
 
     fun update() {
-        // Restart after adding a clause to maintain correct watchers
         numberOfConflictsAfterRestart++
         // restarting after some number of conflicts
         if (numberOfConflictsAfterRestart >= restartNumber) {

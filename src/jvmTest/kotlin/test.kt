@@ -2,7 +2,11 @@ import org.junit.jupiter.api.Test
 import java.io.File
 import kotlin.system.measureTimeMillis
 import com.github.lipen.satlib.solver.MiniSatSolver
-import org.kosat.*
+import org.kosat.CDCL
+import org.kosat.Clause
+import org.kosat.SolverType
+import org.kosat.readCnfRequests
+import org.kosat.solveCnf
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.abs
