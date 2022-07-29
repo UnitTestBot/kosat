@@ -210,7 +210,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
                 if (clauses.size > reduceNumber) {
                     reduceNumber += reduceIncrement
-                    reduceIncrement *= 1.1
+                    // reduceIncrement *= 1.1
                     restarter.restart()
                     reduceDB()
                 }
