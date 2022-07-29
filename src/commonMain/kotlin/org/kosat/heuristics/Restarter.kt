@@ -30,7 +30,7 @@ class Restarter(private val solver: CDCL): Incremental {
 
 
     // making restart to remove useless clauses
-    private fun restart() {
+    fun restart() {
         numberOfRestarts++
         // restartNumber *= restartCoeff
         restartNumber = u * lubySeq[curr++]
@@ -42,10 +42,10 @@ class Restarter(private val solver: CDCL): Incremental {
         //buildWatchers()
 
         solver.clearTrail(0)
-        if (solver.clauses.size > solver.reduceNumber) {
-            solver.reduceNumber += 500
-            solver.reduceDB()
-        }
+        // if (solver.clauses.size > solver.reduceNumber) {
+        //     solver.reduceNumber += 500
+        //     solver.reduceDB()
+        // }
 
         /*removeSubsumedClauses()
         countOccurrence()

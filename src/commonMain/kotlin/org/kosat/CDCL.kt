@@ -33,7 +33,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     // list of unit clauses to propagate
     val units: MutableList<Clause> = mutableListOf()
 
-    var reduceNumber = 6000
+    var reduceNumber = 6000.0
+    var reduceIncrement = 500.0
 
     // decision level
     var level: Int = 0
@@ -206,6 +207,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
                 addClause(lemma)
                 backjump(lemma)
+
+                if (clauses.size > reduceNumber) {
+                    reduceNumber += reduceIncrement
+                    reduceIncrement *= 1.1
+                    restarter.restart()
+                    reduceDB()
+                }
 
                 restarter.update()
 
