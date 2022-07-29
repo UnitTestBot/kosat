@@ -138,8 +138,12 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         assumptions = currentAssumptions
         selector.initAssumptions(assumptions)
         val result = solve()
-        assumptions.forEach {
-            if (getStatus(it) == VarStatus.FALSE) {
+        if (result == null) {
+            assumptions = emptyList()
+            return null
+        }
+        assumptions.forEach { lit ->
+            if (result.find { it == -lit } != null) {
                 assumptions = emptyList()
                 return null
             }
@@ -194,7 +198,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
             // If (the problem is already) SAT, return the current assignment
             if (satisfiable()) {
                 val model = variableValues()
-                clearTrail(0)
+                reset()
                 return model
             }
 
@@ -204,11 +208,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
             // Check that assumption we want to make isn't controversial
             if (level <= assumptions.size && wrongAssumption(nextVariable)) {
-                clearTrail(0)
+                reset()
                 return null
             }
             setVariableValues(-1, nextVariable)
         }
+    }
+
+    private fun reset() {
+        level = 0
+        clearTrail(0)
     }
 
     // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
@@ -223,7 +232,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
                 when (v.status) {
                     VarStatus.TRUE -> index
                     VarStatus.FALSE -> -index
-                    else -> index
+                    else -> {
+                        if (assumptions.find { it == -index } != null) {
+                            -index
+                        } else {
+                            index
+                        }
+                    }
                 }
             }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
     }

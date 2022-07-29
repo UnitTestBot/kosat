@@ -136,7 +136,7 @@ internal class DiamondTests {
                 }
 
                 val input = fileFirstLine.dropLast(2).joinToString(" ") + " " +
-                        (variables.toInt() + 1).toString() + " " +
+                        (variables.toInt()).toString() + " " +
                         (clauses.toInt() + assumptions.size).toString() + "\n" +
                         lines.drop(1).joinToString(separator = "\n") +
                         assumptions.joinToString(prefix = "\n", separator = " 0\n", postfix =  " 0")
