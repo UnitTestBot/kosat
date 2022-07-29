@@ -42,6 +42,10 @@ class Restarter(private val solver: CDCL): Incremental {
         //buildWatchers()
 
         solver.clearTrail(0)
+        if (solver.clauses.size > solver.reduceNumber) {
+            solver.reduceNumber += 500
+            solver.reduceDB()
+        }
 
         /*removeSubsumedClauses()
         countOccurrence()
