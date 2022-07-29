@@ -1,8 +1,11 @@
 import org.junit.jupiter.api.Test
-import org.kosat.readCnfRequests
 import java.io.File
 import kotlin.system.measureTimeMillis
 import com.github.lipen.satlib.solver.MiniSatSolver
+import org.kosat.CDCL
+import org.kosat.Clause
+import org.kosat.SolverType
+import org.kosat.readCnfRequests
 import org.kosat.solveCnf
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -41,7 +44,7 @@ internal class DiamondTests {
         with(MiniSatSolver()) {
             val lit = List(data.vars) { newLiteral() }
             for (clause in data.clauses)
-                addClause(clause.lit.map { it.sign * lit[abs(it) - 1] })
+                addClause(clause.lits.map { it.sign * lit[abs(it) - 1] })
 
             return solve()
         }
@@ -53,7 +56,7 @@ internal class DiamondTests {
         val cnfRequest = readCnfRequests(input).first()
         if (ans.size != cnfRequest.vars) return false
 
-        return cnfRequest.clauses.all { clause -> clause.lit.any { ans.contains(it) } }
+        return cnfRequest.clauses.all { clause -> clause.lits.any { ans.contains(it) } }
     }
 
     private fun runTests(path: String) : Boolean {
@@ -126,24 +129,29 @@ internal class DiamondTests {
             var solution: List<Int>?
             var isSolution: Boolean
 
+            val first = readCnfRequests(fileInput).first()
+
+            val solver = CDCL(first.clauses as MutableList<Clause>, first.vars, SolverType.INCREMENTAL)
+
             repeat(5) { ind ->
-                val assumptions = List(ind) { Random.nextInt(1, variables.toInt() + 2) }.map {
+                val assumptions = if (first.vars == 0) listOf() else List(ind)
+                { Random.nextInt(1, first.vars + 1 ) }.map {
                     if (Random.nextBoolean()) it else -it
                 }
 
                 val input = fileFirstLine.dropLast(2).joinToString(" ") + " " +
-                        (variables.toInt() + 1).toString() + " " +
+                        (variables.toInt()).toString() + " " +
                         (clauses.toInt() + assumptions.size).toString() + "\n" +
                         lines.drop(1).joinToString(separator = "\n") +
                         assumptions.joinToString(prefix = "\n", separator = " 0\n", postfix =  " 0")
 
                 println(assumptions)
 
-                val timeKoSat = (measureTimeMillis {
-                    solution = solveCnf(readCnfRequests(input).first())
-                }.toDouble() / 1000).toString()
-
                 val timeMiniSat = measureTimeMillis { isSolution = processMiniSatSolver(input) }.toDouble() / 1000
+
+                val timeKoSat = (measureTimeMillis {
+                    solution = solver.solve(assumptions)
+                }.toDouble() / 1000).toString()
 
                 val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 

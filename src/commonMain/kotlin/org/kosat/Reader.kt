@@ -1,13 +1,11 @@
 package org.kosat
 
-class Clause(val lit: MutableList<Int>)
-
 class CnfRequest(val vars: Int, val clauses: List<Clause>)
 
 /**
  * Reads [CnfRequest]'s assuming [s] is formatted according [Simplified DIMACS](http://www.satcompetition.org/2004/format-solvers2004.html)
  */
-class Scanner(val s: String) {
+class Scanner(private val s: String) {
     private var pos = 0
     fun hasNext(): Boolean {
         while (pos < s.length && s[pos].isWhitespace())
