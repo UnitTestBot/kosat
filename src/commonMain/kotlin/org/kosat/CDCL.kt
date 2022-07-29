@@ -118,7 +118,7 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
         updateSig()
 
         // simplifying given cnf formula
-        preprocessing()
+        //preprocessing()
         countScore()
 
 
@@ -148,15 +148,16 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
                 totalNumberOfConflicts++
                 // restarting after some number of conflicts
                 if (numberOfConflictsAfterRestart >= restartNumber) {
+                    println("Conflicts found: $totalNumberOfConflicts. Clauses learned: ${clauses.size}")
                     numberOfConflictsAfterRestart = 0
                     makeRestart()
                 }
                 // VSIDS
                 numberOfConflicts++
+                lemma.forEach { lit -> score[litIndex(lit)]++ }
                 if (numberOfConflicts == decay) { // update scores
                     numberOfConflicts = 0
                     score.forEachIndexed { ind, _ -> score[ind] /= divisionCoeff }
-                    lemma.forEach { lit -> score[litIndex(lit)]++ }
                 }
 
                 continue
@@ -303,7 +304,6 @@ class CDCL(private var clauses: MutableList<MutableList<Int>>, private var varsN
     // add a variable to the trail and update watchers of clauses linked to this variable
     private fun addVariable(clause: Int, lit: Int): Boolean {
         if (getStatus(lit) != VarStatus.UNDEFINED) return false
-
         setStatus(lit, VarStatus.TRUE)
         val v = litIndex(lit)
         vars[v].clause = clause
