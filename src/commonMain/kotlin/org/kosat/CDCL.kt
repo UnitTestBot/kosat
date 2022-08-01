@@ -119,6 +119,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         while (varsNumber < maxVar) {
             addVariable()
         }
+        clause.locked = true
         addClause(clause)
     }
 
