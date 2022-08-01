@@ -6,7 +6,8 @@ import org.kosat.Incremental
 import kotlin.math.abs
 
 class Restarter(private val solver: CDCL): Incremental {
-    private val u = 200.0
+
+    private val u = 50.0
 
     private var restartNumber = u
     private val restartCoeff = 1.1
@@ -29,7 +30,7 @@ class Restarter(private val solver: CDCL): Incremental {
 
 
     // making restart to remove useless clauses
-    private fun restart() {
+    fun restart() {
         numberOfRestarts++
         // restartNumber *= restartCoeff
         restartNumber = u * lubySeq[curr++]
@@ -41,6 +42,10 @@ class Restarter(private val solver: CDCL): Incremental {
         //buildWatchers()
 
         solver.clearTrail(0)
+        // if (solver.clauses.size > solver.reduceNumber) {
+        //     solver.reduceNumber += 500
+        //     solver.reduceDB()
+        // }
 
         /*removeSubsumedClauses()
         countOccurrence()

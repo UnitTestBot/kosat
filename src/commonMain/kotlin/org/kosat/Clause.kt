@@ -6,6 +6,12 @@ class Clause(val lits: MutableList<Lit>): Collection<Lit> {
 
     constructor(): this(mutableListOf<Lit>())
 
+    var locked = false
+
+    var deleted = false
+
+    var lbd = 0
+
     override operator fun iterator() = lits.iterator()
 
     operator fun get(index: Int) = lits[index]
