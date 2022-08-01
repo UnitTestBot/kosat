@@ -246,8 +246,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
                 return null
             }
 
-            if (phaseSaving[nextVariable] == VarStatus.FALSE) {
-                nextVariable = -nextVariable
+            if (level > assumptions.size && phaseSaving[abs(nextVariable)] == VarStatus.FALSE) {
+                nextVariable = -abs(nextVariable)
             }
             setVariableValues(null, nextVariable)
         }
@@ -284,7 +284,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     /** Two watchers **/
 
     // add watchers to new clause. Run in buildWatchers and addClause
-    private fun addWatchers(clause: Clause, index: Int) {
+    private fun addWatchers(clause: Clause) {
         // every clause of size 1 watched by it only variable
         if (clause.size == 1) {
             watchers[litIndex(clause[0])].add(clause)
@@ -306,15 +306,15 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
             if (clause.count { getStatus(it) == VarStatus.FALSE } == clause.size - 1) {
                 units.add(clause)
             }
-            addForLastInTrail(1, clause, index)
+            addForLastInTrail(1, clause)
         } else {
             // for clauses added by conflict and by newClause if it already has all defined literals
-            addForLastInTrail(2, clause, index)
+            addForLastInTrail(2, clause)
         }
     }
 
     // find n last assigned variables from given clause
-    private fun addForLastInTrail(n: Int, clause: Clause, index: Int) {
+    private fun addForLastInTrail(n: Int, clause: Clause) {
         var cnt = 0
         val clauseVars = clause.map { litIndex(it) }
         // want to watch to last n literals from trail
@@ -358,7 +358,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     // add clause and add watchers to it TODO: rename
     private fun addClause(clause: Clause) {
         clauses.add(clause)
-        addWatchers(clause, clauses.lastIndex)
+        addWatchers(clause)
 
         restarter.addClause(clause)
         preprocessor?.addClause(clause)
