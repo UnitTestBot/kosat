@@ -2,7 +2,7 @@ package org.kosat
 
 import org.kosat.heuristics.Preprocessor
 import org.kosat.heuristics.Restarter
-import org.kosat.heuristics.Selector
+import org.kosat.heuristics.VariableSelector
 import org.kosat.heuristics.VSIDS
 import kotlin.math.abs
 
@@ -38,7 +38,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
     /** Heuristics **/
 
-    private val selector: Selector = VSIDS(varsNumber)
+    private val variableSelector: VariableSelector = VSIDS(varsNumber)
 
     private var preprocessor: Preprocessor? = null
 
@@ -102,7 +102,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     override fun addVariable() {
         varsNumber++
 
-        selector.addVariable()
+        variableSelector.addVariable()
         restarter.addVariable()
 
         vars.add(VarState(VarStatus.UNDEFINED, -1, -1))
@@ -136,7 +136,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         require(solverType == SolverType.INCREMENTAL)
 
         assumptions = currentAssumptions
-        selector.initAssumptions(assumptions)
+        variableSelector.initAssumptions(assumptions)
         val result = solve()
         if (result == null) {
             assumptions = emptyList()
@@ -172,7 +172,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
         // branching heuristic
-        selector.build(clauses)
+        variableSelector.build(clauses)
 
         // main loop
         while (true) {
@@ -191,7 +191,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
                 restarter.update()
 
                 // VSIDS
-                selector.update(lemma)
+                variableSelector.update(lemma)
 
                 continue
             }
@@ -205,7 +205,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
             // try to guess variable
             level++
-            val nextVariable = selector.nextDecisionVariable(vars, level)
+            val nextVariable = variableSelector.nextDecisionVariable(vars, level)
 
             // Check that assumption we want to make isn't controversial
             if (level <= assumptions.size && wrongAssumption(nextVariable)) {
@@ -387,15 +387,14 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         units.add(clauses.lastIndex)
     }
 
-    // add a literal to lemma if it hasn't been added yet
-    private fun updateLemma(lemma: Clause, lit: Int) {
-        if (lit !in lemma) {
-            lemma.add(lit)
-        }
-    }
-
     // analyze conflict and return new clause
     private fun analyzeConflict(conflict: Clause): Clause {
+
+        fun updateLemma(lemma: Clause, lit: Int) {
+            if (lit !in lemma) {
+                lemma.add(lit)
+            }
+        }
 
         val active = MutableList(varsNumber + 1) { false }
         val lemma = Clause()

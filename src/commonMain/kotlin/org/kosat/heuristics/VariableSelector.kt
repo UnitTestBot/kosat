@@ -5,7 +5,7 @@ import org.kosat.Clause
 import org.kosat.Lit
 import kotlin.math.abs
 
-abstract class Selector {
+abstract class VariableSelector {
     protected var assumptions: List<Lit> = emptyList()
 
     fun initAssumptions(assumptions: List<Lit>) {
@@ -18,7 +18,7 @@ abstract class Selector {
     abstract fun update(lemma: Clause)
 }
 
-class VSIDS(private var varsNumber: Int = 0) : Selector() {
+class VSIDS(private var varsNumber: Int = 0) : VariableSelector() {
     private val decay = 50
     private val divisionCoeff = 2.0
     private var numberOfConflicts = 0

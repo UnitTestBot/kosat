@@ -44,7 +44,7 @@ class Preprocessor(private val solver: CDCL) {
             if (litOccurrence[litPos(currentInd)].size * litOccurrence[litPos(-currentInd)].size <= clauseLimit) {
                 isLiteralRemoved[currentInd] = true
                 deletingOrder.add(currentInd)
-                addResolvernts(currentInd)
+                addResolvents(currentInd)
             }
             currentInd++
         }
@@ -83,7 +83,7 @@ class Preprocessor(private val solver: CDCL) {
     }
 
 
-    private fun addResolvernts(ind: Int) {
+    private fun addResolvents(ind: Int) {
         for (cl1 in litOccurrence[litPos(ind)]) {
             if (isClauseDeleted[cl1]) {
                 continue
