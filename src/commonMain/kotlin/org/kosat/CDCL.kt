@@ -114,10 +114,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
     // public function for adding new clauses
     fun newClause(clause: Clause) {
+        require(level == 0)
         val maxVar = clause.maxOfOrNull { abs(it) } ?: 0
         while (varsNumber < maxVar) {
             addVariable()
         }
+        // don't add clause if it already had
+        if (clause.any { getStatus(it) == VarStatus.TRUE }) {
+            return
+        }
+        clause.lits.removeAll { getStatus(it) == VarStatus.FALSE }
         clause.locked = true
         addClause(clause)
     }
