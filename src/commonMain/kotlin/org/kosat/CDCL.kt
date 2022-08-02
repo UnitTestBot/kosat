@@ -16,7 +16,7 @@ enum class SolverType {
     INCREMENTAL, NON_INCREMENTAL;
 }
 
-class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Incremental {
+class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Incremental {
 
     val clauses = mutableListOf<Clause>()
     var varsNumber: Int = 0
@@ -69,7 +69,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
     // get status of literal
     fun getStatus(lit: Int): VarStatus {
-        if (vars[litIndex(lit)].status == VarStatus.UNDEFINED) return VarStatus.UNDEFINED
+        if (vars[variable(lit)].status == VarStatus.UNDEFINED) return VarStatus.UNDEFINED
         if (lit < 0) return !vars[-lit].status
         return vars[lit].status
     }
@@ -84,7 +84,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     }
 
     // TODO why not abs..
-    private fun litIndex(lit: Int): Int = abs(lit)
+    private fun variable(lit: Int): Int = abs(lit)
 
     /** Interface **/
 
@@ -213,9 +213,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
                 // build new clause by conflict clause
                 val lemma = analyzeConflict(conflictClause)
 
-                lemma.lbd = lemma.distinctBy { vars[litIndex(it)].level }.size
+                lemma.lbd = lemma.distinctBy { vars[variable(it)].level }.size
                 // println(lemma.lbd)
-                // if (clauses.size % 1000 == 0) println(clauses.size)
+                if (clauses.size % 1000 == 0) println(clauses.size)
 
                 backjump(lemma)
 
@@ -259,7 +259,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
             if (level > assumptions.size && phaseSaving[abs(nextVariable)] == VarStatus.FALSE) {
                 nextVariable = -abs(nextVariable)
-            }
+            } // TODO move to nextDecisionVariable
             setVariableValues(null, nextVariable)
         }
     }
@@ -289,7 +289,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
                         }
                     }
                 }
-            }.sortedBy { litIndex(it) }.filter { litIndex(it) > 0 }
+            }.sortedBy { variable(it) }.filter { variable(it) > 0 }
     }
 
     /** Two watchers **/
@@ -297,29 +297,29 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     // add watchers to new clause. Run in buildWatchers and addClause
     private fun addWatchers(clause: Clause) {
         require(clause.size > 1)
-        watchers[litIndex(clause[0])].add(clause)
-        watchers[litIndex(clause[1])].add(clause)
+        watchers[variable(clause[0])].add(clause)
+        watchers[variable(clause[1])].add(clause)
     }
 
-    // update watchers for clauses linked with literal
+    // update watchers for clauses linked with literal; 95% of time we are in this function
     private fun updateWatchers(lit: Int) {
         val clausesToRemove = mutableSetOf<Clause>()
-        watchers[litIndex(lit)].forEach { brokenClause ->
+        watchers[variable(lit)].forEach { brokenClause ->
             if (!brokenClause.deleted) {
                 val undef = brokenClause.count { getStatus(it) == VarStatus.UNDEFINED }
                 val firstTrue = brokenClause.firstOrNull { getStatus(it) == VarStatus.TRUE }
                 if (undef > 1) {
                     val newWatcher = brokenClause.first {
-                        getStatus(it) == VarStatus.UNDEFINED && brokenClause !in watchers[litIndex(it)]
+                        getStatus(it) == VarStatus.UNDEFINED && brokenClause !in watchers[variable(it)]
                     }
-                    watchers[litIndex(newWatcher)].add(brokenClause)
+                    watchers[variable(newWatcher)].add(brokenClause)
                     clausesToRemove.add(brokenClause)
                 } else if (undef == 1 && firstTrue == null) {
                     units.add(brokenClause)
                 }
             }
         }
-        watchers[litIndex(lit)].removeAll(clausesToRemove)
+        watchers[variable(lit)].removeAll(clausesToRemove)
     } // TODO does kotlin create new "ссылки" to objects or there are only one?
 
     /** CDCL functions **/
@@ -385,7 +385,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         if (getStatus(lit) != VarStatus.UNDEFINED) return false
 
         setStatus(lit, VarStatus.TRUE)
-        val v = litIndex(lit)
+        val v = variable(lit)
         vars[v].clause = clause
         vars[v].level = level
         trail.add(v)
@@ -395,7 +395,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
     // change level, undefine variables, clear units; if clause.size == 1 we backjump to 0 level
     private fun backjump(clause: Clause) {
-        level = clause.map { vars[litIndex(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
+        level = clause.map { vars[variable(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
 
         clearTrail(level)
 
@@ -417,8 +417,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         val lemma = Clause()
 
         conflict.forEach { lit ->
-            if (vars[litIndex(lit)].level == level) {
-                active[litIndex(lit)] = true
+            if (vars[variable(lit)].level == level) {
+                active[variable(lit)] = true
             } else {
                 updateLemma(lemma, lit)
             }
@@ -430,7 +430,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
             if (!active[v]) continue
 
             vars[v].clause?.forEach { u ->
-                val current = litIndex(u)
+                val current = variable(u)
                 if (vars[current].level != level) {
                     updateLemma(lemma, u)
                 } else if (current != v) {
@@ -452,7 +452,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
             var v = 0
             var previousLevel = -1
             lemma.forEachIndexed { ind, lit ->
-                val literalLevel = vars[litIndex(lit)].level
+                val literalLevel = vars[variable(lit)].level
                 if (literalLevel != level && literalLevel > previousLevel) {
                     previousLevel = literalLevel
                     v = ind
