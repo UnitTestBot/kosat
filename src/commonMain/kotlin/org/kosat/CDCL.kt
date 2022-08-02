@@ -332,6 +332,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     }
 
     private fun addWatchers(clause: Clause) {
+        if (clause.isEmpty()) return
         if (clause.size == 1) {
             watchers[litIndex(clause[0])].add(clause)
             units.add(clause)
