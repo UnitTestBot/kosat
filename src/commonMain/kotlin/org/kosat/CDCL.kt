@@ -107,7 +107,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         varsNumber++
 
         variableSelector.addVariable()
-        restarter.addVariable()
 
         vars.add(VarState(VarStatus.UNDEFINED, null, -1))
         watchers.add(mutableSetOf())
@@ -179,8 +178,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     /** Solve **/
 
     fun solve(): List<Int>? {
-        restarter.countOccurrence()
-        restarter.updateSig()
 
         preprocessor = if (solverType == SolverType.NON_INCREMENTAL) {
             Preprocessor(this)
@@ -360,7 +357,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         clauses.add(clause)
         addWatchers(clause)
 
-        restarter.addClause(clause)
         preprocessor?.addClause(clause)
     }
 
