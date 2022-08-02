@@ -16,13 +16,13 @@ enum class SolverType {
     INCREMENTAL, NON_INCREMENTAL;
 }
 
-class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Incremental {
+class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Incremental {
 
     val clauses = mutableListOf<Clause>()
     var varsNumber: Int = 0
 
     // values of variables
-    val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, null, -1) }
+    val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, null, -1, -1) }
 
     // all decisions and consequences
     private val trail: MutableList<Int> = mutableListOf()
@@ -68,6 +68,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         var status: VarStatus,
         var clause: Clause?,
         var level: Int,
+        var trailIndex: Int
     )
 
     // get status of literal
@@ -112,7 +113,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         variableSelector.addVariable()
         restarter.addVariable()
 
-        vars.add(VarState(VarStatus.UNDEFINED, null, -1))
+        vars.add(VarState(VarStatus.UNDEFINED, null, -1, -1))
         watchers.add(mutableSetOf())
 
         minimizeMarks.add(0)
@@ -289,7 +290,120 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
     /** Two watchers **/
 
-    // add watchers to new clause. Run in buildWatchers and addClause
+    private fun getTrailIndex(lit: Int): Int {
+        return vars[litIndex(lit)].trailIndex
+    }
+
+    private fun updateWatchers(lit: Int) {
+        val clausesToRemove = mutableSetOf<Clause>()
+        watchers[litIndex(lit)].forEach { brokenClause ->
+            var undef = 0
+            val undefIndex = mutableListOf<Int>()
+            var hasTrue = false
+            brokenClause.forEachIndexed { index, it ->
+                if (getStatus(it) == VarStatus.UNDEFINED) {
+                    undef++
+                    if (undef <= 2) {
+                        undefIndex.add(index)
+                    }
+                } else if (getStatus(it) == VarStatus.TRUE) {
+                    hasTrue = true
+                }
+            }
+            if (undef > 1) {
+                val newWatcherInd = if (undefIndex[0] > 1) undefIndex[0] else undefIndex[1]
+                val newWatcher = brokenClause[newWatcherInd]
+                watchers[litIndex(newWatcher)].add(brokenClause)
+                if (litIndex(brokenClause[0]) == litIndex(lit)) {
+                    val tmp = brokenClause[0]
+                    brokenClause[0] = newWatcher
+                    brokenClause[newWatcherInd] = tmp
+                } else {
+                    val tmp = brokenClause[1]
+                    brokenClause[1] = newWatcher
+                    brokenClause[newWatcherInd] = tmp
+                }
+                clausesToRemove.add(brokenClause)
+            } else if (undef == 1 && !hasTrue) {
+                units.add(brokenClause)
+            }
+        }
+        watchers[litIndex(lit)].removeAll(clausesToRemove)
+    }
+
+    private fun addWatchers(clause: Clause) {
+        if (clause.size == 1) {
+            watchers[litIndex(clause[0])].add(clause)
+            units.add(clause)
+            return
+        }
+        //val undef = clause.count { getStatus(it) == VarStatus.UNDEFINED }
+
+        var undef = 0
+        var falseCounter = 0
+        val undefIndex = mutableListOf<Int>()
+        var lastInTrail = -1
+        var secondLastInTrail = -1
+
+        clause.forEachIndexed { ind, lit ->
+            if (getStatus(lit) == VarStatus.UNDEFINED) {
+                undef++
+                if (undef <= 2) {
+                    undefIndex.add(ind)
+                }
+            } else {
+                if (lastInTrail == -1 || getTrailIndex(clause[lastInTrail]) < getTrailIndex(lit)) {
+                    secondLastInTrail = lastInTrail
+                    lastInTrail = ind
+                } else if (secondLastInTrail == -1 || getTrailIndex(clause[secondLastInTrail]) < getTrailIndex(lit)) {
+                    secondLastInTrail = ind
+                }
+                if (getStatus(lit) == VarStatus.FALSE) {
+                    falseCounter++
+                }
+            }
+        }
+
+        var a: Int
+        var b: Int
+
+        if (undef >= 2) {
+            a = undefIndex[0]
+            b = undefIndex[1]
+            watchers[litIndex(clause[a])].add(clause)
+            watchers[litIndex(clause[b])].add(clause)
+        } else if (undef == 1) {
+            a = undefIndex[0]
+            watchers[litIndex(clause[a])].add(clause)
+            if (falseCounter == clause.size - 1) {
+                units.add(clause)
+            }
+            b = lastInTrail
+            watchers[litIndex(clause[b])].add(clause)
+            //addForLastInTrail(1, clause, index)
+        } else {
+            // for clauses added by conflict and by newClause if it already controversial
+            a = lastInTrail
+            b = secondLastInTrail
+            watchers[litIndex(clause[a])].add(clause)
+            watchers[litIndex(clause[b])].add(clause)
+            //addForLastInTrail(2, clause, index)
+        }
+        // put watchers on first place
+        if (a > b) {
+            a = b.also { b = a }
+        }
+        when (a) {
+            0 -> clause[b] = clause[1].also { clause[1] = clause[b] }
+            1 -> clause[b] = clause[0].also { clause[0] = clause[b] }
+            else -> {
+                clause[b] = clause[1].also { clause[1] = clause[b] }
+                clause[a] = clause[0].also { clause[0] = clause[a] }
+            }
+        }
+    }
+
+/*    // add watchers to new clause. Run in buildWatchers and addClause
     private fun addWatchers(clause: Clause) {
         // every clause of size 1 watched by it only variable
         if (clause.size == 1) {
@@ -354,7 +468,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
             }
         }
         watchers[litIndex(lit)].removeAll(clausesToRemove)
-    }
+    }*/
 
     /** CDCL functions **/
 
@@ -376,6 +490,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         setStatus(v, VarStatus.UNDEFINED)
         vars[v].clause = null
         vars[v].level = -1
+        vars[v].trailIndex = -1
     }
 
     // return index of conflict clause, or -1 if there is no conflict clause
@@ -385,20 +500,28 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
             if (clause.any { getStatus(it) == VarStatus.TRUE }) continue
 
             // guarantees that clauses in unit don't become defined incorrect
-            require(clause.any { getStatus(it) != VarStatus.FALSE })
+            //require(clause.any { getStatus(it) != VarStatus.FALSE })
+            val lit = clause.firstOrNull { getStatus(it) == VarStatus.UNDEFINED } ?: continue
 
-            val lit = clause.first { getStatus(it) == VarStatus.UNDEFINED }
             // check if we get a conflict
             watchers[litIndex(lit)].forEach { brokenClause ->
                 if (!brokenClause.deleted && brokenClause != clause) {
-                    val undef = brokenClause.count { getStatus(it) == VarStatus.UNDEFINED }
+                    // just because we need to check if undef is 1 or >=2 (so we check only watchers) - good acceleration
+                    var undef = 0
+                    if (getStatus(brokenClause[0]) == VarStatus.UNDEFINED) {
+                        undef++
+                    }
+                    if (brokenClause.size > 1 && getStatus(brokenClause[1]) == VarStatus.UNDEFINED) {
+                        undef++
+                    }
+                    // there is a slow check with .all (takes most time) - ideas to speed up (???)
                     if (undef == 1 && -lit in brokenClause && brokenClause.all { getStatus(it) != VarStatus.TRUE }) {
-                        // quick fix for analyzeConflict
                         setStatus(lit, VarStatus.TRUE)
                         val v = litIndex(lit)
                         vars[v].clause = clause
                         vars[v].level = level
                         trail.add(v)
+                        vars[v].trailIndex = trail.lastIndex
                         return brokenClause
                     }
                 }
@@ -417,6 +540,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         val v = litIndex(lit)
         vars[v].clause = clause
         vars[v].level = level
+        vars[v].trailIndex = trail.lastIndex
         trail.add(v)
         updateWatchers(lit)
         return true
@@ -447,7 +571,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         clause.forEach { minimizeMarks[litPos(it)] = mark }
         return Clause(clause.filterNot { lit ->
             vars[abs(lit)].clause?.all {
-            minimizeMarks[litPos(it)] == mark } ?: false
+                minimizeMarks[litPos(it)] == mark
+            } ?: false
         }.toMutableList())
     }
 
