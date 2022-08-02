@@ -39,6 +39,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
     // decision level
     var level: Int = 0
 
+    private val minimizeMarks = MutableList(varsNumber * 2 + 1) { 0 }
+    var mark = 0
+
     /** Heuristics **/
 
     private val variableSelector: VariableSelector = VSIDS(varsNumber)
@@ -111,6 +114,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
         vars.add(VarState(VarStatus.UNDEFINED, null, -1))
         watchers.add(mutableSetOf())
+
+        minimizeMarks.add(0)
+        minimizeMarks.add(0)
     }
 
     // public function for adding new clauses
@@ -208,7 +214,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
                 lemma.lbd = lemma.distinctBy { vars[litIndex(it)].level }.size
                 // println(lemma.lbd)
-                if (clauses.size % 1000 == 0) println(clauses.size)
+                //if (clauses.size % 1000 == 0) println(clauses.size)
 
                 addClause(lemma)
                 backjump(lemma)
@@ -427,6 +433,24 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
         units.add(clauses.last())
     }
 
+    // return position of literal in occurrence array
+    private fun litPos(lit: Int): Int {
+        return if (lit >= 0) {
+            lit * 2 - 1 // odd indexes
+        } else {
+            -lit * 2 // even indexes
+        }
+    }
+
+    private fun minimize(clause: Clause): Clause {
+        mark++
+        clause.forEach { minimizeMarks[litPos(it)] = mark }
+        return Clause(clause.filterNot { lit ->
+            vars[abs(lit)].clause?.all {
+            minimizeMarks[litPos(it)] == mark } ?: false
+        }.toMutableList())
+    }
+
     // analyze conflict and return new clause
     private fun analyzeConflict(conflict: Clause): Clause {
 
@@ -467,6 +491,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
                 updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
             }
         }
-        return lemma
+        return minimize(lemma)
     }
 }

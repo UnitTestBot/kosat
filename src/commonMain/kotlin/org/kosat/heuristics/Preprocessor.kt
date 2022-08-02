@@ -29,7 +29,7 @@ class Preprocessor(private val solver: CDCL) {
         removeSubsumedClauses()
         bve()
         removeSubsumedClauses()
-        println("${solver.varsNumber}, ${solver.clauses.size}")
+        //println("${solver.varsNumber}, ${solver.clauses.size}")
         // clauses.forEach { println(it) }
         // removePureLiterals()
     }

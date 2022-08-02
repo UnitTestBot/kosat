@@ -7,7 +7,7 @@ import kotlin.math.abs
 
 class Restarter(private val solver: CDCL): Incremental {
 
-    private val u = 50.0
+    private val u = 150.0
 
     private var restartNumber = u
     private val restartCoeff = 1.1
@@ -18,6 +18,8 @@ class Restarter(private val solver: CDCL): Incremental {
     private val lubySeq: MutableList<Int> = mutableListOf(1)
 
     private var curr = 1
+
+    private var totalNumberOfConflicts = 0
 
     init {
         var pw = 1
@@ -32,6 +34,7 @@ class Restarter(private val solver: CDCL): Incremental {
     // making restart to remove useless clauses
     fun restart() {
         numberOfRestarts++
+
         // restartNumber *= restartCoeff
         restartNumber = u * lubySeq[curr++]
         solver.level = 0
@@ -42,20 +45,23 @@ class Restarter(private val solver: CDCL): Incremental {
         //buildWatchers()
 
         solver.clearTrail(0)
-        // if (solver.clauses.size > solver.reduceNumber) {
-        //     solver.reduceNumber += 500
-        //     solver.reduceDB()
-        // }
+        if (solver.clauses.size > solver.reduceNumber) {
+             solver.reduceNumber += 500
+             solver.reduceDB()
+        }
 
-        /*removeSubsumedClauses()
+        //removeSubsumedClauses()
         countOccurrence()
 
-        updateSig()*/
+        //println("$totalNumberOfConflicts, ${solver.clauses.size}")
+
+        updateSig()
     }
 
 
     fun update() {
         numberOfConflictsAfterRestart++
+        totalNumberOfConflicts++
         // restarting after some number of conflicts
         if (numberOfConflictsAfterRestart >= restartNumber) {
             numberOfConflictsAfterRestart = 0
