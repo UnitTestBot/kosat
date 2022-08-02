@@ -215,7 +215,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
                 lemma.lbd = lemma.distinctBy { vars[variable(it)].level }.size
                 // println(lemma.lbd)
-                if (clauses.size % 1000 == 0) println(clauses.size)
+                // if (clauses.size % 1000 == 0) println(clauses.size)
 
                 backjump(lemma)
 
@@ -306,16 +306,24 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         val clausesToRemove = mutableSetOf<Clause>()
         watchers[variable(lit)].forEach { brokenClause ->
             if (!brokenClause.deleted) {
-                val undef = brokenClause.count { getStatus(it) == VarStatus.UNDEFINED }
-                val firstTrue = brokenClause.firstOrNull { getStatus(it) == VarStatus.TRUE }
-                if (undef > 1) {
-                    val newWatcher = brokenClause.first {
-                        getStatus(it) == VarStatus.UNDEFINED && brokenClause !in watchers[variable(it)]
+                if (variable(brokenClause[0]) == variable(lit)) {
+                    brokenClause[0] = brokenClause[1].also { brokenClause[1] = brokenClause[0] }
+                }
+                if (getStatus(brokenClause[0]) != VarStatus.TRUE && getStatus(brokenClause[1]) != VarStatus.TRUE) {
+                    var firstNotFalse = -1
+                    for (i in 2 until brokenClause.size) {
+                        if (getStatus(brokenClause[i]) != VarStatus.FALSE) {
+                            firstNotFalse = i
+                            break
+                        }
                     }
-                    watchers[variable(newWatcher)].add(brokenClause)
-                    clausesToRemove.add(brokenClause)
-                } else if (undef == 1 && firstTrue == null) {
-                    units.add(brokenClause)
+                    if (firstNotFalse == -1) {
+                        units.add(brokenClause)
+                    } else {
+                        watchers[variable(brokenClause[firstNotFalse])].add(brokenClause)
+                        brokenClause[firstNotFalse] = brokenClause[1].also { brokenClause[1] = brokenClause[firstNotFalse] }
+                        clausesToRemove.add(brokenClause)
+                    }
                 }
             }
         }
