@@ -215,7 +215,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
                 lemma.lbd = lemma.distinctBy { vars[litIndex(it)].level }.size
                 // println(lemma.lbd)
-                if (clauses.size % 1000 == 0) println(clauses.size)
+                // if (clauses.size % 1000 == 0) println(clauses.size)
 
                 backjump(lemma)
 
@@ -320,7 +320,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
             }
         }
         watchers[litIndex(lit)].removeAll(clausesToRemove)
-    }
+    } // TODO does kotlin create new "ссылки" to objects or there are only one?
 
     /** CDCL functions **/
 
@@ -360,20 +360,20 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL): Increme
 
             val lit = clause.first { getStatus(it) == VarStatus.UNDEFINED }
             // check if we get a conflict
-            watchers[litIndex(lit)].forEach { brokenClause ->
-                if (!brokenClause.deleted && brokenClause != clause) {
-                    val undef = brokenClause.count { getStatus(it) == VarStatus.UNDEFINED }
-                    if (undef == 1 && -lit in brokenClause && brokenClause.all { getStatus(it) != VarStatus.TRUE }) {
-                        // quick fix for analyzeConflict
-                        setStatus(lit, VarStatus.TRUE)
-                        val v = litIndex(lit)
-                        vars[v].clause = clause
-                        vars[v].level = level
-                        trail.add(v)
-                        return brokenClause
-                    }
-                }
-            }
+            // watchers[litIndex(lit)].forEach { brokenClause ->
+            //     if (!brokenClause.deleted && brokenClause != clause) {
+            //         val undef = brokenClause.count { getStatus(it) == VarStatus.UNDEFINED }
+            //         if (undef == 1 && -lit in brokenClause && brokenClause.all { getStatus(it) != VarStatus.TRUE }) {
+            //             // quick fix for analyzeConflict
+            //             setStatus(lit, VarStatus.TRUE)
+            //             val v = litIndex(lit)
+            //             vars[v].clause = clause
+            //             vars[v].level = level
+            //             trail.add(v)
+            //             return brokenClause
+            //         }
+            //     }
+            // }
             setVariableValues(clause, lit)
         }
 
