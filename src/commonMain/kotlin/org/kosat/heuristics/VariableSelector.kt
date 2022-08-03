@@ -43,8 +43,8 @@ class VSIDS(private var varsNumber: Int = 0) : VariableSelector() {
         while (activity.size < varsNumber + 1) {
             activity.add(0.0)
         }
-        for (clause in clauses) {
-            for (lit in clause) {
+        clauses.forEach { clause ->
+            clause.forEach { lit ->
                 activity[abs(lit)] += 1.0
             }
         }
