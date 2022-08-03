@@ -10,13 +10,13 @@ class Preprocessor(private val solver: CDCL) {
     private var startClauses = listOf<Clause>()
     private var startOccurrence = listOf<MutableList<Int>>()
     private val deletingOrder = mutableListOf<Int>()
-    private val isClauseDeleted = MutableList(solver.clauses.size) { false }
+    private val isClauseDeleted = MutableList(solver.constraints.size) { false }
     private val clauseLimit = 600
     private val hash = LongArray(2 * solver.varsNumber + 1) { 1L.shl(it % 64) }
 
     fun addClause(clause: Clause) {
-        clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.clauses.lastIndex) } //todo litIndex
-        clauseSig.add(countSig(solver.clauses.lastIndex))
+        clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.constraints.lastIndex) } //todo litIndex
+        clauseSig.add(countSig(solver.constraints.lastIndex))
     }
 
     // for each literal provides a list of clauses containing it (for 'x' it's in pos x, for 'not x' in pos varsNumber + x)
@@ -29,7 +29,7 @@ class Preprocessor(private val solver: CDCL) {
         removeSubsumedClauses()
         bve()
         removeSubsumedClauses()
-        println("${solver.varsNumber}, ${solver.clauses.size}")
+        println("${solver.varsNumber}, ${solver.constraints.size}")
         // clauses.forEach { println(it) }
         // removePureLiterals()
     }
@@ -40,7 +40,7 @@ class Preprocessor(private val solver: CDCL) {
         val isLiteralRemoved = MutableList(solver.varsNumber + 1) { false }
         val newNumeration = MutableList(solver.varsNumber + 1) { 0 }
         var currentInd = 1
-        while (solver.clauses.size < clauseLimit && currentInd <= solver.varsNumber) {
+        while (solver.constraints.size < clauseLimit && currentInd <= solver.varsNumber) {
             if (litOccurrence[litPos(currentInd)].size * litOccurrence[litPos(-currentInd)].size <= clauseLimit) {
                 isLiteralRemoved[currentInd] = true
                 deletingOrder.add(currentInd)
@@ -49,7 +49,7 @@ class Preprocessor(private val solver: CDCL) {
             currentInd++
         }
         val deletedClauses = mutableListOf<Int>()
-        solver.clauses.forEachIndexed { ind, clause ->
+        solver.constraints.forEachIndexed { ind, clause ->
             for (lit in clause) {
                 if (isLiteralRemoved[abs(lit)]) { //TODO: litIndex
                     deletedClauses.add(ind)
@@ -57,9 +57,9 @@ class Preprocessor(private val solver: CDCL) {
                 }
             }
         }
-        startClauses = solver.clauses.map { it } // TODO: Clauses..
+        startClauses = solver.constraints.map { it } // TODO: Clauses..
         startOccurrence = litOccurrence.map { it }
-        solver.clauses.removeAll(deletedClauses.map { solver.clauses[it] })
+        solver.constraints.removeAll(deletedClauses.map { solver.constraints[it] })
         var newSize = 0
         for (ind in 1..solver.varsNumber) {
             if (!isLiteralRemoved[ind]) {
@@ -68,7 +68,7 @@ class Preprocessor(private val solver: CDCL) {
                 oldNumeration[newSize] = ind
             }
         }
-        for (clause in solver.clauses) {
+        for (clause in solver.constraints) {
             clause.forEachIndexed { ind, lit ->
                 if (lit > 0) {
                     clause[ind] = newNumeration[lit]
@@ -92,18 +92,18 @@ class Preprocessor(private val solver: CDCL) {
                 if (isClauseDeleted[cl2]) {
                     continue
                 }
-                val newClause = solver.clauses[cl1].toMutableSet()
+                val newClause = solver.constraints[cl1].toMutableSet()
                 newClause.remove(ind)
                 // check if clause is tautology
-                if (solver.clauses[cl2].any { newClause.contains(-it) }) {
+                if (solver.constraints[cl2].any { newClause.contains(-it) }) {
                     continue
                 }
-                newClause.addAll(solver.clauses[cl2])
+                newClause.addAll(solver.constraints[cl2])
                 newClause.remove(-ind)
-                solver.clauses.add(Clause(newClause.toMutableList()))
+                solver.constraints.add(Clause(newClause.toMutableList()))
                 isClauseDeleted.add(false)
                 for (lit in newClause) {
-                    litOccurrence[litPos(lit)].add(solver.clauses.lastIndex)
+                    litOccurrence[litPos(lit)].add(solver.constraints.lastIndex)
                 }
             }
         }
@@ -119,10 +119,10 @@ class Preprocessor(private val solver: CDCL) {
     private fun removeSubsumedClauses() {
         val uselessClauses = mutableSetOf<Int>()
         val duplicateClauses = mutableSetOf<Int>()
-        val markedClauses = MutableList(solver.clauses.size) { false }
+        val markedClauses = MutableList(solver.constraints.size) { false }
 
         // going from the end because smaller clauses appear after big one
-        for (ind in solver.clauses.lastIndex downTo 0) {
+        for (ind in solver.constraints.lastIndex downTo 0) {
             if (!markedClauses[ind]) {
                 findSubsumed(ind).forEach {
                     if (!markedClauses[it]) {
@@ -137,18 +137,18 @@ class Preprocessor(private val solver: CDCL) {
             }
         }
 
-        val copiedClauses = duplicateClauses.map { solver.clauses[it] }
+        val copiedClauses = duplicateClauses.map { solver.constraints[it] }
 
-        solver.clauses.removeAll(uselessClauses.map { solver.clauses[it] })
+        solver.constraints.removeAll(uselessClauses.map { solver.constraints[it] })
         // remove duplicate clauses and leave 1 copy of each
-        solver.clauses.removeAll(copiedClauses)
-        solver.clauses.addAll(copiedClauses)
+        solver.constraints.removeAll(copiedClauses)
+        solver.constraints.addAll(copiedClauses)
         countOccurrence()
         updateSig()
     }
 
     private fun removeTautologies() {
-        val isClauseRemoved = MutableList(solver.clauses.size) { false }
+        val isClauseRemoved = MutableList(solver.constraints.size) { false }
         for (lit in 1..solver.varsNumber) {
             val sz1 = litOccurrence[litPos(lit)].size
             val sz2 = litOccurrence[litPos(-lit)].size
@@ -176,7 +176,7 @@ class Preprocessor(private val solver: CDCL) {
                 deletedClauses.add(ind)
             }
         }
-        solver.clauses.removeAll(deletedClauses.map { solver.clauses[it] })
+        solver.constraints.removeAll(deletedClauses.map { solver.constraints[it] })
 
         countOccurrence()
         updateSig()
@@ -197,7 +197,7 @@ class Preprocessor(private val solver: CDCL) {
         for (ind in 1..(2 * solver.varsNumber + 1)) {
             litOccurrence.add(mutableListOf())
         }
-        solver.clauses.forEachIndexed { ind, clause ->
+        solver.constraints.forEachIndexed { ind, clause ->
             for (lit in clause) {
                 if (lit > 0) {
                     litOccurrence[lit].add(ind)
@@ -210,20 +210,20 @@ class Preprocessor(private val solver: CDCL) {
 
     private fun countSig(clause: Int): Long {
         var sz = 0L
-        solver.clauses[clause].forEach { lit -> sz = sz.or(hash[litPos(lit)]) }
+        solver.constraints[clause].forEach { lit -> sz = sz.or(hash[litPos(lit)]) }
         return sz
     }
 
-    private fun Int.clauseSize() = solver.clauses[this].size
+    private fun Int.clauseSize() = solver.constraints[this].size
 
     private var clauseSig = mutableListOf<Long>()
 
     private fun updateSig() {
-        clauseSig = List(solver.clauses.size) { ind -> countSig(ind) }.toMutableList()
+        clauseSig = List(solver.constraints.size) { ind -> countSig(ind) }.toMutableList()
     }
 
     private fun findSubsumed(clause: Int): Set<Int> {
-        val lit = solver.clauses[clause].minByOrNull { lit -> litOccurrence[litPos(lit)].size } ?: 0 //TODO litIndex
+        val lit = solver.constraints[clause].minByOrNull { lit -> litOccurrence[litPos(lit)].size } ?: 0 //TODO litIndex
         return litOccurrence[litPos(lit)].filter {
             clause != it && clause.clauseSize() <= it.clauseSize() && subset(clause, it)
         }.toSet()
@@ -233,7 +233,7 @@ class Preprocessor(private val solver: CDCL) {
         return if (clauseSig[cl2].or(clauseSig[cl1]) != clauseSig[cl2]) {
             false
         } else {
-            solver.clauses[cl2].containsAll(solver.clauses[cl1])
+            solver.constraints[cl2].containsAll(solver.constraints[cl1])
         }
     }
 

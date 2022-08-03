@@ -18,7 +18,8 @@ enum class SolverType {
 
 class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Incremental {
 
-    val clauses = mutableListOf<Clause>()
+    val constraints = mutableListOf<Clause>()
+    val learnts = mutableListOf<Clause>()
     var varsNumber: Int = 0
 
     // values of variables
@@ -137,7 +138,14 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         if (clause.size == 1) {
             units.add(clause)
         } else {
-            addClause(clause)
+            // copy of addLearnt
+            require(clause.size != 1)
+            constraints.add(clause)
+            if (clause.isNotEmpty()) {
+                addWatchers(clause)
+            }
+
+            preprocessor?.addClause(clause)
         }
     }
 
@@ -180,16 +188,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
 
     fun reduceDB() {
-        clauses.sortBy { -it.lbd }
-        val lim = clauses.size / 2
+        learnts.sortBy { -it.lbd }
+        val lim = learnts.size / 2
         var i = 0
-        clauses.forEach { clause ->
+        learnts.forEach { clause ->
             if (!clause.locked && i < lim) {
                 i++
                 clause.deleted = true
             }
         }
-        clauses.removeAll { it.deleted }
+        learnts.removeAll { it.deleted }
     }
 
     private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
@@ -206,11 +214,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
         // extreme cases
         // if (clauses.isEmpty()) return variableValues()
-        if (clauses.any { it.isEmpty() }) return null
-        if (clauses.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
+        if (constraints.any { it.isEmpty() }) return null
+        if (constraints.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
         // branching heuristic
-        variableSelector.build(clauses)
+        variableSelector.build(constraints)
 
         // main loop
         while (true) {
@@ -230,10 +238,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
                 // if lemma.size == 1 we already added it to units at 0 level
                 if (lemma.size != 1) {
-                    addClause(lemma)
+                    addLearnt(lemma)
                 }
 
-                if (clauses.size > reduceNumber) {
+                if (learnts.size > reduceNumber) {
                     reduceNumber += reduceIncrement
                     // reduceIncrement *= 1.1
                     restarter.restart()
@@ -342,12 +350,12 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     /** CDCL functions **/
 
     // check is all clauses satisfied or not
-    private fun satisfiable() = clauses.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
+    private fun satisfiable() = constraints.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
 
     // add clause and add watchers to it TODO: rename
-    private fun addClause(clause: Clause) {
+    private fun addLearnt(clause: Clause) {
         require(clause.size != 1)
-        clauses.add(clause)
+        learnts.add(clause)
         if (clause.isNotEmpty()) {
             addWatchers(clause)
         }
