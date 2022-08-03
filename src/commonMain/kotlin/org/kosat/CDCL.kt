@@ -87,6 +87,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     // TODO why not abs..
     private fun variable(lit: Int): Int = abs(lit)
 
+    // TODO rename
     private fun watchedPos(lit: Int): Int {
         return if (lit < 0) {
             2 * (-lit)
@@ -112,7 +113,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     }
 
     // public function for adding new variables
-    override fun addVariable() {
+    override fun addVariable() { // TODO simple checks of duplicate variables in newClause
         varsNumber++
 
         variableSelector.addVariable()
