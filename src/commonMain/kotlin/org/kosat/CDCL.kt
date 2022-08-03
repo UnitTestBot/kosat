@@ -203,8 +203,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         learnts.removeAll { it.deleted }
     }
 
-    private fun wrongAssumption(lit: Int) = getStatus(lit) == VarStatus.FALSE
-
     /** Solve **/
 
     fun solve(): List<Int>? {
@@ -270,12 +268,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             // try to guess variable
             level++
             var nextVariable = variableSelector.nextDecisionVariable(vars, level)
-
-            // Check that assumption we want to make isn't controversial
-            if (level <= assumptions.size && wrongAssumption(nextVariable)) {
-                reset()
-                return null
-            }
 
             if (level > assumptions.size && phaseSaving[abs(nextVariable)] == VarStatus.FALSE) {
                 nextVariable = -abs(nextVariable)
