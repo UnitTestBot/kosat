@@ -40,9 +40,13 @@ class VSIDS(private var varsNumber: Int = 0) : VariableSelector() {
 
     private val activity = mutableListOf<Double>()
     override fun build(clauses: List<Clause>) {
-        activity.add(0.0)
-        for (ind in 1..varsNumber) {
-            activity.add(clauses.count { clause -> clause.contains(ind) || clause.contains(-ind) }.toDouble())
+        while (activity.size < varsNumber + 1) {
+            activity.add(0.0)
+        }
+        for (clause in clauses) {
+            for (lit in clause) {
+                activity[abs(lit)] += 1.0
+            }
         }
     }
 

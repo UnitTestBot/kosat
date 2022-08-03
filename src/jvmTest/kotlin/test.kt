@@ -60,7 +60,7 @@ internal class DiamondTests {
     }
 
     private fun runTests(path: String) : Boolean {
-        val filenames = getAllFilenamesByPath(path).filter { !it.startsWith("superHard") }
+        val filenames = getAllFilenamesByPath(path)//.filter { !it.startsWith("superHard") }
         println(filenames)
         println(buildPadding(headerNames))
 

@@ -19,6 +19,7 @@ enum class SolverType {
 class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Incremental {
 
     val constraints = mutableListOf<Clause>()
+    // doesn't contain learnt clauses of size 1
     val learnts = mutableListOf<Clause>()
     var varsNumber: Int = 0
 
@@ -84,7 +85,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         }
     }
 
-    // TODO why not abs..
     private fun variable(lit: Int): Int = abs(lit)
 
     // TODO rename
@@ -117,6 +117,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         varsNumber++
 
         variableSelector.addVariable()
+
+        analyzeActivity.add(false)
 
         vars.add(VarState(VarStatus.UNDEFINED, null, -1))
         watchers.add(mutableSetOf())
@@ -155,7 +157,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     // clear trail until given level
     fun clearTrail(until: Int = -1) {
         while (trail.isNotEmpty() && vars[trail.last()].level > until) {
-            delVariable(trail.removeLast())
+            undefineVariable(trail.removeLast())
         }
     }
 
@@ -216,7 +218,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         // extreme cases
         // if (clauses.isEmpty()) return variableValues()
         if (constraints.any { it.isEmpty() }) return null
-        if (constraints.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
+        // if (constraints.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
         // branching heuristic
         variableSelector.build(constraints)
@@ -329,9 +331,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 }
                 if (getStatus(brokenClause[0]) != VarStatus.TRUE) {
                     var firstNotFalse = -1
-                    for (i in 2 until brokenClause.size) {
-                        if (getStatus(brokenClause[i]) != VarStatus.FALSE) {
-                            firstNotFalse = i
+                    for (ind in 2 until brokenClause.size) {
+                        if (getStatus(brokenClause[ind]) != VarStatus.FALSE) {
+                            firstNotFalse = ind
                             break
                         }
                     }
@@ -364,8 +366,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         preprocessor?.addClause(clause)
     }
 
-    // delete a variable from the trail TODO: rename
-    private fun delVariable(v: Int) {
+    // delete a variable from the trail
+    private fun undefineVariable(v: Int) {
         phaseSaving[v] = getStatus(v)
         setStatus(v, VarStatus.UNDEFINED)
         vars[v].clause = null
@@ -381,8 +383,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             if (clause.all { getStatus(it) == VarStatus.FALSE }) {
                 return clause
             }
-            // guarantees that clauses in unit don't become defined incorrect
-            // require(clause.any { getStatus(it) != VarStatus.FALSE })
 
             val lit = clause.first { getStatus(it) == VarStatus.UNDEFINED }
             setVariableValues(clause, lit)
@@ -416,46 +416,57 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     }
 
     // analyze conflict and return new clause
+
+    /** contains used variables during conflict analyze (should resize in [addVariable]) **/
+    private val analyzeActivity = MutableList(varsNumber + 1) { false }
+
     private fun analyzeConflict(conflict: Clause): Clause {
 
-        fun updateLemma(lemma: Clause, lit: Int) {
-            if (lit !in lemma) {
+        fun updateLemma(lemma: Clause, lit: Int): Int {
+            var ind = lemma.indexOfFirst { it == lit }
+            if (ind == -1) {
                 lemma.add(lit)
+                ind = lemma.lastIndex
             }
+            return ind
         }
 
-        val active = MutableList(varsNumber + 1) { false }
+        var activeVariables = 0
         val lemma = Clause()
 
         conflict.forEach { lit ->
             if (vars[variable(lit)].level == level) {
-                active[variable(lit)] = true
+                analyzeActivity[variable(lit)] = true
+                activeVariables++
             } else {
                 updateLemma(lemma, lit)
             }
         }
         var ind = trail.size - 1
-        while (active.count { it } > 1) {
+        while (activeVariables > 1) {
 
             val v = trail[ind--]
-            if (!active[v]) continue
+            if (!analyzeActivity[v]) continue
 
             vars[v].clause?.forEach { u ->
                 val current = variable(u)
                 if (vars[current].level != level) {
                     updateLemma(lemma, u)
-                } else if (current != v) {
-                    active[current] = true
+                } else if (current != v && !analyzeActivity[current]) {
+                    analyzeActivity[current] = true
+                    activeVariables++
                 }
             }
-            active[v] = false
+            analyzeActivity[v] = false
+            activeVariables--
         }
-        active.indexOfFirst { it }.let { v ->
+        analyzeActivity.indexOfFirst { it }.let { v ->
+            require (v != -1)
             if (v != -1) {
-                updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
-                // TODO lastIndex doesn't work
+                val uipIndex = updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
                 // fancy swap (move UIP vertex to 0 position)
-                lemma[lemma.size - 1] = lemma[0].also { lemma[0] = lemma[lemma.size - 1] }
+                lemma[uipIndex] = lemma[0].also { lemma[0] = lemma[uipIndex] }
+                analyzeActivity[v] = false
             }
         }
         // move last defined literal to 1 position TODO: there's room for simplify this

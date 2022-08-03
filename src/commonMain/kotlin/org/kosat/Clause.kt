@@ -21,4 +21,7 @@ class Clause(val lits: MutableList<Lit>): Collection<Lit> by lits {
     fun add(lit: Int) {
         lits.add(lit)
     }
+
+    val lastIndex: Int
+        get() = lits.lastIndex
 }
