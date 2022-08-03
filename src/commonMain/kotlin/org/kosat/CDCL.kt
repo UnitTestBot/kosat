@@ -30,7 +30,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     private val trail: MutableList<Int> = mutableListOf()
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
-    private val watchers = MutableList(varsNumber * 2 + 1) { mutableSetOf<Clause>() }
+    private val watchers = MutableList(varsNumber * 2 + 1) { mutableListOf<Clause>() }
 
     // list of unit clauses to propagate
     val units: MutableList<Clause> = mutableListOf() // TODO must be queue
@@ -121,8 +121,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         analyzeActivity.add(false)
 
         vars.add(VarState(VarStatus.UNDEFINED, null, -1))
-        watchers.add(mutableSetOf())
-        watchers.add(mutableSetOf())
+        watchers.add(mutableListOf())
+        watchers.add(mutableListOf())
     }
 
     // public function for adding new clauses
@@ -141,14 +141,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         if (clause.size == 1) {
             units.add(clause)
         } else {
-            // copy of addLearnt
-            require(clause.size != 1)
-            constraints.add(clause)
-            if (clause.isNotEmpty()) {
-                addWatchers(clause)
-            }
-
-            preprocessor?.addClause(clause)
+            addConstraint(clause)
         }
     }
 
@@ -239,7 +232,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
                 // if lemma.size == 1 we already added it to units at 0 level
                 if (lemma.size != 1) {
-                    addLearnt(lemma)
+                    learnClause(lemma)
                 }
 
                 if (learnts.size > reduceNumber) {
@@ -347,14 +340,23 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     // check is all clauses satisfied or not
     private fun satisfiable() = constraints.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
 
-    // add clause and add watchers to it TODO: rename
-    private fun addLearnt(clause: Clause) {
+    private fun addConstraint(clause: Clause) {
+        require(clause.size != 1)
+        constraints.add(clause)
+        if (clause.isNotEmpty()) {
+            addWatchers(clause)
+        }
+
+        preprocessor?.addClause(clause)
+    }
+
+    // add clause and add watchers to it
+    private fun learnClause(clause: Clause) {
         require(clause.size != 1)
         learnts.add(clause)
         if (clause.isNotEmpty()) {
             addWatchers(clause)
         }
-
         preprocessor?.addClause(clause)
     }
 
