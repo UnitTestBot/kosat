@@ -28,7 +28,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     private val trail: MutableList<Int> = mutableListOf()
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
-    private val watchers = MutableList(varsNumber + 1) { mutableSetOf<Clause>() }
+    private val watchers = MutableList(varsNumber * 2 + 1) { mutableSetOf<Clause>() }
 
     // list of unit clauses to propagate
     val units: MutableList<Clause> = mutableListOf() // TODO must be queue
@@ -86,6 +86,14 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     // TODO why not abs..
     private fun variable(lit: Int): Int = abs(lit)
 
+    private fun watchedPos(lit: Int): Int {
+        return if (lit < 0) {
+            2 * (-lit)
+        } else {
+            2 * lit - 1
+        }
+    }
+
     /** Interface **/
 
     constructor() : this(mutableListOf<Clause>())
@@ -109,6 +117,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         variableSelector.addVariable()
 
         vars.add(VarState(VarStatus.UNDEFINED, null, -1))
+        watchers.add(mutableSetOf())
         watchers.add(mutableSetOf())
     }
 
@@ -297,19 +306,19 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     // add watchers to new clause. Run in buildWatchers and addClause
     private fun addWatchers(clause: Clause) {
         require(clause.size > 1)
-        watchers[variable(clause[0])].add(clause)
-        watchers[variable(clause[1])].add(clause)
+        watchers[watchedPos(clause[0])].add(clause)
+        watchers[watchedPos(clause[1])].add(clause)
     }
 
     // update watchers for clauses linked with literal; 95% of time we are in this function
     private fun updateWatchers(lit: Int) {
         val clausesToRemove = mutableSetOf<Clause>()
-        watchers[variable(lit)].forEach { brokenClause ->
+        watchers[watchedPos(-lit)].forEach { brokenClause ->
             if (!brokenClause.deleted) {
                 if (variable(brokenClause[0]) == variable(lit)) {
                     brokenClause[0] = brokenClause[1].also { brokenClause[1] = brokenClause[0] }
                 }
-                if (getStatus(brokenClause[0]) != VarStatus.TRUE && getStatus(brokenClause[1]) != VarStatus.TRUE) {
+                if (getStatus(brokenClause[0]) != VarStatus.TRUE) {
                     var firstNotFalse = -1
                     for (i in 2 until brokenClause.size) {
                         if (getStatus(brokenClause[i]) != VarStatus.FALSE) {
@@ -320,14 +329,14 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                     if (firstNotFalse == -1) {
                         units.add(brokenClause)
                     } else {
-                        watchers[variable(brokenClause[firstNotFalse])].add(brokenClause)
+                        watchers[watchedPos(brokenClause[firstNotFalse])].add(brokenClause)
                         brokenClause[firstNotFalse] = brokenClause[1].also { brokenClause[1] = brokenClause[firstNotFalse] }
                         clausesToRemove.add(brokenClause)
                     }
                 }
             }
         }
-        watchers[variable(lit)].removeAll(clausesToRemove)
+        watchers[watchedPos(-lit)].removeAll(clausesToRemove)
     } // TODO does kotlin create new "ссылки" to objects or there are only one?
 
     /** CDCL functions **/
@@ -367,21 +376,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             // require(clause.any { getStatus(it) != VarStatus.FALSE })
 
             val lit = clause.first { getStatus(it) == VarStatus.UNDEFINED }
-            // check if we get a conflict
-            // watchers[litIndex(lit)].forEach { brokenClause ->
-            //     if (!brokenClause.deleted && brokenClause != clause) {
-            //         val undef = brokenClause.count { getStatus(it) == VarStatus.UNDEFINED }
-            //         if (undef == 1 && -lit in brokenClause && brokenClause.all { getStatus(it) != VarStatus.TRUE }) {
-            //             // quick fix for analyzeConflict
-            //             setStatus(lit, VarStatus.TRUE)
-            //             val v = litIndex(lit)
-            //             vars[v].clause = clause
-            //             vars[v].level = level
-            //             trail.add(v)
-            //             return brokenClause
-            //         }
-            //     }
-            // }
             setVariableValues(clause, lit)
         }
 
