@@ -216,7 +216,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         // extreme cases
         // if (clauses.isEmpty()) return variableValues()
         if (constraints.any { it.isEmpty() }) return null
-        // if (constraints.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
+        if (constraints.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
         // branching heuristic
         variableSelector.build(constraints)
