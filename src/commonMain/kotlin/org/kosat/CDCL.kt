@@ -43,7 +43,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     /** Heuristics **/
 
-    private val variableSelector: VariableSelector = VSIDS(varsNumber)
+    private val variableSelector: VariableSelector = VSIDS(varsNumber, vars)
 
     private var preprocessor: Preprocessor? = null
 
@@ -66,7 +66,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     data class VarState(
         var status: VarStatus,
         var clause: Clause?,
-        var level: Int,
+        var level: Int
     )
 
     // get status of literal
@@ -374,6 +374,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         setStatus(v, VarStatus.UNDEFINED)
         vars[v].clause = null
         vars[v].level = -1
+        variableSelector.backTrack(v)
     }
 
     // return index of conflict clause, or -1 if there is no conflict clause
