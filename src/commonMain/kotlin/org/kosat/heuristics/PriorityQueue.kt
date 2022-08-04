@@ -59,6 +59,7 @@ class PriorityQueue {
     fun deleteMax() {
         require(sz != 0)
         swap(0, sz - 1)
+        order[heap[sz - 1].second] = -1
         sz--
         if (heap.isNotEmpty()) {
             heapify(0)

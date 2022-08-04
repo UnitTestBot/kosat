@@ -34,7 +34,7 @@ class VSIDS(private var varsNumber: Int = 0, private val vars: MutableList<CDCL.
     override fun update(lemma: Clause) {
         lemma.forEach { lit ->
             val v = abs(lit)
-            if (scoresPQ.order[v] < scoresPQ.sz) {
+            if (scoresPQ.order[v] != -1) {
                 scoresPQ.increaseScore(v, scoreInc)
             }
             scores[v] += scoreInc
@@ -82,30 +82,21 @@ class VSIDS(private var varsNumber: Int = 0, private val vars: MutableList<CDCL.
     }
 
     override fun backTrack(variable: Int) {
-        if (scoresPQ.order[variable] >= scoresPQ.sz) {
+        if (scoresPQ.order[variable] == -1) {
             scoresPQ.addValue(Pair(scores[variable], variable))
         }
     }
 
     // Looks for index of undefined variable with max activity
     private fun vsids(vars: List<CDCL.VarState>): Int {
-        /*val x1 = (1..varsNumber).filter {
-            vars[it].status == CDCL.VarStatus.UNDEFINED
-        }.let { undefined ->
-            undefined.maxByOrNull { scores[it] }
-        } ?: -1*/
-        var x2: Int
+        var v: Int
         while (true) {
-            x2 = scoresPQ.getMax().second
+            v = scoresPQ.getMax().second
             scoresPQ.deleteMax()
-            println("try to take ${x2}")
-            if (vars[x2].status == CDCL.VarStatus.UNDEFINED) {
-                println("${x2} is good!!!!\n---------------\n")
+            if (vars[v].status == CDCL.VarStatus.UNDEFINED) {
                 break
             }
-            println("defined")
         }
-        //println(x2)
-        return x2
+        return v
     }
 }
