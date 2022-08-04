@@ -214,12 +214,18 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         // branching heuristic
         variableSelector.build(constraints)
 
+        var totalNumberOfConflicts = 0
+
         // main loop
         while (true) {
             val conflictClause = propagate()
             if (conflictClause != null) {
+                totalNumberOfConflicts++
                 // in case there is a conflict in CNF and trail is already in 0 state
-                if (level == 0) return null
+                if (level == 0) {
+                    println(totalNumberOfConflicts)
+                    return null
+                }
 
                 // build new clause by conflict clause
                 val lemma = analyzeConflict(conflictClause)
@@ -236,6 +242,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 }
 
                 if (learnts.size > reduceNumber) {
+                    println("Conflicts found: $totalNumberOfConflicts. Clauses learnt: ${learnts.size}")
                     reduceNumber += reduceIncrement
                     // reduceIncrement *= 1.1
                     restarter.restart()
@@ -255,6 +262,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             if (satisfiable()) {
                 val model = variableValues()
                 reset()
+                println(totalNumberOfConflicts)
                 return model
             }
 
