@@ -6,8 +6,6 @@ class Clause(val lits: MutableList<Lit>): Collection<Lit> by lits {
 
     constructor(): this(mutableListOf<Lit>())
 
-    var locked = false
-
     var deleted = false
 
     var lbd = 0

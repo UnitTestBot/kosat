@@ -137,7 +137,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             return
         }
         clause.lits.removeAll { getStatus(it) == VarStatus.FALSE }
-        clause.locked = true
+        
+        // handling case of clause of size 1
         if (clause.size == 1) {
             units.add(clause)
         } else {
@@ -188,7 +189,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         val lim = learnts.size / 2
         var i = 0
         learnts.forEach { clause ->
-            if (!clause.locked && i < lim) {
+            if (i < lim) {
                 i++
                 clause.deleted = true
             }
