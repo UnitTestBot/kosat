@@ -18,15 +18,19 @@ enum class SolverType {
 
 class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Incremental {
 
+    // we never store clauses of size 1
+    // they are lying at 0 decision level of trail
+
+    // initial constraints + externally added by newClause
     val constraints = mutableListOf<Clause>()
-    // doesn't contain learnt clauses of size 1
+    // learnt from conflicts clauses, once in a while their number halved
     val learnts = mutableListOf<Clause>()
     var varsNumber: Int = 0
 
-    // values of variables
+    // contains current assignment, clause it came from and decision level when it happened
     val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, null, -1) }
 
-    // all decisions and consequences
+    // all decisions and consequences, contains variables
     private val trail: MutableList<Int> = mutableListOf()
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
@@ -43,10 +47,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     /** Heuristics **/
 
+    // branching heuristic
     private val variableSelector: VariableSelector = VSIDS(varsNumber)
 
+    // preprocessing includes deleting subsumed clauses and bve, offed by default
     private var preprocessor: Preprocessor? = null
 
+    // restart search from time to time
     private val restarter = Restarter(this)
 
     /** Variable states **/
@@ -128,14 +135,19 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     // public function for adding new clauses
     fun newClause(clause: Clause) {
         require(level == 0)
+        
+        // add not mentioned variables from new clause
         val maxVar = clause.maxOfOrNull { abs(it) } ?: 0
         while (varsNumber < maxVar) {
             addVariable()
         }
+        
         // don't add clause if it already had true literal
         if (clause.any { getStatus(it) == VarStatus.TRUE }) {
             return
         }
+        
+        // delete every false literal from new clause
         clause.lits.removeAll { getStatus(it) == VarStatus.FALSE }
         
         // handling case of clause of size 1
@@ -184,6 +196,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     }
 
 
+    // half of learnt get reduced
     fun reduceDB() {
         learnts.sortBy { -it.lbd }
         val lim = learnts.size / 2
@@ -212,13 +225,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         if (constraints.any { it.isEmpty() }) return null
         if (constraints.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
-        // branching heuristic
         variableSelector.build(constraints)
 
         // main loop
         while (true) {
             val conflictClause = propagate()
             if (conflictClause != null) {
+                // CONFLICT
                 // in case there is a conflict in CNF and trail is already in 0 state
                 if (level == 0) return null
 
@@ -248,25 +261,25 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
                 // VSIDS
                 variableSelector.update(lemma)
+            } else {
+                // NO CONFLICT
 
-                continue
+                // If (the problem is already) SAT, return the current assignment
+                if (satisfiable()) {
+                    val model = variableValues()
+                    reset()
+                    return model
+                }
+
+                // try to guess variable
+                level++
+                var nextVariable = variableSelector.nextDecisionVariable(vars, level)
+
+                if (level > assumptions.size && polarity[abs(nextVariable)] == VarStatus.FALSE) {
+                    nextVariable = -abs(nextVariable)
+                } // TODO move to nextDecisionVariable
+                setVariableValues(null, nextVariable)
             }
-
-            // If (the problem is already) SAT, return the current assignment
-            if (satisfiable()) {
-                val model = variableValues()
-                reset()
-                return model
-            }
-
-            // try to guess variable
-            level++
-            var nextVariable = variableSelector.nextDecisionVariable(vars, level)
-
-            if (level > assumptions.size && phaseSaving[abs(nextVariable)] == VarStatus.FALSE) {
-                nextVariable = -abs(nextVariable)
-            } // TODO move to nextDecisionVariable
-            setVariableValues(null, nextVariable)
         }
     }
 
@@ -282,6 +295,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             preprocessor?.recoverAnswer()
         }
 
+        // TODO что за кринж написан...
         return vars
             .mapIndexed { index, v ->
                 when (v.status) {
@@ -300,7 +314,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     /** Two watchers **/
 
-    // add watchers to new clause. Run in buildWatchers and addClause
+    // add watchers to new clause. Run and addConstraint and addLearnt
     private fun addWatchers(clause: Clause) {
         require(clause.size > 1)
         watchers[watchedPos(clause[0])].add(clause)
@@ -315,6 +329,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 if (variable(brokenClause[0]) == variable(lit)) {
                     brokenClause[0] = brokenClause[1].also { brokenClause[1] = brokenClause[0] }
                 }
+                // if second watcher is true skip clause
                 if (getStatus(brokenClause[0]) != VarStatus.TRUE) {
                     var firstNotFalse = -1
                     for (ind in 2 until brokenClause.size) {
@@ -341,6 +356,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     // check is all clauses satisfied or not
     private fun satisfiable() = constraints.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
 
+    // add new constraint, executes only in newClause
     private fun addConstraint(clause: Clause) {
         require(clause.size != 1)
         constraints.add(clause)
@@ -369,7 +385,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         vars[v].level = -1
     }
 
-    // return index of conflict clause, or -1 if there is no conflict clause
+    // return conflict clause, or null if there is no conflict clause
     private fun propagate(): Clause? {
         while (units.size > 0) {
             val clause = units.removeLast()
@@ -386,7 +402,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         return null
     }
 
-    // add a variable to the trail and update watchers of clauses linked to this variable
+    // add a variable to the trail and update watchers of clauses linked to this literal
     private fun setVariableValues(clause: Clause?, lit: Int): Boolean {
         if (getStatus(lit) != VarStatus.UNDEFINED) return false
 
@@ -399,7 +415,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         return true
     }
 
-    // change level, undefine variables, clear units; if clause.size == 1 we backjump to 0 level
+    // change level, undefine variables, clear units (if clause.size == 1 we backjump to 0 level)
     private fun backjump(clause: Clause) {
         level = clause.map { vars[variable(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
 
@@ -410,11 +426,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         units.add(clause)
     }
 
-    // analyze conflict and return new clause
-
     /** contains used variables during conflict analyze (should resize in [addVariable]) **/
     private val analyzeActivity = MutableList(varsNumber + 1) { false }
 
+    // analyze conflict and return new clause
     private fun analyzeConflict(conflict: Clause): Clause {
 
         fun updateLemma(lemma: Clause, lit: Int): Int {
