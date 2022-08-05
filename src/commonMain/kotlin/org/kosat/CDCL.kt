@@ -116,7 +116,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             addVariable()
         }
         initClauses.forEach { newClause(it) }
-        phaseSaving = MutableList(varsNumber + 1) { VarStatus.UNDEFINED } // TODO is phaseSaving adapted for incremental?
+        polarity = MutableList(varsNumber + 1) { VarStatus.UNDEFINED } // TODO is phaseSaving adapted for incremental?
     }
 
     // public function for adding new variables
@@ -173,7 +173,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     private var assumptions: List<Int> = emptyList()
 
     // phase saving
-    private var phaseSaving: MutableList<VarStatus> = mutableListOf()
+    private var polarity: MutableList<VarStatus> = mutableListOf()
 
     fun solve(currentAssumptions: List<Int>): List<Int>? {
         require(solverType == SolverType.INCREMENTAL)
@@ -379,7 +379,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     // delete a variable from the trail
     private fun undefineVariable(v: Int) {
-        phaseSaving[v] = getStatus(v)
+        polarity[v] = getStatus(v)
         setStatus(v, VarStatus.UNDEFINED)
         vars[v].clause = null
         vars[v].level = -1
