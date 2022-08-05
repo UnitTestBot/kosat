@@ -246,7 +246,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
                 // if lemma.size == 1 we already added it to units at 0 level
                 if (lemma.size != 1) {
-                    learnClause(lemma)
+                    addLearnt(lemma)
                 }
 
                 if (learnts.size > reduceNumber) {
@@ -368,7 +368,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     }
 
     // add clause and add watchers to it
-    private fun learnClause(clause: Clause) {
+    private fun addLearnt(clause: Clause) {
         require(clause.size != 1)
         learnts.add(clause)
         if (clause.isNotEmpty()) {
