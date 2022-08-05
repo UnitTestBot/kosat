@@ -1,12 +1,11 @@
 package org.kosat.heuristics
 
 import org.kosat.CDCL
-import org.kosat.Clause
 import org.kosat.Incremental
-import kotlin.math.abs
 
 class Restarter(private val solver: CDCL): Incremental {
 
+    // ruby constant
     private val u = 50.0
 
     private var restartNumber = u
@@ -16,9 +15,6 @@ class Restarter(private val solver: CDCL): Incremental {
     private var numberOfRestarts = 0
 
     private val lubySeq: MutableList<Int> = mutableListOf(1)
-
-    private var curr = 1
-
     init {
         var pw = 1
         while (lubySeq.size < 1e5) {
@@ -28,29 +24,28 @@ class Restarter(private val solver: CDCL): Incremental {
         }
     }
 
+    private var lubyPosition = 1
 
-    // making restart to remove useless clauses
     fun restart() {
         numberOfRestarts++
         // restartNumber *= restartCoeff
-        restartNumber = u * lubySeq[curr++]
+        restartNumber = u * lubySeq[lubyPosition++]
+
         solver.level = 0
-
         solver.units.clear()
-
         solver.clearTrail(0)
     }
 
 
     fun update() {
         numberOfConflictsAfterRestart++
-        // restarting after some number of conflicts
         if (numberOfConflictsAfterRestart >= restartNumber) {
             numberOfConflictsAfterRestart = 0
             restart()
         }
     }
 
+    // TODO why for...
     override fun addVariable() {
         TODO("Not yet implemented")
     }
