@@ -242,7 +242,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 }
 
                 if (learnts.size > reduceNumber) {
-                    println("Conflicts found: $totalNumberOfConflicts. Clauses learnt: ${learnts.size}")
+                    // println("Conflicts found: $totalNumberOfConflicts. Clauses learnt: ${learnts.size}")
                     reduceNumber += reduceIncrement
                     // reduceIncrement *= 1.1
                     restarter.restart()
