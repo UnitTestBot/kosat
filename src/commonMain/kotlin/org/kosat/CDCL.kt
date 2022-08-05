@@ -200,6 +200,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     fun solve(): List<Int>? {
 
+        var totalNumberOfConflicts = 0
+
         preprocessor = if (solverType == SolverType.NON_INCREMENTAL) {
             Preprocessor(this)
         } else {
@@ -218,8 +220,12 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         while (true) {
             val conflictClause = propagate()
             if (conflictClause != null) {
+                totalNumberOfConflicts++
                 // in case there is a conflict in CNF and trail is already in 0 state
-                if (level == 0) return null
+                if (level == 0) {
+                    println(totalNumberOfConflicts)
+                    return null
+                }
 
                 // build new clause by conflict clause
                 val lemma = analyzeConflict(conflictClause)
@@ -255,6 +261,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             if (satisfiable()) {
                 val model = variableValues()
                 reset()
+                println(totalNumberOfConflicts)
                 return model
             }
 
