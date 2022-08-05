@@ -259,7 +259,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             }
 
             // If (the problem is already) SAT, return the current assignment
-            if (satisfiable()) {
+            if (trail.size == varsNumber) {
                 val model = variableValues()
                 reset()
                 println(totalNumberOfConflicts)
@@ -425,28 +425,31 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     private fun analyzeConflict(conflict: Clause): Clause {
 
-        fun updateLemma(lemma: Clause, lit: Int): Int {
-            var ind = lemma.indexOfFirst { it == lit }
+        fun updateLemma(lemma: MutableSet<Int>, lit: Int) {
+            /*var ind = lemma.indexOfFirst { it == lit }
             if (ind == -1) {
                 lemma.add(lit)
                 ind = lemma.lastIndex
             }
-            return ind
+            return ind*/
+            lemma.add(lit)
         }
 
-        var activeVariables = 0
-        val lemma = Clause()
+        var numberOfActiveVariables = 0
+        val lemma = mutableSetOf<Int>()
 
         conflict.forEach { lit ->
             if (vars[variable(lit)].level == level) {
                 analyzeActivity[variable(lit)] = true
-                activeVariables++
+                numberOfActiveVariables++
             } else {
                 updateLemma(lemma, lit)
             }
         }
-        var ind = trail.size - 1
-        while (activeVariables > 1) {
+        var ind = trail.lastIndex
+
+
+        while (numberOfActiveVariables > 1) {
 
             val v = trail[ind--]
             if (!analyzeActivity[v]) continue
@@ -457,34 +460,39 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                     updateLemma(lemma, u)
                 } else if (current != v && !analyzeActivity[current]) {
                     analyzeActivity[current] = true
-                    activeVariables++
+                    numberOfActiveVariables++
                 }
             }
             analyzeActivity[v] = false
-            activeVariables--
+            numberOfActiveVariables--
         }
-        analyzeActivity.indexOfFirst { it }.let { v ->
+
+        var newClause = Clause()
+
+        trail.last { analyzeActivity[it] }.let { v ->
             require (v != -1)
             if (v != -1) {
-                val uipIndex = updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
-                // fancy swap (move UIP vertex to 0 position)
-                lemma[uipIndex] = lemma[0].also { lemma[0] = lemma[uipIndex] }
+                updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
+                newClause =  Clause(lemma.toMutableList())
+                val uipIndex = newClause.indexOfFirst { abs(it) == v }
+                    // fancy swap (move UIP vertex to 0 position)
+                newClause[uipIndex] = newClause[0].also { newClause[0] = newClause[uipIndex] }
                 analyzeActivity[v] = false
             }
         }
         // move last defined literal to 1 position TODO: there's room for simplify this
-        if (lemma.size > 1) {
+        if (newClause.size > 1) {
             var v = 0
             var previousLevel = -1
-            lemma.forEachIndexed { ind, lit ->
+            newClause.forEachIndexed { ind, lit ->
                 val literalLevel = vars[variable(lit)].level
                 if (literalLevel != level && literalLevel > previousLevel) {
                     previousLevel = literalLevel
                     v = ind
                 }
             }
-            lemma[1] = lemma[v].also { lemma[v] = lemma[1] }
+            newClause[1] = newClause[v].also { newClause[v] = newClause[1] }
         }
-        return lemma
+        return newClause
     }
 }
