@@ -31,8 +31,9 @@ internal class DiamondTests {
     private fun buildPadding(names: List<String>, padding: Int = 13, separator: String = " | "): String {
         val result = StringBuilder()
 
-        names.forEach {
-            result.append(it.padEnd(padding, ' '))
+        names.forEachIndexed { ind, it ->
+
+            result.append(it.padEnd(if (ind == 0) 50 else padding, ' '))
             result.append(separator)
         }
         return if (result.isNotEmpty()) result.dropLast(separator.length).toString() else ""
@@ -49,8 +50,8 @@ internal class DiamondTests {
             return solve()
         }
     }
-
     private fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boolean {
+
         if (ans == null) return !isSolution // null ~ UNSAT
 
         val cnfRequest = readCnfRequests(input).first()
