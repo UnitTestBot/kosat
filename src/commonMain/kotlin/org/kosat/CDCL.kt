@@ -79,9 +79,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         }
     }
 
+    // TODO: consistent indexation
     private fun variable(lit: Int): Int = abs(lit)
 
-    // TODO rename
+    // TODO: rename
     private fun watchedPos(lit: Int): Int {
         return if (lit < 0) {
             2 * (-lit)
