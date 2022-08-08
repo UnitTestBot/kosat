@@ -28,6 +28,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val vars: MutableLis
 
     // list of scores for variables
     private val scores = mutableListOf<Double>()
+
     // priority queue of scores of undefined variables
     private var scoresPQ = PriorityQueue()
 
@@ -39,7 +40,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val vars: MutableLis
             }
             scores[v] += scoreInc
 
-        } //todo litIndex
+        } // todo litIndex
 
         numberOfConflicts++
         if (numberOfConflicts == decay) {

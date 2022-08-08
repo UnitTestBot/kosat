@@ -2,9 +2,9 @@ package org.kosat
 
 typealias Lit = Int
 
-class Clause(val lits: MutableList<Lit>): Collection<Lit> by lits {
+class Clause(val lits: MutableList<Lit>) : Collection<Lit> by lits {
 
-    constructor(): this(mutableListOf<Lit>())
+    constructor() : this(mutableListOf<Lit>())
 
     var deleted = false
 

@@ -59,7 +59,7 @@ interface Solver {
     fun getModel(): List<Lit>
 }
 
-class Kosat(clauses: MutableList<MutableList<Lit>>, vars: Int = 0): Solver {
+class Kosat(clauses: MutableList<MutableList<Lit>>, vars: Int = 0) : Solver {
     override val numberOfVariables get() = solver.numberOfVariables
     override val numberOfClauses get() = solver.constraints.size + solver.learnts.size
 

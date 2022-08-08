@@ -15,7 +15,7 @@ class Preprocessor(private val solver: CDCL) {
     private val hash = LongArray(2 * solver.numberOfVariables + 1) { 1L.shl(it % 64) }
 
     fun addClause(clause: Clause) {
-        clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.constraints.lastIndex) } //todo litIndex
+        clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.constraints.lastIndex) } // todo litIndex
         clauseSig.add(countSig(solver.constraints.lastIndex))
     }
 
@@ -35,7 +35,6 @@ class Preprocessor(private val solver: CDCL) {
     }
 
 
-
     private fun bve() {
         val isLiteralRemoved = MutableList(solver.numberOfVariables + 1) { false }
         val newNumeration = MutableList(solver.numberOfVariables + 1) { 0 }
@@ -51,7 +50,7 @@ class Preprocessor(private val solver: CDCL) {
         val deletedClauses = mutableListOf<Int>()
         solver.constraints.forEachIndexed { ind, clause ->
             for (lit in clause) {
-                if (isLiteralRemoved[abs(lit)]) { //TODO: litIndex
+                if (isLiteralRemoved[abs(lit)]) { // TODO: litIndex
                     deletedClauses.add(ind)
                     break
                 }
@@ -193,7 +192,7 @@ class Preprocessor(private val solver: CDCL) {
 
     private fun countOccurrence() {
         litOccurrence = mutableListOf()
-        //litOccurrence.clear()
+        // litOccurrence.clear()
         for (ind in 1..(2 * solver.numberOfVariables + 1)) {
             litOccurrence.add(mutableListOf())
         }
@@ -223,7 +222,7 @@ class Preprocessor(private val solver: CDCL) {
     }
 
     private fun findSubsumed(clause: Int): Set<Int> {
-        val lit = solver.constraints[clause].minByOrNull { lit -> litOccurrence[litPos(lit)].size } ?: 0 //TODO litIndex
+        val lit = solver.constraints[clause].minByOrNull { lit -> litOccurrence[litPos(lit)].size } ?: 0 // TODO litIndex
         return litOccurrence[litPos(lit)].filter {
             clause != it && clause.clauseSize() <= it.clauseSize() && subset(clause, it)
         }.toSet()

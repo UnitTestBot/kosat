@@ -78,7 +78,7 @@ class PriorityQueue {
     }
 
     fun addValue(newValue: Pair<Double, Int>) {
-        require (sz != maxSize)
+        require(sz != maxSize)
         heap[sz] = newValue
         order[newValue.second] = sz
         sz++

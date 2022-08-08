@@ -448,7 +448,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         clause.forEach { minimizeMarks[watchedPos(it)] = mark }
         return Clause(clause.filterNot { lit ->
             vars[abs(lit)].clause?.all {
-                minimizeMarks[watchedPos(it)] == mark } ?: false
+                minimizeMarks[watchedPos(it)] == mark
+            } ?: false
         }.toMutableList())
     }
 

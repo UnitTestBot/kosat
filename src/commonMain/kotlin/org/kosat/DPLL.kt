@@ -18,7 +18,7 @@ fun unitPropagate(clauses: ArrayList<ArrayList<Int>>): List<Int>? {
         // satisfied by assigning the necessary value to make this literal true.
         val clauseToRemove = clauses.firstOrNull { it.size == 1 } ?: return res
 
-        //unit clause's literal
+        // unit clause's literal
         val literal = clauseToRemove[0]
         res.add(literal)
 
@@ -28,16 +28,16 @@ fun unitPropagate(clauses: ArrayList<ArrayList<Int>>): List<Int>? {
 }
 
 fun chooseLiteral(clauses: ArrayList<ArrayList<Int>>): Int {
-    //dumb strategy, place your heuristics here
+    // dumb strategy, place your heuristics here
     return clauses.first()[0]
 }
 
-//returns false only if after substitution some clause becomes empty
+// returns false only if after substitution some clause becomes empty
 fun substitute(clauses: ArrayList<ArrayList<Int>>, literal: Int): Boolean {
-    //removing every clause containing literal
+    // removing every clause containing literal
     clauses.removeAll { it.contains(literal) }
 
-    //discarding the complement of literal from every clause containing that complement
+    // discarding the complement of literal from every clause containing that complement
     clauses.forEach {
         it.remove(-literal)
         if (it.isEmpty())
@@ -59,22 +59,22 @@ fun dpll(clauses: ArrayList<ArrayList<Int>>): PersistentList<Int>? {
     if (clauses.isEmpty())
         return persistentListOf<Int>().addAll(unitLits)
 
-    //todo pure literal elimination rule
+    // todo pure literal elimination rule
 
     val chosenLit = chooseLiteral(clauses)
 
-    //make clone
+    // make clone
     val clone = ArrayList<ArrayList<Int>>(clauses.size)
     clauses.forEach { clone.add(ArrayList(it)) }
 
-    //use clone for literal substitution
+    // use clone for literal substitution
     if (substitute(clone, chosenLit)) {
         val recursiveLits = dpll(clone)
         if (recursiveLits != null)
             return recursiveLits.add(chosenLit).addAll(unitLits)
     }
 
-    //use clauses for complement substitution
+    // use clauses for complement substitution
     if (substitute(clauses, -chosenLit)) {
         val recursiveLits = dpll(clauses)
         if (recursiveLits != null)
