@@ -127,10 +127,10 @@ class Preprocessor(private val solver: CDCL) {
             if (!markedClauses[ind]) {
                 findSubsumed(ind).forEach {
                     if (!markedClauses[it]) {
-                        if (ind.clauseSize() < it.clauseSize()) {
+                        if (clauseSize(ind) < clauseSize(it)) {
                             markedClauses[it] = true
                             uselessClauses.add(it)
-                        } else if (ind.clauseSize() == it.clauseSize()) {
+                        } else if (clauseSize(ind) == clauseSize(it)) {
                             duplicateClauses.add(it)
                         }
                     }
@@ -216,7 +216,7 @@ class Preprocessor(private val solver: CDCL) {
         return sz
     }
 
-    private fun Int.clauseSize() = solver.constraints[this].size
+    private fun clauseSize(index: Int) = solver.constraints[index].size
 
     private var clauseSig = mutableListOf<Long>()
 
@@ -228,7 +228,7 @@ class Preprocessor(private val solver: CDCL) {
     private fun findSubsumed(clause: Int): Set<Int> {
         val lit = solver.constraints[clause].minByOrNull { lit -> litOccurrence[litPos(lit)].size } ?: 0 // TODO litIndex
         return litOccurrence[litPos(lit)].filter {
-            clause != it && clause.clauseSize() <= it.clauseSize() && isSubset(clause, it)
+            clause != it && clauseSize(clause) <= clauseSize(it) && isSubset(clause, it)
         }.toSet()
     }
 
