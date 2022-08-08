@@ -6,13 +6,13 @@ import kotlin.math.abs
 
 class Preprocessor(private val solver: CDCL) {
 
-    private val oldNumeration = MutableList(solver.varsNumber + 1) { index -> index }
+    private val oldNumeration = MutableList(solver.numberOfVariables + 1) { index -> index }
     private var startClauses = listOf<Clause>()
     private var startOccurrence = listOf<MutableList<Int>>()
     private val deletingOrder = mutableListOf<Int>()
     private val isClauseDeleted = MutableList(solver.constraints.size) { false }
     private val clauseLimit = 600
-    private val hash = LongArray(2 * solver.varsNumber + 1) { 1L.shl(it % 64) }
+    private val hash = LongArray(2 * solver.numberOfVariables + 1) { 1L.shl(it % 64) }
 
     fun addClause(clause: Clause) {
         clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.constraints.lastIndex) } //todo litIndex
@@ -29,7 +29,7 @@ class Preprocessor(private val solver: CDCL) {
         removeSubsumedClauses()
         bve()
         removeSubsumedClauses()
-        println("${solver.varsNumber}, ${solver.constraints.size}")
+        println("${solver.numberOfVariables}, ${solver.constraints.size}")
         // clauses.forEach { println(it) }
         // removePureLiterals()
     }
@@ -37,10 +37,10 @@ class Preprocessor(private val solver: CDCL) {
 
 
     private fun bve() {
-        val isLiteralRemoved = MutableList(solver.varsNumber + 1) { false }
-        val newNumeration = MutableList(solver.varsNumber + 1) { 0 }
+        val isLiteralRemoved = MutableList(solver.numberOfVariables + 1) { false }
+        val newNumeration = MutableList(solver.numberOfVariables + 1) { 0 }
         var currentInd = 1
-        while (solver.constraints.size < clauseLimit && currentInd <= solver.varsNumber) {
+        while (solver.constraints.size < clauseLimit && currentInd <= solver.numberOfVariables) {
             if (litOccurrence[litPos(currentInd)].size * litOccurrence[litPos(-currentInd)].size <= clauseLimit) {
                 isLiteralRemoved[currentInd] = true
                 deletingOrder.add(currentInd)
@@ -61,7 +61,7 @@ class Preprocessor(private val solver: CDCL) {
         startOccurrence = litOccurrence.map { it }
         solver.constraints.removeAll(deletedClauses.map { solver.constraints[it] })
         var newSize = 0
-        for (ind in 1..solver.varsNumber) {
+        for (ind in 1..solver.numberOfVariables) {
             if (!isLiteralRemoved[ind]) {
                 newSize++
                 newNumeration[ind] = newSize
@@ -77,7 +77,7 @@ class Preprocessor(private val solver: CDCL) {
                 }
             }
         }
-        solver.varsNumber = newSize
+        solver.numberOfVariables = newSize
         countOccurrence()
         updateSig()
     }
@@ -149,7 +149,7 @@ class Preprocessor(private val solver: CDCL) {
 
     private fun removeTautologies() {
         val isClauseRemoved = MutableList(solver.constraints.size) { false }
-        for (lit in 1..solver.varsNumber) {
+        for (lit in 1..solver.numberOfVariables) {
             val sz1 = litOccurrence[litPos(lit)].size
             val sz2 = litOccurrence[litPos(-lit)].size
             if (sz1 == 0 || sz2 == 0) {
@@ -187,14 +187,14 @@ class Preprocessor(private val solver: CDCL) {
         return if (lit >= 0) {
             lit
         } else {
-            solver.varsNumber - lit
+            solver.numberOfVariables - lit
         }
     }
 
     private fun countOccurrence() {
         litOccurrence = mutableListOf()
         //litOccurrence.clear()
-        for (ind in 1..(2 * solver.varsNumber + 1)) {
+        for (ind in 1..(2 * solver.numberOfVariables + 1)) {
             litOccurrence.add(mutableListOf())
         }
         solver.constraints.forEachIndexed { ind, clause ->
@@ -202,7 +202,7 @@ class Preprocessor(private val solver: CDCL) {
                 if (lit > 0) {
                     litOccurrence[lit].add(ind)
                 } else {
-                    litOccurrence[solver.varsNumber - lit].add(ind)
+                    litOccurrence[solver.numberOfVariables - lit].add(ind)
                 }
             }
         }
@@ -241,16 +241,16 @@ class Preprocessor(private val solver: CDCL) {
     fun recoverAnswer() {
         // updating vars for bve
         val oldStatus = List(oldNumeration.size) { ind -> solver.vars[ind].status }
-        for (ind in 1..solver.varsNumber) {
+        for (ind in 1..solver.numberOfVariables) {
             solver.vars[ind].status = CDCL.VarStatus.UNDEFINED
         }
-        for (ind in 1..solver.varsNumber) {
+        for (ind in 1..solver.numberOfVariables) {
             solver.vars[oldNumeration[ind]].status = oldStatus[ind]
             if (solver.vars[oldNumeration[ind]].status == CDCL.VarStatus.UNDEFINED) {
                 solver.vars[oldNumeration[ind]].status = CDCL.VarStatus.TRUE
             }
         }
-        solver.varsNumber += deletingOrder.size
+        solver.numberOfVariables += deletingOrder.size
         for (ind in deletingOrder.reversed()) {
             var allTrue = true
             for (clause in startOccurrence[ind]) {

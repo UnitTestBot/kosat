@@ -19,7 +19,7 @@ abstract class VariableSelector {
     abstract fun backTrack(variable: Int)
 }
 
-class VSIDS(private var varsNumber: Int = 0, private val vars: MutableList<CDCL.VarState>) : VariableSelector() {
+class VSIDS(private var numberOfVariables: Int = 0, private val vars: MutableList<CDCL.VarState>) : VariableSelector() {
     private val decay = 50
     private val multiplier = 2.0
     private var numberOfConflicts = 0
@@ -58,11 +58,11 @@ class VSIDS(private var varsNumber: Int = 0, private val vars: MutableList<CDCL.
 
     override fun addVariable() {
         scores.add(0.0)
-        varsNumber++
+        numberOfVariables++
     }
 
     override fun build(clauses: List<Clause>) {
-        while (scores.size < varsNumber + 1) {
+        while (scores.size < numberOfVariables + 1) {
             scores.add(0.0)
         }
         clauses.forEach { clause ->

@@ -25,16 +25,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     val constraints = mutableListOf<Clause>()
     // learnt from conflicts clauses, once in a while their number halved
     val learnts = mutableListOf<Clause>()
-    var varsNumber: Int = 0
+    var numberOfVariables: Int = 0
 
     // contains current assignment, clause it came from and decision level when it happened
-    val vars: MutableList<VarState> = MutableList(varsNumber + 1) { VarState(VarStatus.UNDEFINED, null, -1) }
+    val vars: MutableList<VarState> = MutableList(numberOfVariables + 1) { VarState(VarStatus.UNDEFINED, null, -1) }
 
     // all decisions and consequences, contains variables
     private val trail: MutableList<Int> = mutableListOf()
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
-    private val watchers = MutableList(varsNumber * 2 + 1) { mutableListOf<Clause>() }
+    private val watchers = MutableList(numberOfVariables * 2 + 1) { mutableListOf<Clause>() }
 
     // list of unit clauses to propagate
     val units: MutableList<Clause> = mutableListOf() // TODO must be queue
@@ -48,7 +48,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     /** Heuristics **/
 
     // branching heuristic
-    private val variableSelector: VariableSelector = VSIDS(varsNumber, vars)
+    private val variableSelector: VariableSelector = VSIDS(numberOfVariables, vars)
 
     // preprocessing includes deleting subsumed clauses and bve, offed by default
     private var preprocessor: Preprocessor? = null
@@ -112,16 +112,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         initVarsNumber: Int = 0,
         solverType: SolverType = SolverType.INCREMENTAL
     ) : this(solverType) {
-        while (varsNumber < initVarsNumber) {
+        while (numberOfVariables < initVarsNumber) {
             addVariable()
         }
         initClauses.forEach { newClause(it) }
-        polarity = MutableList(varsNumber + 1) { VarStatus.UNDEFINED } // TODO is phaseSaving adapted for incremental?
+        polarity = MutableList(numberOfVariables + 1) { VarStatus.UNDEFINED } // TODO is phaseSaving adapted for incremental?
     }
 
     // public function for adding new variables
     override fun addVariable() { // TODO simple checks of duplicate variables in newClause
-        varsNumber++
+        numberOfVariables++
 
         variableSelector.addVariable()
 
@@ -138,7 +138,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
         // add not mentioned variables from new clause
         val maxVar = clause.maxOfOrNull { abs(it) } ?: 0
-        while (varsNumber < maxVar) {
+        while (numberOfVariables < maxVar) {
             addVariable()
         }
 
@@ -272,7 +272,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 // NO CONFLICT
 
                 // If (the problem is already) SAT, return the current assignment
-                if (trail.size == varsNumber) {
+                if (trail.size == numberOfVariables) {
                     val model = variableValues()
                     reset()
                     println(totalNumberOfConflicts)
@@ -437,7 +437,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     }
 
     /** contains used variables during conflict analyze (should resize in [addVariable]) **/
-    private val analyzeActivity = MutableList(varsNumber + 1) { false }
+    private val analyzeActivity = MutableList(numberOfVariables + 1) { false }
 
     // analyze conflict and return new clause
     private fun analyzeConflict(conflict: Clause): Clause {
