@@ -46,6 +46,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     // current decision level
     var level: Int = 0
 
+    // minimization lemma in analyze conflicts
+    private val minimizeMarks = MutableList(numberOfVariables * 2 + 1) { 0 }
+    var mark = 0
+
     /** Heuristics **/
 
     // branching heuristic
@@ -109,15 +113,19 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     constructor() : this(mutableListOf<Clause>())
 
     constructor(
-        initClauses: MutableList<Clause>,
-        initVarsNumber: Int = 0,
+        initialClauses: MutableList<Clause>,
+        initialVarsNumber: Int = 0,
         solverType: SolverType = SolverType.INCREMENTAL
     ) : this(solverType) {
-        while (numberOfVariables < initVarsNumber) {
+        reserveVars(initialVarsNumber)
+        initialClauses.forEach { newClause(it) }
+        polarity = MutableList(numberOfVariables + 1) { VarStatus.UNDEFINED } // TODO is phaseSaving adapted for incremental?
+    }
+
+    private fun reserveVars(max: Int) {
+        while (numberOfVariables < max) {
             addVariable()
         }
-        initClauses.forEach { newClause(it) }
-        polarity = MutableList(numberOfVariables + 1) { VarStatus.UNDEFINED } // TODO is phaseSaving adapted for incremental?
     }
 
     // public function for adding new variables
@@ -131,6 +139,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         vars.add(VarState(VarStatus.UNDEFINED, null, -1))
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
+        minimizeMarks.add(0)
+        minimizeMarks.add(0)
     }
 
     // public function for adding new clauses
@@ -433,6 +443,15 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     /** contains used variables during conflict analyze (should resize in [addVariable]) **/
     private val analyzeActivity = MutableList(numberOfVariables + 1) { false }
 
+    private fun minimize(clause: Clause): Clause {
+        mark++
+        clause.forEach { minimizeMarks[watchedPos(it)] = mark }
+        return Clause(clause.filterNot { lit ->
+            vars[abs(lit)].clause?.all {
+                minimizeMarks[watchedPos(it)] == mark } ?: false
+        }.toMutableList())
+    }
+
     // analyze conflict and return new clause
     private fun analyzeConflict(conflict: Clause): Clause {
 
@@ -496,6 +515,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             }
             newClause[1] = newClause[v].also { newClause[v] = newClause[1] }
         }
-        return newClause
+        return minimize(newClause)
     }
 }
