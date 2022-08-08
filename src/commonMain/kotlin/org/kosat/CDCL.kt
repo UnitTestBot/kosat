@@ -42,7 +42,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     var reduceNumber = 6000.0
     var reduceIncrement = 500.0
 
-    // decision level
+    // current decision level
     var level: Int = 0
 
     /** Heuristics **/
