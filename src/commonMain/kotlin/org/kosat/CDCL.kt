@@ -273,7 +273,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
                 // If (the problem is already) SAT, return the current assignment
                 if (trail.size == numberOfVariables) {
-                    val model = variableValues()
+                    val model = getModel()
                     reset()
                     println(totalNumberOfConflicts)
                     return model
@@ -297,28 +297,20 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         clearTrail(0)
     }
 
-    // convert values to a possible satisfying result: if a variable less than 0 it's FALSE, otherwise it's TRUE
-    // TODO where to place
-    private fun variableValues(): List<Int> {
+    // return current assignment of variables
+    private fun getModel(): List<Int> {
         if (solverType == SolverType.NON_INCREMENTAL) {
             preprocessor?.recoverAnswer()
         }
 
-        // TODO что за кринж написан...
-        return vars
+        return vars.drop(1)
             .mapIndexed { index, v ->
                 when (v.status) {
-                    VarStatus.TRUE -> index
-                    VarStatus.FALSE -> -index
-                    else -> {
-                        if (assumptions.find { it == -index } != null) {
-                            -index
-                        } else {
-                            index
-                        }
-                    }
+                    VarStatus.TRUE -> index + 1
+                    VarStatus.FALSE -> -index - 1
+                    VarStatus.UNDEFINED -> throw Exception("Unexpected unassigned variable")
                 }
-            }.sortedBy { variable(it) }.filter { variable(it) > 0 }
+            }
     }
 
     /** Two watchers **/
