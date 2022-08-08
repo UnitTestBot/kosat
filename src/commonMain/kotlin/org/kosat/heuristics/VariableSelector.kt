@@ -1,8 +1,9 @@
 package org.kosat.heuristics
 
-import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.Lit
+import org.kosat.VarState
+import org.kosat.VarStatus
 import kotlin.math.abs
 
 abstract class VariableSelector {
@@ -13,13 +14,13 @@ abstract class VariableSelector {
     }
 
     abstract fun build(clauses: List<Clause>)
-    abstract fun nextDecisionVariable(vars: List<CDCL.VarState>, level: Int): Int
+    abstract fun nextDecision(vars: List<VarState>, level: Int): Int
     abstract fun addVariable()
     abstract fun update(lemma: Clause)
     abstract fun backTrack(variable: Int)
 }
 
-class VSIDS(private var numberOfVariables: Int = 0, private val vars: MutableList<CDCL.VarState>) : VariableSelector() {
+class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
     private val decay = 50
     private val multiplier = 2.0
     private var numberOfConflicts = 0
@@ -74,7 +75,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val vars: MutableLis
         scoresPQ.buildHeap(scores)
     }
 
-    override fun nextDecisionVariable(vars: List<CDCL.VarState>, level: Int): Int {
+    override fun nextDecision(vars: List<VarState>, level: Int): Int {
         return if (level > assumptions.size) {
             vsids(vars)
         } else {
@@ -89,12 +90,12 @@ class VSIDS(private var numberOfVariables: Int = 0, private val vars: MutableLis
     }
 
     // Looks for index of undefined variable with max activity
-    private fun vsids(vars: List<CDCL.VarState>): Int {
+    private fun vsids(vars: List<VarState>): Int {
         var v: Int
         while (true) {
             v = scoresPQ.getMax().second
             scoresPQ.deleteMax()
-            if (vars[v].status == CDCL.VarStatus.UNDEFINED) {
+            if (vars[v].status == VarStatus.UNDEFINED) {
                 break
             }
         }
