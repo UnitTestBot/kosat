@@ -53,7 +53,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     /** Heuristics **/
 
     // branching heuristic
-    private val variableSelector: VariableSelector = VSIDS(numberOfVariables, vars)
+    private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
 
     // preprocessing includes deleting subsumed clauses and bve, offed by default
     private var preprocessor: Preprocessor? = null
@@ -62,24 +62,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     private val restarter = Restarter(this)
 
     /** Variable states **/
-
-    enum class VarStatus {
-        TRUE, FALSE, UNDEFINED;
-
-        operator fun not(): VarStatus {
-            return when (this) {
-                TRUE -> FALSE
-                FALSE -> TRUE
-                UNDEFINED -> UNDEFINED
-            }
-        }
-    }
-
-    data class VarState(
-        var status: VarStatus,
-        var clause: Clause?,
-        var level: Int
-    )
 
     // get status of literal
     fun getStatus(lit: Int): VarStatus {
@@ -293,13 +275,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
                 // try to guess variable
                 level++
-                var nextDecisionVariable = variableSelector.nextDecisionVariable(vars, level)
+                var nextDecisionVariable = variableSelector.nextDecision(vars, level)
 
                 // phase saving heuristic
                 if (level > assumptions.size && polarity[abs(nextDecisionVariable)] == VarStatus.FALSE) {
                     nextDecisionVariable = -abs(nextDecisionVariable)
                 } // TODO move to nextDecisionVariable
-                setVariableValues(null, nextDecisionVariable)
+                assign(null, nextDecisionVariable)
             }
         }
     }
@@ -366,9 +348,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     /** CDCL functions **/
 
-    // check is all clauses satisfied or not
-    private fun satisfiable() = constraints.all { clause -> clause.any { lit -> getStatus(lit) == VarStatus.TRUE } }
-
     // add new constraint, executes only in newClause
     private fun addConstraint(clause: Clause) {
         require(clause.size != 1)
@@ -410,14 +389,14 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             }
 
             val lit = clause.first { getStatus(it) == VarStatus.UNDEFINED }
-            setVariableValues(clause, lit)
+            assign(clause, lit)
         }
 
         return null
     }
 
     // add a variable to the trail and update watchers of clauses linked to this literal
-    private fun setVariableValues(clause: Clause?, lit: Int): Boolean {
+    private fun assign(clause: Clause?, lit: Int): Boolean {
         if (getStatus(lit) != VarStatus.UNDEFINED) return false
 
         setStatus(lit, VarStatus.TRUE)
@@ -507,11 +486,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         if (newClause.size > 1) {
             var v = 0
             var previousLevel = -1
-            newClause.forEachIndexed { ind, lit ->
+            newClause.forEachIndexed { i, lit ->
                 val literalLevel = vars[variable(lit)].level
                 if (literalLevel != level && literalLevel > previousLevel) {
                     previousLevel = literalLevel
-                    v = ind
+                    v = i
                 }
             }
             newClause[1] = newClause[v].also { newClause[v] = newClause[1] }

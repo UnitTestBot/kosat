@@ -2,6 +2,7 @@ package org.kosat.heuristics
 
 import org.kosat.CDCL
 import org.kosat.Clause
+import org.kosat.VarStatus
 import kotlin.math.abs
 
 class Preprocessor(private val solver: CDCL) {
@@ -221,14 +222,15 @@ class Preprocessor(private val solver: CDCL) {
         clauseSig = List(solver.constraints.size) { ind -> countSig(ind) }.toMutableList()
     }
 
+    // TODO: add docs
     private fun findSubsumed(clause: Int): Set<Int> {
         val lit = solver.constraints[clause].minByOrNull { lit -> litOccurrence[litPos(lit)].size } ?: 0 // TODO litIndex
         return litOccurrence[litPos(lit)].filter {
-            clause != it && clause.clauseSize() <= it.clauseSize() && subset(clause, it)
+            clause != it && clause.clauseSize() <= it.clauseSize() && isSubset(clause, it)
         }.toSet()
     }
 
-    private fun subset(cl1: Int, cl2: Int): Boolean {
+    private fun isSubset(cl1: Int, cl2: Int): Boolean {
         return if (clauseSig[cl2].or(clauseSig[cl1]) != clauseSig[cl2]) {
             false
         } else {
@@ -241,12 +243,12 @@ class Preprocessor(private val solver: CDCL) {
         // updating vars for bve
         val oldStatus = List(oldNumeration.size) { ind -> solver.vars[ind].status }
         for (ind in 1..solver.numberOfVariables) {
-            solver.vars[ind].status = CDCL.VarStatus.UNDEFINED
+            solver.vars[ind].status = VarStatus.UNDEFINED
         }
         for (ind in 1..solver.numberOfVariables) {
             solver.vars[oldNumeration[ind]].status = oldStatus[ind]
-            if (solver.vars[oldNumeration[ind]].status == CDCL.VarStatus.UNDEFINED) {
-                solver.vars[oldNumeration[ind]].status = CDCL.VarStatus.TRUE
+            if (solver.vars[oldNumeration[ind]].status == VarStatus.UNDEFINED) {
+                solver.vars[oldNumeration[ind]].status = VarStatus.TRUE
             }
         }
         solver.numberOfVariables += deletingOrder.size
@@ -258,7 +260,7 @@ class Preprocessor(private val solver: CDCL) {
                     if (lit == ind) {
                         continue
                     }
-                    if (solver.getStatus(lit) != CDCL.VarStatus.FALSE) {
+                    if (solver.getStatus(lit) != VarStatus.FALSE) {
                         isTrue = true
                         break
                     }
@@ -269,9 +271,9 @@ class Preprocessor(private val solver: CDCL) {
                 }
             }
             if (allTrue) {
-                solver.vars[ind].status = CDCL.VarStatus.FALSE
+                solver.vars[ind].status = VarStatus.FALSE
             } else {
-                solver.vars[ind].status = CDCL.VarStatus.TRUE
+                solver.vars[ind].status = VarStatus.TRUE
             }
         }
     }
