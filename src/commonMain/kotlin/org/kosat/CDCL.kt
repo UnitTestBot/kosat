@@ -223,7 +223,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         }
 
         // extreme cases
-        // if (clauses.isEmpty()) return variableValues()
         if (constraints.any { it.isEmpty() }) return null
         if (constraints.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
 
@@ -233,8 +232,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         while (true) {
             val conflictClause = propagate()
             if (conflictClause != null) {
-                totalNumberOfConflicts++
                 // CONFLICT
+                totalNumberOfConflicts++
+
                 // in case there is a conflict in CNF and trail is already in 0 state
                 if (level == 0) {
                     println(totalNumberOfConflicts)
@@ -245,8 +245,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 val lemma = analyzeConflict(conflictClause)
 
                 lemma.lbd = lemma.distinctBy { vars[variable(it)].level }.size
-                // println(lemma.lbd)
-                // if (clauses.size % 1000 == 0) println(clauses.size)
 
                 backjump(lemma)
 
@@ -255,19 +253,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                     addLearnt(lemma)
                 }
 
+                // remove half of learnts
                 if (learnts.size > reduceNumber) {
-                    // println("Conflicts found: $totalNumberOfConflicts. Clauses learnt: ${learnts.size}")
                     reduceNumber += reduceIncrement
-                    // reduceIncrement *= 1.1
                     restarter.restart()
                     reduceDB()
                 }
-
-                // Restart after adding a clause to maintain correct watchers
-                restarter.update()
-
-                // VSIDS
                 variableSelector.update(lemma)
+
+                // restart search after some number of conflicts
+                restarter.update()
             } else {
                 // NO CONFLICT
 
@@ -282,12 +277,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
                 // try to guess variable
                 level++
-                var nextVariable = variableSelector.nextDecisionVariable(vars, level)
+                var nextDecisionVariable = variableSelector.nextDecisionVariable(vars, level)
 
-                if (level > assumptions.size && polarity[abs(nextVariable)] == VarStatus.FALSE) {
-                    nextVariable = -abs(nextVariable)
+                // phase saving heuristic
+                if (level > assumptions.size && polarity[abs(nextDecisionVariable)] == VarStatus.FALSE) {
+                    nextDecisionVariable = -abs(nextDecisionVariable)
                 } // TODO move to nextDecisionVariable
-                setVariableValues(null, nextVariable)
+                setVariableValues(null, nextDecisionVariable)
             }
         }
     }
