@@ -169,6 +169,8 @@ internal class DiamondTests {
         }
     }
 
+
+    // TODO: parametrized tests
     @Test
     fun test() {
         assertEquals(runTests("src/jvmTest/resources/"), true)
