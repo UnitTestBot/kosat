@@ -241,6 +241,7 @@ class Preprocessor(private val solver: CDCL) {
     }
 
     // recover answer in terms of initial variables
+    // restoreAssignment? TODO: add docs
     fun recoverAnswer() {
         // updating vars for bve
         val oldStatus = List(oldNumeration.size) { ind -> solver.vars[ind].status }
