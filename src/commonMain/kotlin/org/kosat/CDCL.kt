@@ -23,6 +23,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     // initial constraints + externally added by newClause
     val constraints = mutableListOf<Clause>()
+
     // learnt from conflicts clauses, once in a while their number halved
     val learnts = mutableListOf<Clause>()
     var numberOfVariables: Int = 0
@@ -149,6 +150,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
         // delete every false literal from new clause
         clause.lits.removeAll { getStatus(it) == VarStatus.FALSE }
+
+        // if clause contains x and -x than it is useless
+        if (clause.any { -it in clause }) {
+            return
+        }
 
         // handling case of clause of size 1
         if (clause.size == 1) {
@@ -466,12 +472,12 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             numberOfActiveVariables--
         }
 
-        var newClause = Clause()
+        var newClause: Clause
 
         trail.last { analyzeActivity[it] }.let { v ->
-            require (v != -1)
+            require(v != -1)
             updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
-            newClause =  Clause(lemma.toMutableList())
+            newClause = Clause(lemma.toMutableList())
             val uipIndex = newClause.indexOfFirst { abs(it) == v }
             // fancy swap (move UIP vertex to 0 position)
             newClause[uipIndex] = newClause[0].also { newClause[0] = newClause[uipIndex] }
