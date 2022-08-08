@@ -3,17 +3,14 @@ package org.kosat.heuristics
 import org.kosat.CDCL
 import org.kosat.Incremental
 
+// used for restarts between searches (luby restarts are used now)
 class Restarter(private val solver: CDCL) : Incremental {
 
-    // ruby constant
-    private val u = 50.0
-
-    private var restartNumber = u
-    private val restartCoeff = 1.1
-
+    private val lubyMultiplierConstant = 50.0
+    private var restartNumber = lubyMultiplierConstant
     private var numberOfConflictsAfterRestart = 0
-    private var numberOfRestarts = 0
 
+    // 1, 1, 2, 1, 1, 2, 4, 1, 1, 2, 1, 1, 2, 4, 8, ...
     private val lubySeq: MutableList<Int> = mutableListOf(1)
 
     init {
@@ -28,9 +25,7 @@ class Restarter(private val solver: CDCL) : Incremental {
     private var lubyPosition = 1
 
     fun restart() {
-        numberOfRestarts++
-        // restartNumber *= restartCoeff
-        restartNumber = u * lubySeq[lubyPosition++]
+        restartNumber = lubyMultiplierConstant * lubySeq[lubyPosition++]
 
         solver.level = 0
         solver.units.clear()
