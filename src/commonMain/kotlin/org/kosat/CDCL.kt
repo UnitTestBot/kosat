@@ -281,7 +281,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 if (level > assumptions.size && polarity[abs(nextDecisionVariable)] == VarStatus.FALSE) {
                     nextDecisionVariable = -abs(nextDecisionVariable)
                 } // TODO move to nextDecisionVariable
-                assign(null, nextDecisionVariable)
+                assign(nextDecisionVariable, null)
             }
         }
     }
@@ -389,14 +389,14 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             }
 
             val lit = clause.first { getStatus(it) == VarStatus.UNDEFINED }
-            assign(clause, lit)
+            assign(lit, clause)
         }
 
         return null
     }
 
     // add a variable to the trail and update watchers of clauses linked to this literal
-    private fun assign(clause: Clause?, lit: Int): Boolean {
+    private fun assign(lit: Int, clause: Clause?): Boolean {
         if (getStatus(lit) != VarStatus.UNDEFINED) return false
 
         setStatus(lit, VarStatus.TRUE)

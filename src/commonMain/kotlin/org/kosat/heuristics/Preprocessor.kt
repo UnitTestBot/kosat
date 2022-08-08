@@ -82,7 +82,7 @@ class Preprocessor(private val solver: CDCL) {
         updateSig()
     }
 
-
+    // TODO: add docs
     private fun addResolvents(ind: Int) {
         for (cl1 in litOccurrence[litPos(ind)]) {
             if (isClauseDeleted[cl1]) {
@@ -147,6 +147,7 @@ class Preprocessor(private val solver: CDCL) {
         updateSig()
     }
 
+    // TODO: add docs
     private fun removeTautologies() {
         val isClauseRemoved = MutableList(solver.constraints.size) { false }
         for (lit in 1..solver.numberOfVariables) {
