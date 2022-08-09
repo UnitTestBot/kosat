@@ -1,10 +1,9 @@
 package org.kosat.heuristics
 
 import org.kosat.CDCL
-import org.kosat.Incremental
 
 // used for restarts between searches (luby restarts are used now)
-class Restarter(private val solver: CDCL) : Incremental {
+class Restarter(private val solver: CDCL) {
 
     private val lubyMultiplierConstant = 50.0
     private var restartNumber = lubyMultiplierConstant
@@ -40,10 +39,4 @@ class Restarter(private val solver: CDCL) : Incremental {
             restart()
         }
     }
-
-    // TODO why for...
-    override fun addVariable() {
-        TODO("Not yet implemented")
-    }
-
 }
