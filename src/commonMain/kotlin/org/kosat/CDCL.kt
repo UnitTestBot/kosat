@@ -427,6 +427,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     /** contains used variables during conflict analyze (should resize in [addVariable]) **/
     private val analyzeActivity = MutableList(numberOfVariables + 1) { false }
 
+    // deleting lits that have ancestor in implication graph in reason
     private fun minimize(clause: Clause): Clause {
         mark++
         clause.forEach { minimizeMarks[watchedPos(it)] = mark }
