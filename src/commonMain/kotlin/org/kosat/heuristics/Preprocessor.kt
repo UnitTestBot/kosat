@@ -5,6 +5,7 @@ import org.kosat.Clause
 import org.kosat.VarStatus
 import kotlin.math.abs
 
+// TODO: add docs and refactoring
 class Preprocessor(private val solver: CDCL) {
 
     private val oldNumeration = MutableList(solver.numberOfVariables + 1) { index -> index }
