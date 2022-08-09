@@ -85,15 +85,15 @@ class PriorityQueue {
         liftVertex(sz - 1)
     }
 
-    fun increaseScore(ind: Int, delta: Double) {
+    fun increaseActivity(ind: Int, delta: Double) {
         val u = order[ind]
         heap[u] = Pair(heap[u].first + delta, heap[u].second)
         liftVertex(u)
     }
 
-    fun buildHeap(scores: MutableList<Double>) {
-        for (ind in 1..scores.lastIndex) {
-            heap.add(Pair(scores[ind], ind))
+    fun buildHeap(activity: MutableList<Double>) {
+        for (ind in 1..activity.lastIndex) {
+            heap.add(Pair(activity[ind], ind))
         }
         for (ind in (heap.size / 2)..0) {
             heapify(ind)

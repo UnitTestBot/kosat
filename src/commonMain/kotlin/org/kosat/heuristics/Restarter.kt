@@ -10,21 +10,26 @@ class Restarter(private val solver: CDCL) {
     private var numberOfConflictsAfterRestart = 0
 
     // 1, 1, 2, 1, 1, 2, 4, 1, 1, 2, 1, 1, 2, 4, 8, ...
-    private val lubySeq: MutableList<Int> = mutableListOf(1)
-
-    init {
-        var pw = 1
-        while (lubySeq.size < 1e5) {
-            pw *= 2
-            lubySeq.addAll(lubySeq)
-            lubySeq.add(pw)
+    // return i'th element of luby sequence
+    private fun luby(i: Int, initialDeg: Int = 1): Int {
+        if (i == 2) return 1
+        var deg = initialDeg
+        while (deg <= i) {
+            deg *= 2
         }
+        while (deg / 2 > i) {
+            deg /= 2
+        }
+        if (deg - 1 == i) {
+            return deg / 2
+        }
+        return luby(i - deg / 2 + 1, deg / 2)
     }
 
     private var lubyPosition = 1
 
     fun restart() {
-        restartNumber = lubyMultiplierConstant * lubySeq[lubyPosition++]
+        restartNumber = lubyMultiplierConstant * luby(lubyPosition++)
 
         solver.level = 0
         solver.units.clear()
