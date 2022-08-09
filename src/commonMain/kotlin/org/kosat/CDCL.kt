@@ -379,7 +379,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     private fun undefineVariable(v: Int) {
         polarity[v] = getStatus(v)
         setStatus(v, VarStatus.UNDEFINED)
-        vars[v].clause = null
+        vars[v].reason = null
         vars[v].level = -1
         variableSelector.backTrack(v)
     }
@@ -407,7 +407,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
         setStatus(lit, VarStatus.TRUE)
         val v = variable(lit)
-        vars[v].clause = clause
+        vars[v].reason = clause
         vars[v].level = level
         trail.add(v)
         updateWatchers(lit)
@@ -431,7 +431,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         mark++
         clause.forEach { minimizeMarks[watchedPos(it)] = mark }
         return Clause(clause.filterNot { lit ->
-            vars[abs(lit)].clause?.all {
+            vars[abs(lit)].reason?.all {
                 minimizeMarks[watchedPos(it)] == mark
             } ?: false
         }.toMutableList())
@@ -463,7 +463,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             val v = trail[ind--]
             if (!analyzeActivity[v]) continue
 
-            vars[v].clause?.forEach { u ->
+            vars[v].reason?.forEach { u ->
                 val current = variable(u)
                 if (vars[current].level != level) {
                     updateLemma(lemma, u)
