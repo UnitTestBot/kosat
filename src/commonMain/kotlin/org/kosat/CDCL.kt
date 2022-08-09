@@ -304,7 +304,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 when (v.status) {
                     VarStatus.TRUE -> index + 1
                     VarStatus.FALSE -> -index - 1
-                    VarStatus.UNDEFINED -> throw Exception("Unexpected unassigned variable")
+                    VarStatus.UNDEFINED -> {
+                        println(vars)
+                        throw Exception("Unexpected unassigned variable")
+                    }
                 }
             }
     }
@@ -399,7 +402,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     // add a variable to the trail and update watchers of clauses linked to this literal
     private fun assign(lit: Int, clause: Clause?) {
-        if (getStatus(lit) != VarStatus.UNDEFINED)
+        if (getStatus(lit) != VarStatus.UNDEFINED) return
 
         setStatus(lit, VarStatus.TRUE)
         val v = variable(lit)
