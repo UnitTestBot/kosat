@@ -20,6 +20,8 @@ dependencies {
     implementation("com.github.Lipen.kotlin-satlib:core:0.24.2")
     implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.17.2")
     implementation("org.apache.logging.log4j:log4j-core:2.17.2")
+    // For JVM only
+    implementation("com.soywiz.korlibs.klock:klock-jvm:2.2.0")
 }
 
 fun Task.download(action: DownloadAction.() -> Unit) =

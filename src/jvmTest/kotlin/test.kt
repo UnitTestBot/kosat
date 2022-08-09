@@ -1,7 +1,7 @@
 import org.junit.jupiter.api.Test
 import java.io.File
-import kotlin.system.measureTimeMillis
 import com.github.lipen.satlib.solver.MiniSatSolver
+import com.soywiz.klock.measureTimeWithResult
 import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.SolverType
@@ -14,6 +14,7 @@ import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
 import kotlin.test.assertEquals
+import kotlin.math.round
 
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
@@ -33,7 +34,7 @@ internal class DiamondTests {
 
         names.forEachIndexed { ind, it ->
 
-            result.append(it.padEnd(if (ind == 0) 50 else padding, ' '))
+            result.append(it.padEnd(if (ind == 0) 40 else padding, ' '))
             result.append(separator)
         }
         return if (result.isNotEmpty()) result.dropLast(separator.length).toString() else ""
@@ -60,6 +61,12 @@ internal class DiamondTests {
         return cnfRequest.clauses.all { clause -> clause.lits.any { ans.contains(it) } }
     }
 
+    fun Double.round(decimals: Int): Double {
+        var multiplier = 1.0
+        repeat(decimals) { multiplier *= 10 }
+        return round(this * multiplier) / multiplier
+    }
+
     private fun runTests(path: String) : Boolean {
         val filenames = getAllFilenamesByPath(path).filter { !it.startsWith("benchmark") }
         println(filenames)
@@ -76,14 +83,9 @@ internal class DiamondTests {
 
             val input = File(filename).readText()
 
-            var solution: List<Int>?
-            var isSolution: Boolean
+            val (solution, timeKoSat) = measureTimeWithResult { solveCnf(readCnfRequests(input).first()) }
 
-            val timeKoSat = (measureTimeMillis {
-                solution = solveCnf(readCnfRequests(input).first())
-            }.toDouble() / 1000).toString()
-
-            val timeMiniSat = measureTimeMillis { isSolution = processMiniSatSolver(input) }.toDouble() / 1000
+            val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
 
             val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
@@ -94,8 +96,8 @@ internal class DiamondTests {
             println(
                 buildPadding(listOf(
                     it.dropLast(format.length), // test name
-                    timeKoSat,
-                    timeMiniSat.toString(),
+                    timeKoSat.seconds.round(3).toString(),
+                    timeMiniSat.seconds.round(3).toString(),
                     checkRes,
                     if (isSolution) "SAT" else "UNSAT"
                 ))
@@ -127,9 +129,6 @@ internal class DiamondTests {
             val variables = fileFirstLine[2]
             val clauses = fileFirstLine[3]
 
-            var solution: List<Int>?
-            var isSolution: Boolean
-
             val first = readCnfRequests(fileInput).first()
 
             val solver = CDCL(first.clauses as MutableList<Clause>, first.vars, SolverType.INCREMENTAL)
@@ -148,19 +147,17 @@ internal class DiamondTests {
 
                 println(assumptions)
 
-                val timeMiniSat = measureTimeMillis { isSolution = processMiniSatSolver(input) }.toDouble() / 1000
+                val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
 
-                val timeKoSat = (measureTimeMillis {
-                    solution = solver.solve(assumptions)
-                }.toDouble() / 1000).toString()
+                val (solution, timeKoSat) = measureTimeWithResult { solver.solve(assumptions) }
 
                 val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
                 println(
                     buildPadding(listOf(
                         filename.dropLast(format.length), // test name
-                        timeKoSat,
-                        timeMiniSat.toString(),
+                        timeKoSat.seconds.round(3).toString(),
+                        timeMiniSat.seconds.round(3).toString(),
                         checkRes,
                         if (isSolution) "SAT" else "UNSAT"
                     ))
