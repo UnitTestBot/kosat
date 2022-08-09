@@ -23,7 +23,7 @@ class Preprocessor(private val solver: CDCL) {
     // for each literal provides a list of clauses containing it (for 'x' it's in pos x, for 'not x' in pos varsNumber + x)
     private var litOccurrence: MutableList<MutableList<Int>> = mutableListOf()
 
-    init {
+    fun apply() {
         countOccurrence()
         updateSig()
         removeTautologies()
@@ -34,7 +34,6 @@ class Preprocessor(private val solver: CDCL) {
         // clauses.forEach { println(it) }
         // removePureLiterals()
     }
-
 
     private fun bve() {
         val isLiteralRemoved = MutableList(solver.numberOfVariables + 1) { false }

@@ -220,6 +220,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         } else {
             null
         }
+        preprocessor?.apply()
 
         // extreme cases
         if (constraints.any { it.isEmpty() }) return null
