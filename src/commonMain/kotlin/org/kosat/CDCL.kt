@@ -1,9 +1,12 @@
 package org.kosat
 
+import com.soywiz.klock.PerformanceCounter
+import com.soywiz.klock.TimeSpan
+import com.soywiz.klock.microseconds
 import org.kosat.heuristics.Preprocessor
 import org.kosat.heuristics.Restarter
-import org.kosat.heuristics.VariableSelector
 import org.kosat.heuristics.VSIDS
+import org.kosat.heuristics.VariableSelector
 import kotlin.math.abs
 
 // CDCL
@@ -211,7 +214,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     /** Solve **/
 
+    var ok = true
+
     fun solve(): List<Int>? {
+
+        val start: Double = PerformanceCounter.microseconds
 
         var totalNumberOfConflicts = 0
 
@@ -229,7 +236,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         variableSelector.build(constraints)
 
         // main loop
-        while (true) {
+        while (ok) {
             val conflictClause = propagate()
             if (conflictClause != null) {
                 // CONFLICT
@@ -256,6 +263,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 // remove half of learnts
                 if (learnts.size > reduceNumber) {
                     reduceNumber += reduceIncrement
+                    val end: Double = PerformanceCounter.microseconds
+                    val elapsed: TimeSpan = (end - start).microseconds
+                    if (elapsed.seconds > 5) {
+                        ok = false
+                    }
                     restarter.restart()
                     reduceDB()
                 }
@@ -287,6 +299,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 assign(nextDecisionVariable, null)
             }
         }
+        return emptyList()
     }
 
     private fun reset() {

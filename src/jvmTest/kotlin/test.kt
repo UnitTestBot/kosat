@@ -1,23 +1,19 @@
-import org.junit.jupiter.api.Test
-import java.io.File
+
 import com.github.lipen.satlib.solver.MiniSatSolver
 import com.soywiz.klock.measureTimeWithResult
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import org.kosat.CDCL
-import org.kosat.Clause
-import org.kosat.SolverType
-import org.kosat.readCnfRequests
-import org.kosat.solveCnf
+import org.kosat.*
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.abs
+import kotlin.math.round
 import kotlin.math.sign
 import kotlin.random.Random
-import kotlin.streams.toList
 import kotlin.test.assertEquals
-import kotlin.math.round
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
@@ -59,6 +55,8 @@ internal class DiamondTests {
     private fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boolean {
 
         if (ans == null) return !isSolution // null ~ UNSAT
+
+        if (ans.isEmpty()) return false
 
         val cnfRequest = readCnfRequests(input).first()
         if (ans.size != cnfRequest.vars) return false

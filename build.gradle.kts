@@ -25,6 +25,16 @@ dependencies {
     implementation("com.soywiz.korlibs.klock:klock-jvm:2.2.0")
 }
 
+kotlin {
+    sourceSets {
+        commonMain {
+            dependencies {
+                implementation("com.soywiz.korlibs.klock:klock:2.2.0")
+            }
+        }
+    }
+}
+
 fun Task.download(action: DownloadAction.() -> Unit) =
     download.configure(delegateClosureOf(action))
 
