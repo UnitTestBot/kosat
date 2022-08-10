@@ -2,6 +2,9 @@ import org.junit.jupiter.api.Test
 import java.io.File
 import com.github.lipen.satlib.solver.MiniSatSolver
 import com.soywiz.klock.measureTimeWithResult
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.SolverType
@@ -16,12 +19,14 @@ import kotlin.streams.toList
 import kotlin.test.assertEquals
 import kotlin.math.round
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
     private val format = ".cnf"
     private val headerNames = listOf("Name:", "KoSAT time:", "MiniSAT time:", "Result:", "Solvable:")
 
-    private fun getAllFilenamesByPath(path: String) : List<String> {
+    private fun getAllFilenamesByPath() : List<String> {
+        val path = "src/jvmTest/resources"
         val resourcesPath = Paths.get(projectDirAbsolutePath, path)
         return Files.walk(resourcesPath)
             .filter { item -> Files.isRegularFile(item) }
@@ -67,8 +72,35 @@ internal class DiamondTests {
         return round(this * multiplier) / multiplier
     }
 
+    private fun runTest(filepath: String): Boolean {
+        MiniSatSolver().close()
+
+        val input = File(filepath).readText()
+
+        val (solution, timeKoSat) = measureTimeWithResult { solveCnf(readCnfRequests(input).first()) }
+
+        val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
+
+        val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
+
+        println(
+            buildPadding(listOf(
+                filepath, // test name
+                timeKoSat.seconds.round(3).toString(),
+                timeMiniSat.seconds.round(3).toString(),
+                checkRes,
+                if (isSolution) "SAT" else "UNSAT"
+            ))
+        )
+        if (checkRes == "WA") {
+            return false
+        }
+        return true
+    }
+
+
     private fun runTests(path: String) : Boolean {
-        val filenames = getAllFilenamesByPath(path).filter { !it.startsWith("benchmark") }
+        val filenames = getAllFilenamesByPath()//.filter { !it.startsWith("benchmark") }
         println(filenames)
         println(buildPadding(headerNames))
 
@@ -110,7 +142,7 @@ internal class DiamondTests {
     fun testAssumptions() {
         val path = "src/jvmTest/resources/testCover/small"
 
-        val filenames = getAllFilenamesByPath(path)
+        val filenames = getAllFilenamesByPath()
         //println(filenames)
         //println(buildPadding(headerNames))
 
@@ -168,9 +200,10 @@ internal class DiamondTests {
 
 
     // TODO: parametrized tests
-    @Test
-    fun test() {
-        assertEquals(runTests("src/jvmTest/resources/"), true)
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("getAllFilenamesByPath")
+    fun test(filepath: String) {
+        assertEquals(runTest("src/jvmTest/resources$filepath"), true)
     }
 
 }
