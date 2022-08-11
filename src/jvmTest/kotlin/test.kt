@@ -13,6 +13,7 @@ import kotlin.math.abs
 import kotlin.math.round
 import kotlin.math.sign
 import kotlin.random.Random
+import kotlin.streams.toList
 import kotlin.test.assertEquals
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -22,7 +23,7 @@ internal class DiamondTests {
     private val headerNames = listOf("Name:", "KoSAT time:", "MiniSAT time:", "Result:", "Solvable:")
 
     private fun getAllFilenamesByPath() : List<String> {
-        val path = "src/jvmTest/resources"
+        val path = "src/jvmTest/resources/superHard"
         val resourcesPath = Paths.get(projectDirAbsolutePath, path)
         return Files.walk(resourcesPath)
             .filter { item -> Files.isRegularFile(item) }
@@ -48,8 +49,9 @@ internal class DiamondTests {
             val lit = List(data.vars) { newLiteral() }
             for (clause in data.clauses)
                 addClause(clause.lits.map { it.sign * lit[abs(it) - 1] })
-
-            return solve()
+            val result = solve()
+            println("MiniSat conflicts: ${backend.numberOfConflicts}")
+            return result
         }
     }
     private fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boolean {
@@ -98,7 +100,7 @@ internal class DiamondTests {
 
 
     private fun runTests(path: String) : Boolean {
-        val filenames = getAllFilenamesByPath()//.filter { !it.startsWith("benchmark") }
+        val filenames = getAllFilenamesByPath().filter { !it.startsWith("benchmark") && !it.startsWith("a") }
         println(filenames)
         println(buildPadding(headerNames))
 
@@ -201,7 +203,7 @@ internal class DiamondTests {
     @ParameterizedTest(name = "{0}")
     @MethodSource("getAllFilenamesByPath")
     fun test(filepath: String) {
-        assertEquals(runTest("src/jvmTest/resources$filepath"), true)
+        assertEquals(runTest("src/jvmTest/resources/superHard$filepath"), true)
     }
 
 }

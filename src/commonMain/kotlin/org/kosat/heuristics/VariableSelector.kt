@@ -93,6 +93,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
     private fun vsids(vars: List<VarState>): Int {
         var v: Int
         while (true) {
+            require(activityPQ.size > 0)
             v = activityPQ.getMax().second
             activityPQ.deleteMax()
             if (vars[v].status == VarStatus.UNDEFINED) {

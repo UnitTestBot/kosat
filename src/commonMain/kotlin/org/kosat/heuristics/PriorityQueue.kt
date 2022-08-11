@@ -4,7 +4,7 @@ class PriorityQueue {
     val heap: MutableList<Pair<Double, Int>> = mutableListOf()
     val order: MutableList<Int> = mutableListOf()
     var maxSize = -1
-    var sz = 0
+    var size = 0
 
     private fun ls(u: Int): Int {
         return 2 * u + 1
@@ -25,10 +25,10 @@ class PriorityQueue {
     }
 
     fun heapify(u: Int) {
-        if (ls(u) > sz - 1) {
+        if (ls(u) > size - 1) {
             return
         }
-        if (rs(u) > sz - 1) {
+        if (rs(u) > size - 1) {
             if (heap[ls(u)] > heap[u]) {
                 swap(u, ls(u))
             }

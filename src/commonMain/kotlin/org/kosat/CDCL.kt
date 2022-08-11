@@ -19,7 +19,7 @@ enum class SolverType {
     INCREMENTAL, NON_INCREMENTAL;
 }
 
-class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Incremental {
+class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // we never store clauses of size 1
     // they are lying at 0 decision level of trail
@@ -115,7 +115,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     }
 
     // public function for adding new variables
-    override fun addVariable() { // TODO simple checks of duplicate variables in newClause
+    fun addVariable(): Int { // TODO simple checks of duplicate variables in newClause
         numberOfVariables++
 
         variableSelector.addVariable()
@@ -123,10 +123,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         analyzeActivity.add(false)
 
         vars.add(VarState(VarStatus.UNDEFINED, null, -1))
+
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
         minimizeMarks.add(0)
         minimizeMarks.add(0)
+
+        return numberOfVariables
     }
 
     // public function for adding new clauses
@@ -162,10 +165,20 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     /** Trail: **/
 
+    // delete last variable from the trail
+    private fun trailRemoveLast() {
+        val v = trail.removeLast()
+        polarity[v] = getStatus(v)
+        setStatus(v, VarStatus.UNDEFINED)
+        vars[v].reason = null
+        vars[v].level = -1
+        variableSelector.backTrack(v)
+    }
+
     // clear trail until given level
     fun clearTrail(until: Int = -1) {
         while (trail.isNotEmpty() && vars[trail.last()].level > until) {
-            undefineVariable(trail.removeLast())
+            trailRemoveLast()
         }
     }
 
@@ -265,7 +278,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                     reduceNumber += reduceIncrement
                     val end: Double = PerformanceCounter.microseconds
                     val elapsed: TimeSpan = (end - start).microseconds
-                    if (elapsed.seconds > 5) {
+                    if (elapsed.seconds > 120) {
                         ok = false
                     }
                     restarter.restart()
@@ -386,15 +399,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             addWatchers(clause)
         }
         preprocessor?.addClause(clause)
-    }
-
-    // delete a variable from the trail
-    private fun undefineVariable(v: Int) {
-        polarity[v] = getStatus(v)
-        setStatus(v, VarStatus.UNDEFINED)
-        vars[v].reason = null
-        vars[v].level = -1
-        variableSelector.backTrack(v)
     }
 
     // return conflict clause, or null if there is no conflict clause
