@@ -77,7 +77,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
 
     override fun nextDecision(vars: List<VarState>, level: Int): Int {
         return if (level > assumptions.size) {
-            vsids(vars)
+            getMaxActivityVariable(vars)
         } else {
             assumptions[level - 1]
         }
@@ -90,7 +90,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
     }
 
     // Looks for index of undefined variable with max activity
-    private fun vsids(vars: List<VarState>): Int {
+    private fun getMaxActivityVariable(vars: List<VarState>): Int {
         var v: Int
         while (true) {
             v = activityPQ.getMax().second
