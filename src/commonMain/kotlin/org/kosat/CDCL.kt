@@ -251,7 +251,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
                 // in case there is a conflict in CNF and trail is already in 0 state
                 if (level == 0) {
-                    println(totalNumberOfConflicts)
+                    println("KoSat conflicts:   $totalNumberOfConflicts")
                     return null
                 }
 
@@ -284,7 +284,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 if (trail.size == numberOfVariables) {
                     val model = getModel()
                     reset()
-                    println(totalNumberOfConflicts)
+                    println("KoSat conflicts:   $totalNumberOfConflicts")
                     return model
                 }
 
