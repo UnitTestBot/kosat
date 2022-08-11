@@ -52,8 +52,9 @@ internal class DiamondTests {
             val lit = List(data.vars) { newLiteral() }
             for (clause in data.clauses)
                 addClause(clause.lits.map { it.sign * lit[abs(it) - 1] })
-
-            return solve()
+            val result = solve()
+            println("MiniSat conflicts: ${backend.numberOfConflicts}")
+            return result
         }
     }
     private fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boolean {

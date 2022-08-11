@@ -15,5 +15,5 @@ enum class VarValue {
 data class VarState(
     var value: VarValue,
     var reason: Clause?,
-    var level: Int
+    var level: Int,
 )

@@ -4,7 +4,7 @@ class PriorityQueue {
     val heap: MutableList<Pair<Double, Int>> = mutableListOf()
     val order: MutableList<Int> = mutableListOf()
     var maxSize = -1
-    var sz = 0
+    var size = 0
 
     private fun ls(u: Int): Int {
         return 2 * u + 1
@@ -25,10 +25,10 @@ class PriorityQueue {
     }
 
     fun heapify(u: Int) {
-        if (ls(u) > sz - 1) {
+        if (ls(u) > size - 1) {
             return
         }
-        if (rs(u) > sz - 1) {
+        if (rs(u) > size - 1) {
             if (heap[ls(u)] > heap[u]) {
                 swap(u, ls(u))
             }
@@ -46,21 +46,21 @@ class PriorityQueue {
     }
 
     fun divideAllElements(divisor: Double) {
-        for (ind in 0 until sz) {
+        for (ind in 0 until size) {
             heap[ind] = Pair(heap[ind].first / divisor, heap[ind].second)
         }
     }
 
     fun getMax(): Pair<Double, Int> {
-        require(sz != 0)
+        require(size != 0)
         return heap[0]
     }
 
     fun deleteMax() {
-        require(sz != 0)
-        swap(0, sz - 1)
-        order[heap[sz - 1].second] = -1
-        sz--
+        require(size != 0)
+        swap(0, size - 1)
+        order[heap[size - 1].second] = -1
+        size--
         if (heap.isNotEmpty()) {
             heapify(0)
         }
@@ -78,11 +78,11 @@ class PriorityQueue {
     }
 
     fun addValue(newValue: Pair<Double, Int>) {
-        require(sz != maxSize)
-        heap[sz] = newValue
-        order[newValue.second] = sz
-        sz++
-        liftVertex(sz - 1)
+        require(size != maxSize)
+        heap[size] = newValue
+        order[newValue.second] = size
+        size++
+        liftVertex(size - 1)
     }
 
     fun increaseActivity(ind: Int, delta: Double) {
@@ -98,14 +98,14 @@ class PriorityQueue {
         for (ind in (heap.size / 2)..0) {
             heapify(ind)
         }
-        sz = heap.size
-        while (order.size < sz + 1) {
+        size = heap.size
+        while (order.size < size + 1) {
             order.add(0)
         }
         heap.forEachIndexed { ind, elem ->
             order[elem.second] = ind
         }
-        maxSize = sz
+        maxSize = size
     }
 
     operator fun Pair<Double, Int>.compareTo(other: Pair<Double, Int>): Int {
