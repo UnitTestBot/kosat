@@ -195,7 +195,6 @@ class Preprocessor(private val solver: CDCL) {
 
     private fun countOccurrence() {
         litOccurrence = mutableListOf()
-        // litOccurrence.clear()
         for (ind in 1..(2 * solver.numberOfVariables + 1)) {
             litOccurrence.add(mutableListOf())
         }
