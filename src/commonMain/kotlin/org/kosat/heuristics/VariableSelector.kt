@@ -4,7 +4,7 @@ import org.kosat.Clause
 import org.kosat.Lit
 import org.kosat.VarState
 import org.kosat.VarStatus
-import kotlin.math.abs
+import org.kosat.variable
 
 abstract class VariableSelector {
     protected var assumptions: List<Lit> = emptyList()
@@ -35,7 +35,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
 
     override fun update(lemma: Clause) {
         lemma.forEach { lit ->
-            val v = abs(lit)
+            val v = variable(lit)
             if (activityPQ.order[v] != -1) {
                 activityPQ.increaseActivity(v, activityInc)
             }
@@ -69,7 +69,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         }
         clauses.forEach { clause ->
             clause.forEach { lit ->
-                activity[abs(lit)] += activityInc
+                activity[variable(lit)] += activityInc
             }
         }
         activityPQ.buildHeap(activity)

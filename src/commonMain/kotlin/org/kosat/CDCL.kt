@@ -2,8 +2,8 @@ package org.kosat
 
 import org.kosat.heuristics.Preprocessor
 import org.kosat.heuristics.Restarter
-import org.kosat.heuristics.VariableSelector
 import org.kosat.heuristics.VSIDS
+import org.kosat.heuristics.VariableSelector
 import kotlin.math.abs
 
 // CDCL
@@ -15,6 +15,9 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
 enum class SolverType {
     INCREMENTAL, NON_INCREMENTAL;
 }
+
+// TODO: consistent indexation
+fun variable(lit: Int): Int = abs(lit)
 
 class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Incremental {
 
@@ -79,8 +82,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         }
     }
 
-    // TODO: consistent indexation
-    private fun variable(lit: Int): Int = abs(lit)
 
     // TODO: rename
     private fun watchedPos(lit: Int): Int {
@@ -280,8 +281,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 var nextDecisionVariable = variableSelector.nextDecision(vars, level)
 
                 // phase saving heuristic
-                if (level > assumptions.size && polarity[abs(nextDecisionVariable)] == VarStatus.FALSE) {
-                    nextDecisionVariable = -abs(nextDecisionVariable)
+                if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarStatus.FALSE) {
+                    nextDecisionVariable = -variable(nextDecisionVariable)
                 } // TODO move to nextDecisionVariable
 
                 assign(nextDecisionVariable, null)
@@ -432,7 +433,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         mark++
         clause.forEach { minimizeMarks[watchedPos(it)] = mark }
         return Clause(clause.filterNot { lit ->
-            vars[abs(lit)].reason?.all {
+            vars[variable(lit)].reason?.all {
                 minimizeMarks[watchedPos(it)] == mark
             } ?: false
         }.toMutableList())
@@ -483,7 +484,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
             require(v != -1)
             updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
             newClause = Clause(lemma.toMutableList())
-            val uipIndex = newClause.indexOfFirst { abs(it) == v }
+            val uipIndex = newClause.indexOfFirst { variable(it) == v }
             // fancy swap (move UIP vertex to 0 position)
             newClause[uipIndex] = newClause[0].also { newClause[0] = newClause[uipIndex] }
             analyzeActivity[v] = false

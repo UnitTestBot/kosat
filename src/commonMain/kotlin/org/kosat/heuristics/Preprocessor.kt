@@ -3,7 +3,7 @@ package org.kosat.heuristics
 import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.VarStatus
-import kotlin.math.abs
+import org.kosat.variable
 
 // TODO: add docs and refactoring
 class Preprocessor(private val solver: CDCL) {
@@ -17,7 +17,7 @@ class Preprocessor(private val solver: CDCL) {
     private val hash = LongArray(2 * solver.numberOfVariables + 1) { 1L.shl(it % 64) }
 
     fun addClause(clause: Clause) {
-        clause.forEach { lit -> litOccurrence[abs(lit)].add(solver.constraints.lastIndex) } // todo litIndex
+        clause.forEach { lit -> litOccurrence[variable(lit)].add(solver.constraints.lastIndex) }
         clauseSig.add(countSig(solver.constraints.lastIndex))
     }
 
@@ -41,7 +41,7 @@ class Preprocessor(private val solver: CDCL) {
         val newNumeration = MutableList(solver.numberOfVariables + 1) { 0 }
         var currentInd = 1
         while (solver.constraints.size < clauseLimit && currentInd <= solver.numberOfVariables) {
-            if (litOccurrence[litPos(currentInd)].size * litOccurrence[litPos(-currentInd)].size <= clauseLimit) {
+            if (litOccurrence[strangeLiteralIndexation(currentInd)].size * litOccurrence[strangeLiteralIndexation(-currentInd)].size <= clauseLimit) {
                 isLiteralRemoved[currentInd] = true
                 deletingOrder.add(currentInd)
                 addResolvents(currentInd)
@@ -51,7 +51,7 @@ class Preprocessor(private val solver: CDCL) {
         val deletedClauses = mutableListOf<Int>()
         solver.constraints.forEachIndexed { ind, clause ->
             for (lit in clause) {
-                if (isLiteralRemoved[abs(lit)]) { // TODO: litIndex
+                if (isLiteralRemoved[variable(lit)]) {
                     deletedClauses.add(ind)
                     break
                 }
@@ -84,11 +84,11 @@ class Preprocessor(private val solver: CDCL) {
 
     // TODO: add docs
     private fun addResolvents(ind: Int) {
-        for (cl1 in litOccurrence[litPos(ind)]) {
+        for (cl1 in litOccurrence[strangeLiteralIndexation(ind)]) {
             if (isClauseDeleted[cl1]) {
                 continue
             }
-            for (cl2 in litOccurrence[litPos(-ind)]) {
+            for (cl2 in litOccurrence[strangeLiteralIndexation(-ind)]) {
                 if (isClauseDeleted[cl2]) {
                     continue
                 }
@@ -103,14 +103,14 @@ class Preprocessor(private val solver: CDCL) {
                 solver.constraints.add(Clause(newClause.toMutableList()))
                 isClauseDeleted.add(false)
                 for (lit in newClause) {
-                    litOccurrence[litPos(lit)].add(solver.constraints.lastIndex)
+                    litOccurrence[strangeLiteralIndexation(lit)].add(solver.constraints.lastIndex)
                 }
             }
         }
-        for (clause in litOccurrence[litPos(ind)]) {
+        for (clause in litOccurrence[strangeLiteralIndexation(ind)]) {
             isClauseDeleted[clause] = true
         }
-        for (clause in litOccurrence[litPos(-ind)]) {
+        for (clause in litOccurrence[strangeLiteralIndexation(-ind)]) {
             isClauseDeleted[clause] = true
         }
     }
@@ -152,22 +152,22 @@ class Preprocessor(private val solver: CDCL) {
     private fun removeTautologies() {
         val isClauseRemoved = MutableList(solver.constraints.size) { false }
         for (lit in 1..solver.numberOfVariables) {
-            val sz1 = litOccurrence[litPos(lit)].size
-            val sz2 = litOccurrence[litPos(-lit)].size
+            val sz1 = litOccurrence[strangeLiteralIndexation(lit)].size
+            val sz2 = litOccurrence[strangeLiteralIndexation(-lit)].size
             if (sz1 == 0 || sz2 == 0) {
                 continue
             }
             var ind1 = 0
             var ind2 = 0
             while (ind2 < sz2) {
-                while (ind1 < sz1 && litOccurrence[litPos(lit)][ind1] < litOccurrence[litPos(-lit)][ind2]) {
+                while (ind1 < sz1 && litOccurrence[strangeLiteralIndexation(lit)][ind1] < litOccurrence[strangeLiteralIndexation(-lit)][ind2]) {
                     ind1++
                 }
                 if (ind1 == sz1) {
                     break
                 }
-                if (litOccurrence[litPos(lit)][ind1] == litOccurrence[litPos(-lit)][ind2]) {
-                    isClauseRemoved[litOccurrence[litPos(lit)][ind1]] = true
+                if (litOccurrence[strangeLiteralIndexation(lit)][ind1] == litOccurrence[strangeLiteralIndexation(-lit)][ind2]) {
+                    isClauseRemoved[litOccurrence[strangeLiteralIndexation(lit)][ind1]] = true
                 }
                 ind2++
             }
@@ -185,7 +185,7 @@ class Preprocessor(private val solver: CDCL) {
     }
 
     // return position of literal in occurrence array
-    private fun litPos(lit: Int): Int {
+    private fun strangeLiteralIndexation(lit: Int): Int {
         return if (lit >= 0) {
             lit
         } else {
@@ -212,7 +212,7 @@ class Preprocessor(private val solver: CDCL) {
 
     private fun countSig(clause: Int): Long {
         var sz = 0L
-        solver.constraints[clause].forEach { lit -> sz = sz.or(hash[litPos(lit)]) }
+        solver.constraints[clause].forEach { lit -> sz = sz.or(hash[strangeLiteralIndexation(lit)]) }
         return sz
     }
 
@@ -226,8 +226,8 @@ class Preprocessor(private val solver: CDCL) {
 
     // TODO: add docs
     private fun findSubsumed(clause: Int): Set<Int> {
-        val lit = solver.constraints[clause].minByOrNull { lit -> litOccurrence[litPos(lit)].size } ?: 0 // TODO litIndex
-        return litOccurrence[litPos(lit)].filter {
+        val lit = solver.constraints[clause].minByOrNull { lit -> litOccurrence[strangeLiteralIndexation(lit)].size } ?: 0
+        return litOccurrence[strangeLiteralIndexation(lit)].filter {
             clause != it && clauseSize(clause) <= clauseSize(it) && isSubset(clause, it)
         }.toSet()
     }
