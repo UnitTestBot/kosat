@@ -32,7 +32,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     var numberOfVariables: Int = 0
 
     // contains current assignment, clause it came from and decision level when it happened
-    val vars: MutableList<VarState> = MutableList(numberOfVariables + 1) { VarState(VarStatus.UNDEFINED, null, -1) }
+    val vars: MutableList<VarState> = MutableList(numberOfVariables + 1) { VarState(VarValue.UNDEFINED, null, -1) }
 
     // all decisions and consequences, contains variables
     private val trail: MutableList<Int> = mutableListOf()
@@ -66,19 +66,19 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     /** Variable states **/
 
-    // get status of literal
-    fun getStatus(lit: Int): VarStatus {
-        if (vars[variable(lit)].status == VarStatus.UNDEFINED) return VarStatus.UNDEFINED
-        if (lit < 0) return !vars[-lit].status
-        return vars[lit].status
+    // get value of literal
+    fun getValue(lit: Int): VarValue {
+        if (vars[variable(lit)].value == VarValue.UNDEFINED) return VarValue.UNDEFINED
+        if (lit < 0) return !vars[-lit].value
+        return vars[lit].value
     }
 
-    // set status for literal
-    private fun setStatus(lit: Int, status: VarStatus) {
+    // set value for literal
+    private fun setValue(lit: Int, value: VarValue) {
         if (lit < 0) {
-            vars[-lit].status = !status
+            vars[-lit].value = !value
         } else {
-            vars[lit].status = status
+            vars[lit].value = value
         }
     }
 
@@ -103,7 +103,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     ) : this(solverType) {
         reserveVars(initialVarsNumber)
         initialClauses.forEach { newClause(it) }
-        polarity = MutableList(numberOfVariables + 1) { VarStatus.UNDEFINED } // TODO is phaseSaving adapted for incremental?
+        polarity = MutableList(numberOfVariables + 1) { VarValue.UNDEFINED } // TODO is phaseSaving adapted for incremental?
     }
 
     private fun reserveVars(max: Int) {
@@ -120,7 +120,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
         analyzeActivity.add(false)
 
-        vars.add(VarState(VarStatus.UNDEFINED, null, -1))
+        vars.add(VarState(VarValue.UNDEFINED, null, -1))
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
         minimizeMarks.add(0)
@@ -138,12 +138,12 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
         }
 
         // don't add clause if it already had true literal
-        if (clause.any { getStatus(it) == VarStatus.TRUE }) {
+        if (clause.any { getValue(it) == VarValue.TRUE }) {
             return
         }
 
         // delete every false literal from new clause
-        clause.lits.removeAll { getStatus(it) == VarStatus.FALSE }
+        clause.lits.removeAll { getValue(it) == VarValue.FALSE }
 
         // if clause contains x and -x than it is useless
         if (clause.any { -it in clause }) {
@@ -173,7 +173,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     private var assumptions: List<Int> = emptyList()
 
     // phase saving
-    private var polarity: MutableList<VarStatus> = mutableListOf()
+    private var polarity: MutableList<VarValue> = mutableListOf()
 
     fun solve(currentAssumptions: List<Int>): List<Int>? {
         require(solverType == SolverType.INCREMENTAL)
@@ -225,7 +225,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
         // extreme cases
         if (constraints.any { it.isEmpty() }) return null
-        if (constraints.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
+        if (constraints.any { it.all { lit -> getValue(lit) == VarValue.FALSE } }) return null
 
         variableSelector.build(constraints)
 
@@ -281,7 +281,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                 var nextDecisionVariable = variableSelector.nextDecision(vars, level)
 
                 // phase saving heuristic
-                if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarStatus.FALSE) {
+                if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarValue.FALSE) {
                     nextDecisionVariable = -variable(nextDecisionVariable)
                 } // TODO move to nextDecisionVariable
 
@@ -303,10 +303,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
         return vars.drop(1)
             .mapIndexed { index, v ->
-                when (v.status) {
-                    VarStatus.TRUE -> index + 1
-                    VarStatus.FALSE -> -index - 1
-                    VarStatus.UNDEFINED -> {
+                when (v.value) {
+                    VarValue.TRUE -> index + 1
+                    VarValue.FALSE -> -index - 1
+                    VarValue.UNDEFINED -> {
                         println(vars)
                         throw Exception("Unexpected unassigned variable")
                     }
@@ -332,10 +332,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
                     brokenClause[0] = brokenClause[1].also { brokenClause[1] = brokenClause[0] }
                 }
                 // if second watcher is true skip clause
-                if (getStatus(brokenClause[0]) != VarStatus.TRUE) {
+                if (getValue(brokenClause[0]) != VarValue.TRUE) {
                     var firstNotFalse = -1
                     for (ind in 2 until brokenClause.size) {
-                        if (getStatus(brokenClause[ind]) != VarStatus.FALSE) {
+                        if (getValue(brokenClause[ind]) != VarValue.FALSE) {
                             firstNotFalse = ind
                             break
                         }
@@ -378,8 +378,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     // delete a variable from the trail
     private fun undefineVariable(v: Int) {
-        polarity[v] = getStatus(v)
-        setStatus(v, VarStatus.UNDEFINED)
+        polarity[v] = getValue(v)
+        setValue(v, VarValue.UNDEFINED)
         vars[v].reason = null
         vars[v].level = -1
         variableSelector.backTrack(v)
@@ -389,13 +389,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
     private fun propagate(): Clause? {
         while (units.size > 0) {
             val clause = units.removeLast()
-            if (clause.any { getStatus(it) == VarStatus.TRUE }) continue
+            if (clause.any { getValue(it) == VarValue.TRUE }) continue
 
-            if (clause.all { getStatus(it) == VarStatus.FALSE }) {
+            if (clause.all { getValue(it) == VarValue.FALSE }) {
                 return clause
             }
 
-            val lit = clause.first { getStatus(it) == VarStatus.UNDEFINED }
+            val lit = clause.first { getValue(it) == VarValue.UNDEFINED }
             assign(lit, clause)
         }
 
@@ -404,9 +404,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
     // add a variable to the trail and update watchers of clauses linked to this literal
     private fun assign(lit: Int, clause: Clause?) {
-        if (getStatus(lit) != VarStatus.UNDEFINED) return
+        if (getValue(lit) != VarValue.UNDEFINED) return
 
-        setStatus(lit, VarStatus.TRUE)
+        setValue(lit, VarValue.TRUE)
         val v = variable(lit)
         vars[v].reason = clause
         vars[v].level = level
@@ -482,7 +482,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) : Increm
 
         trail.last { analyzeActivity[it] }.let { v ->
             require(v != -1)
-            updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
+            updateLemma(lemma, if (getValue(v) == VarValue.TRUE) -v else v)
             newClause = Clause(lemma.toMutableList())
             val uipIndex = newClause.indexOfFirst { variable(it) == v }
             // fancy swap (move UIP vertex to 0 position)

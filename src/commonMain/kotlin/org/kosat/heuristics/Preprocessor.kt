@@ -2,7 +2,7 @@ package org.kosat.heuristics
 
 import org.kosat.CDCL
 import org.kosat.Clause
-import org.kosat.VarStatus
+import org.kosat.VarValue
 import org.kosat.variable
 
 // TODO: add docs and refactoring
@@ -243,14 +243,14 @@ class Preprocessor(private val solver: CDCL) {
     // restoreAssignment? TODO: add docs
     fun recoverAnswer() {
         // updating vars for bve
-        val oldStatus = List(oldNumeration.size) { ind -> solver.vars[ind].status }
+        val oldStatus = List(oldNumeration.size) { ind -> solver.vars[ind].value }
         for (ind in 1..solver.numberOfVariables) {
-            solver.vars[ind].status = VarStatus.UNDEFINED
+            solver.vars[ind].value = VarValue.UNDEFINED
         }
         for (ind in 1..solver.numberOfVariables) {
-            solver.vars[oldNumeration[ind]].status = oldStatus[ind]
-            if (solver.vars[oldNumeration[ind]].status == VarStatus.UNDEFINED) {
-                solver.vars[oldNumeration[ind]].status = VarStatus.TRUE
+            solver.vars[oldNumeration[ind]].value = oldStatus[ind]
+            if (solver.vars[oldNumeration[ind]].value == VarValue.UNDEFINED) {
+                solver.vars[oldNumeration[ind]].value = VarValue.TRUE
             }
         }
         solver.numberOfVariables += deletingOrder.size
@@ -262,7 +262,7 @@ class Preprocessor(private val solver: CDCL) {
                     if (lit == ind) {
                         continue
                     }
-                    if (solver.getStatus(lit) != VarStatus.FALSE) {
+                    if (solver.getValue(lit) != VarValue.FALSE) {
                         isTrue = true
                         break
                     }
@@ -273,9 +273,9 @@ class Preprocessor(private val solver: CDCL) {
                 }
             }
             if (allTrue) {
-                solver.vars[ind].status = VarStatus.FALSE
+                solver.vars[ind].value = VarValue.FALSE
             } else {
-                solver.vars[ind].status = VarStatus.TRUE
+                solver.vars[ind].value = VarValue.TRUE
             }
         }
     }

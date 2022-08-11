@@ -3,7 +3,7 @@ package org.kosat.heuristics
 import org.kosat.Clause
 import org.kosat.Lit
 import org.kosat.VarState
-import org.kosat.VarStatus
+import org.kosat.VarValue
 import org.kosat.variable
 
 abstract class VariableSelector {
@@ -95,7 +95,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         while (true) {
             v = activityPQ.getMax().second
             activityPQ.deleteMax()
-            if (vars[v].status == VarStatus.UNDEFINED) {
+            if (vars[v].value == VarValue.UNDEFINED) {
                 break
             }
         }
