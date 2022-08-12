@@ -278,9 +278,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                     reduceNumber += reduceIncrement
                     val end: Double = PerformanceCounter.microseconds
                     val elapsed: TimeSpan = (end - start).microseconds
-                    if (elapsed.seconds > 120) {
+                    /*if (elapsed.seconds > 120) {
                         ok = false
-                    }
+                    }*/
                     restarter.restart()
                     reduceDB()
                 }

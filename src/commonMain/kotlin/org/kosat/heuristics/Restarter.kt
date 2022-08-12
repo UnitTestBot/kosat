@@ -26,7 +26,7 @@ class Restarter(private val solver: CDCL) {
         return luby(i - deg / 2 + 1, deg / 2)
     }
 
-    private var lubyPosition = 1
+    private var lubyPosition = 2
 
     fun restart() {
         restartNumber = lubyMultiplierConstant * luby(lubyPosition++)
