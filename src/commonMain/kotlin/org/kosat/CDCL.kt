@@ -1,8 +1,5 @@
 package org.kosat
 
-import com.soywiz.klock.PerformanceCounter
-import com.soywiz.klock.TimeSpan
-import com.soywiz.klock.microseconds
 import org.kosat.heuristics.Preprocessor
 import org.kosat.heuristics.Restarter
 import org.kosat.heuristics.VSIDS
@@ -19,6 +16,9 @@ enum class SolverType {
     INCREMENTAL, NON_INCREMENTAL;
 }
 
+// TODO: consistent indexation
+fun variable(lit: Int): Int = abs(lit)
+
 class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // we never store clauses of size 1
@@ -32,22 +32,21 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     var numberOfVariables: Int = 0
 
     // contains current assignment, clause it came from and decision level when it happened
-    val vars: MutableList<VarState> = MutableList(numberOfVariables + 1) { VarState(VarStatus.UNDEFINED, null, -1) }
+    val vars: MutableList<VarState> = MutableList(numberOfVariables + 1) { VarState(VarValue.UNDEFINED, null, -1) }
 
     // all decisions and consequences, contains variables
-    private val trail: MutableList<Int> = mutableListOf()
+    val trail: MutableList<Int> = mutableListOf()
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
     private val watchers = MutableList(numberOfVariables * 2 + 1) { mutableListOf<Clause>() }
-
-    // list of unit clauses to propagate
-    val units: MutableList<Clause> = mutableListOf() // TODO must be queue
 
     var reduceNumber = 6000.0
     var reduceIncrement = 500.0
 
     // current decision level
     var level: Int = 0
+
+    var qhead = 0
 
     // minimization lemma in analyze conflicts
     private val minimizeMarks = MutableList(numberOfVariables * 2 + 1) { 0 }
@@ -57,6 +56,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // branching heuristic
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
+    // private val variableSelector: VariableSelector = Simple(this)
 
     // preprocessing includes deleting subsumed clauses and bve, offed by default
     private var preprocessor: Preprocessor? = null
@@ -64,26 +64,32 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     // restart search from time to time
     private val restarter = Restarter(this)
 
-    /** Variable states **/
-
-    // get status of literal
-    fun getStatus(lit: Int): VarStatus {
-        if (vars[variable(lit)].status == VarStatus.UNDEFINED) return VarStatus.UNDEFINED
-        if (lit < 0) return !vars[-lit].status
-        return vars[lit].status
+    private fun uncheckedEnqueue(lit: Lit, reason: Clause? = null) {
+        setValue(lit, VarValue.TRUE)
+        val v = variable(lit)
+        vars[v].reason = reason
+        vars[v].level = level
+        trail.add(lit)
     }
 
-    // set status for literal
-    private fun setStatus(lit: Int, status: VarStatus) {
+    /** Variable states **/
+
+    // get value of literal
+    fun getValue(lit: Int): VarValue {
+        if (vars[variable(lit)].value == VarValue.UNDEFINED) return VarValue.UNDEFINED
+        if (lit < 0) return !vars[-lit].value
+        return vars[lit].value
+    }
+
+    // set value for literal
+    private fun setValue(lit: Int, value: VarValue) {
         if (lit < 0) {
-            vars[-lit].status = !status
+            vars[-lit].value = !value
         } else {
-            vars[lit].status = status
+            vars[lit].value = value
         }
     }
 
-    // TODO: consistent indexation
-    private fun variable(lit: Int): Int = abs(lit)
 
     // TODO: rename
     private fun watchedPos(lit: Int): Int {
@@ -105,7 +111,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     ) : this(solverType) {
         reserveVars(initialVarsNumber)
         initialClauses.forEach { newClause(it) }
-        polarity = MutableList(numberOfVariables + 1) { VarStatus.UNDEFINED } // TODO is phaseSaving adapted for incremental?
+        polarity = MutableList(numberOfVariables + 1) { VarValue.UNDEFINED } // TODO is phaseSaving adapted for incremental?
     }
 
     private fun reserveVars(max: Int) {
@@ -122,7 +128,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         analyzeActivity.add(false)
 
-        vars.add(VarState(VarStatus.UNDEFINED, null, -1))
+        vars.add(VarState(VarValue.UNDEFINED, null, -1))
 
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
@@ -143,12 +149,12 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         }
 
         // don't add clause if it already had true literal
-        if (clause.any { getStatus(it) == VarStatus.TRUE }) {
+        if (clause.any { getValue(it) == VarValue.TRUE }) {
             return
         }
 
         // delete every false literal from new clause
-        clause.lits.removeAll { getStatus(it) == VarStatus.FALSE }
+        clause.lits.removeAll { getValue(it) == VarValue.FALSE }
 
         // if clause contains x and -x than it is useless
         if (clause.any { -it in clause }) {
@@ -157,7 +163,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         // handling case of clause of size 1
         if (clause.size == 1) {
-            units.add(clause)
+            uncheckedEnqueue(clause[0])
         } else {
             addConstraint(clause)
         }
@@ -167,9 +173,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // delete last variable from the trail
     private fun trailRemoveLast() {
-        val v = trail.removeLast()
-        polarity[v] = getStatus(v)
-        setStatus(v, VarStatus.UNDEFINED)
+        val lit = trail.removeLast()
+        val v = variable(lit)
+        polarity[v] = getValue(v)
+        setValue(v, VarValue.UNDEFINED)
         vars[v].reason = null
         vars[v].level = -1
         variableSelector.backTrack(v)
@@ -177,7 +184,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // clear trail until given level
     fun clearTrail(until: Int = -1) {
-        while (trail.isNotEmpty() && vars[trail.last()].level > until) {
+        while (trail.isNotEmpty() && vars[variable(trail.last())].level > until) {
             trailRemoveLast()
         }
     }
@@ -188,7 +195,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     private var assumptions: List<Int> = emptyList()
 
     // phase saving
-    private var polarity: MutableList<VarStatus> = mutableListOf()
+    private var polarity: MutableList<VarValue> = mutableListOf()
 
     fun solve(currentAssumptions: List<Int>): List<Int>? {
         require(solverType == SolverType.INCREMENTAL)
@@ -227,11 +234,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     /** Solve **/
 
-    var ok = true
-
     fun solve(): List<Int>? {
-
-        val start: Double = PerformanceCounter.microseconds
 
         var totalNumberOfConflicts = 0
 
@@ -244,12 +247,12 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         // extreme cases
         if (constraints.any { it.isEmpty() }) return null
-        if (constraints.any { it.all { lit -> getStatus(lit) == VarStatus.FALSE } }) return null
+        if (constraints.any { it.all { lit -> getValue(lit) == VarValue.FALSE } }) return null
 
         variableSelector.build(constraints)
 
         // main loop
-        while (ok) {
+        while (true) {
             val conflictClause = propagate()
             if (conflictClause != null) {
                 // CONFLICT
@@ -257,7 +260,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
                 // in case there is a conflict in CNF and trail is already in 0 state
                 if (level == 0) {
-                    println(totalNumberOfConflicts)
+                    println("KoSat conflicts:   $totalNumberOfConflicts")
                     return null
                 }
 
@@ -268,19 +271,20 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
                 backjump(lemma)
 
+                // after backjump there is only one clause to propagate
+                qhead = trail.size
+
                 // if lemma.size == 1 we already added it to units at 0 level
-                if (lemma.size != 1) {
+                if (lemma.size == 1) {
+                    uncheckedEnqueue(lemma[0])
+                } else {
+                    uncheckedEnqueue(lemma[0], lemma)
                     addLearnt(lemma)
                 }
 
                 // remove half of learnts
                 if (learnts.size > reduceNumber) {
                     reduceNumber += reduceIncrement
-                    val end: Double = PerformanceCounter.microseconds
-                    val elapsed: TimeSpan = (end - start).microseconds
-                    /*if (elapsed.seconds > 120) {
-                        ok = false
-                    }*/
                     restarter.restart()
                     reduceDB()
                 }
@@ -290,12 +294,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 restarter.update()
             } else {
                 // NO CONFLICT
+                require(qhead == trail.size)
 
                 // If (the problem is already) SAT, return the current assignment
                 if (trail.size == numberOfVariables) {
                     val model = getModel()
                     reset()
-                    println(totalNumberOfConflicts)
+                    println("KoSat conflicts:   $totalNumberOfConflicts")
                     return model
                 }
 
@@ -305,14 +310,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 var nextDecisionVariable = variableSelector.nextDecision(vars, level)
 
                 // phase saving heuristic
-                if (level > assumptions.size && polarity[abs(nextDecisionVariable)] == VarStatus.FALSE) {
-                    nextDecisionVariable = -abs(nextDecisionVariable)
+                if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarValue.FALSE) {
+                    nextDecisionVariable = -variable(nextDecisionVariable)
                 } // TODO move to nextDecisionVariable
 
-                assign(nextDecisionVariable, null)
+                uncheckedEnqueue(nextDecisionVariable)
             }
         }
-        return emptyList()
     }
 
     private fun reset() {
@@ -328,10 +332,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         return vars.drop(1)
             .mapIndexed { index, v ->
-                when (v.status) {
-                    VarStatus.TRUE -> index + 1
-                    VarStatus.FALSE -> -index - 1
-                    VarStatus.UNDEFINED -> {
+                when (v.value) {
+                    VarValue.TRUE -> index + 1
+                    VarValue.FALSE -> -index - 1
+                    VarValue.UNDEFINED -> {
                         println(vars)
                         throw Exception("Unexpected unassigned variable")
                     }
@@ -347,36 +351,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         watchers[watchedPos(clause[0])].add(clause)
         watchers[watchedPos(clause[1])].add(clause)
     }
-
-    // update watchers for clauses linked with literal; 95% of time we are in this function
-    private fun updateWatchers(lit: Int) {
-        val clausesToRemove = mutableSetOf<Clause>()
-        watchers[watchedPos(-lit)].forEach { brokenClause ->
-            if (!brokenClause.deleted) {
-                if (variable(brokenClause[0]) == variable(lit)) {
-                    brokenClause[0] = brokenClause[1].also { brokenClause[1] = brokenClause[0] }
-                }
-                // if second watcher is true skip clause
-                if (getStatus(brokenClause[0]) != VarStatus.TRUE) {
-                    var firstNotFalse = -1
-                    for (ind in 2 until brokenClause.size) {
-                        if (getStatus(brokenClause[ind]) != VarStatus.FALSE) {
-                            firstNotFalse = ind
-                            break
-                        }
-                    }
-                    if (firstNotFalse == -1) {
-                        units.add(brokenClause)
-                    } else {
-                        watchers[watchedPos(brokenClause[firstNotFalse])].add(brokenClause)
-                        brokenClause[firstNotFalse] = brokenClause[1].also { brokenClause[1] = brokenClause[firstNotFalse] }
-                        clausesToRemove.add(brokenClause)
-                    }
-                }
-            }
-        }
-        watchers[watchedPos(-lit)].removeAll(clausesToRemove)
-    } // TODO does kotlin create new "ссылки" to objects or there are only one?
+    // TODO does kotlin create new "ссылки" to objects or there are only one?
 
     /** CDCL functions **/
 
@@ -403,42 +378,51 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // return conflict clause, or null if there is no conflict clause
     private fun propagate(): Clause? {
-        while (units.size > 0) {
-            val clause = units.removeLast()
-            if (clause.any { getStatus(it) == VarStatus.TRUE }) continue
-
-            if (clause.all { getStatus(it) == VarStatus.FALSE }) {
-                return clause
+        var conflict: Clause? = null
+        while (qhead < trail.size) {
+            val lit = trail[qhead++]
+            if (getValue(lit) == VarValue.FALSE) {
+                return vars[variable(lit)].reason
             }
 
-            val lit = clause.first { getStatus(it) == VarStatus.UNDEFINED }
-            assign(lit, clause)
+            val clausesToRemove = mutableSetOf<Clause>()
+            for (brokenClause in watchers[watchedPos(-lit)]) {
+                if (!brokenClause.deleted) {
+                    if (variable(brokenClause[0]) == variable(lit)) {
+                        brokenClause[0] = brokenClause[1].also { brokenClause[1] = brokenClause[0] }
+                    }
+                    // if second watcher is true skip clause
+                    if (getValue(brokenClause[0]) != VarValue.TRUE) {
+                        var firstNotFalse = -1
+                        for (ind in 2 until brokenClause.size) {
+                            if (getValue(brokenClause[ind]) != VarValue.FALSE) {
+                                firstNotFalse = ind
+                                break
+                            }
+                        }
+                        if (firstNotFalse == -1 && getValue(brokenClause[0]) == VarValue.FALSE) {
+                            conflict = brokenClause
+                            break
+                        } else if (firstNotFalse == -1) {
+                            uncheckedEnqueue(brokenClause[0], brokenClause)
+                        } else {
+                            watchers[watchedPos(brokenClause[firstNotFalse])].add(brokenClause)
+                            brokenClause[firstNotFalse] = brokenClause[1].also { brokenClause[1] = brokenClause[firstNotFalse] }
+                            clausesToRemove.add(brokenClause)
+                        }
+                    }
+                }
+            }
+            watchers[watchedPos(-lit)].removeAll(clausesToRemove)
+            if (conflict != null) break
         }
-
-        return null
-    }
-
-    // add a variable to the trail and update watchers of clauses linked to this literal
-    private fun assign(lit: Int, clause: Clause?) {
-        if (getStatus(lit) != VarStatus.UNDEFINED) return
-
-        setStatus(lit, VarStatus.TRUE)
-        val v = variable(lit)
-        vars[v].reason = clause
-        vars[v].level = level
-        trail.add(v)
-        updateWatchers(lit)
+        return conflict
     }
 
     // change level, undefine variables, clear units (if clause.size == 1 we backjump to 0 level)
     private fun backjump(clause: Clause) {
         level = clause.map { vars[variable(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
-
         clearTrail(level)
-
-        // after backjump it's the only clause to propagate
-        units.clear()
-        units.add(clause)
     }
 
     /** contains used variables during conflict analyze (should resize in [addVariable]) **/
@@ -449,7 +433,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         mark++
         clause.forEach { minimizeMarks[watchedPos(it)] = mark }
         return Clause(clause.filterNot { lit ->
-            vars[abs(lit)].reason?.all {
+            vars[variable(lit)].reason?.all {
                 minimizeMarks[watchedPos(it)] == mark
             } ?: false
         }.toMutableList())
@@ -478,7 +462,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         while (numberOfActiveVariables > 1) {
 
-            val v = trail[ind--]
+            val v = variable(trail[ind--])
             if (!analyzeActivity[v]) continue
 
             vars[v].reason?.forEach { u ->
@@ -496,11 +480,12 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         var newClause: Clause
 
-        trail.last { analyzeActivity[it] }.let { v ->
+        trail.last { analyzeActivity[variable(it)] }.let { lit ->
+            val v = variable(lit)
             require(v != -1)
-            updateLemma(lemma, if (getStatus(v) == VarStatus.TRUE) -v else v)
+            updateLemma(lemma, if (getValue(v) == VarValue.TRUE) -v else v)
             newClause = Clause(lemma.toMutableList())
-            val uipIndex = newClause.indexOfFirst { abs(it) == v }
+            val uipIndex = newClause.indexOfFirst { variable(it) == v }
             // fancy swap (move UIP vertex to 0 position)
             newClause[uipIndex] = newClause[0].also { newClause[0] = newClause[uipIndex] }
             analyzeActivity[v] = false

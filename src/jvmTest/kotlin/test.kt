@@ -1,11 +1,16 @@
-
+import org.junit.jupiter.api.Test
+import java.io.File
 import com.github.lipen.satlib.solver.MiniSatSolver
 import com.soywiz.klock.measureTimeWithResult
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import org.kosat.*
+import org.kosat.CDCL
+import org.kosat.Clause
+import org.kosat.SolverType
+import org.kosat.readCnfRequests
+import org.kosat.solveCnf
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -21,9 +26,9 @@ internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
     private val format = ".cnf"
     private val headerNames = listOf("Name:", "KoSAT time:", "MiniSAT time:", "Result:", "Solvable:")
+    private val path = "src/jvmTest/resources"
 
     private fun getAllFilenamesByPath() : List<String> {
-        val path = "src/jvmTest/resources/superHard"
         val resourcesPath = Paths.get(projectDirAbsolutePath, path)
         return Files.walk(resourcesPath)
             .filter { item -> Files.isRegularFile(item) }
@@ -57,8 +62,6 @@ internal class DiamondTests {
     private fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boolean {
 
         if (ans == null) return !isSolution // null ~ UNSAT
-
-        if (ans.isEmpty()) return false
 
         val cnfRequest = readCnfRequests(input).first()
         if (ans.size != cnfRequest.vars) return false
@@ -100,7 +103,7 @@ internal class DiamondTests {
 
 
     private fun runTests(path: String) : Boolean {
-        val filenames = getAllFilenamesByPath().filter { !it.startsWith("benchmark") && !it.startsWith("a") }
+        val filenames = getAllFilenamesByPath()//.filter { !it.startsWith("benchmark") }
         println(filenames)
         println(buildPadding(headerNames))
 
@@ -203,7 +206,7 @@ internal class DiamondTests {
     @ParameterizedTest(name = "{0}")
     @MethodSource("getAllFilenamesByPath")
     fun test(filepath: String) {
-        assertEquals(runTest("src/jvmTest/resources/superHard$filepath"), true)
+        assertEquals(runTest("$path$filepath"), true)
     }
 
 }

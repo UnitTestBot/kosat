@@ -1,9 +1,9 @@
 package org.kosat
 
-enum class VarStatus {
+enum class VarValue {
     TRUE, FALSE, UNDEFINED;
 
-    operator fun not(): VarStatus {
+    operator fun not(): VarValue {
         return when (this) {
             TRUE -> FALSE
             FALSE -> TRUE
@@ -13,7 +13,7 @@ enum class VarStatus {
 }
 
 data class VarState(
-    var status: VarStatus,
+    var value: VarValue,
     var reason: Clause?,
     var level: Int,
 )

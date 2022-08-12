@@ -1,10 +1,11 @@
 package org.kosat.heuristics
 
+import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.Lit
 import org.kosat.VarState
-import org.kosat.VarStatus
-import kotlin.math.abs
+import org.kosat.VarValue
+import org.kosat.variable
 
 abstract class VariableSelector {
     protected var assumptions: List<Lit> = emptyList()
@@ -35,7 +36,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
 
     override fun update(lemma: Clause) {
         lemma.forEach { lit ->
-            val v = abs(lit)
+            val v = variable(lit)
             if (activityPQ.order[v] != -1) {
                 activityPQ.increaseActivity(v, activityInc)
             }
@@ -69,7 +70,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         }
         clauses.forEach { clause ->
             clause.forEach { lit ->
-                activity[abs(lit)] += activityInc
+                activity[variable(lit)] += activityInc
             }
         }
         activityPQ.buildHeap(activity)
@@ -77,7 +78,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
 
     override fun nextDecision(vars: List<VarState>, level: Int): Int {
         return if (level > assumptions.size) {
-            vsids(vars)
+            getMaxActivityVariable(vars)
         } else {
             assumptions[level - 1]
         }
@@ -90,16 +91,43 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
     }
 
     // Looks for index of undefined variable with max activity
-    private fun vsids(vars: List<VarState>): Int {
+    private fun getMaxActivityVariable(vars: List<VarState>): Int {
         var v: Int
         while (true) {
             require(activityPQ.size > 0)
             v = activityPQ.getMax().second
             activityPQ.deleteMax()
-            if (vars[v].status == VarStatus.UNDEFINED) {
+            if (vars[v].value == VarValue.UNDEFINED) {
                 break
             }
         }
         return v
     }
+}
+
+
+class Simple(val solver: CDCL): VariableSelector() {
+    override fun build(clauses: List<Clause>) {
+
+    }
+
+    override fun nextDecision(vars: List<VarState>, level: Int): Int {
+        for (i in 1..vars.lastIndex) {
+            if (vars[i].value == VarValue.UNDEFINED) return i
+        }
+        return -1
+    }
+
+    override fun addVariable() {
+
+    }
+
+    override fun update(lemma: Clause) {
+
+    }
+
+    override fun backTrack(variable: Int) {
+
+    }
+
 }
