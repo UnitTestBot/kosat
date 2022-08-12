@@ -57,6 +57,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // branching heuristic
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
+    // private val variableSelector: VariableSelector = Simple(this)
 
     // preprocessing includes deleting subsumed clauses and bve, offed by default
     private var preprocessor: Preprocessor? = null

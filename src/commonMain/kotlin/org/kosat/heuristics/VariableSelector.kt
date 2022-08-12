@@ -1,5 +1,6 @@
 package org.kosat.heuristics
 
+import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.Lit
 import org.kosat.VarState
@@ -102,4 +103,31 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         }
         return v
     }
+}
+
+
+class Simple(val solver: CDCL): VariableSelector() {
+    override fun build(clauses: List<Clause>) {
+
+    }
+
+    override fun nextDecision(vars: List<VarState>, level: Int): Int {
+        for (i in 1..vars.lastIndex) {
+            if (vars[i].value == VarValue.UNDEFINED) return i
+        }
+        return -1
+    }
+
+    override fun addVariable() {
+
+    }
+
+    override fun update(lemma: Clause) {
+
+    }
+
+    override fun backTrack(variable: Int) {
+
+    }
+
 }
