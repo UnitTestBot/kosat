@@ -2,6 +2,7 @@ import org.junit.jupiter.api.Test
 import java.io.File
 import com.github.lipen.satlib.solver.MiniSatSolver
 import com.soywiz.klock.measureTimeWithResult
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -10,23 +11,24 @@ import org.kosat.Clause
 import org.kosat.SolverType
 import org.kosat.readCnfRequests
 import org.kosat.solveCnf
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.abs
+import kotlin.math.round
 import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
 import kotlin.test.assertEquals
-import kotlin.math.round
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
     private val format = ".cnf"
     private val headerNames = listOf("Name:", "KoSAT time:", "MiniSAT time:", "Result:", "Solvable:")
+    private val path = "src/jvmTest/resources"
 
     private fun getAllFilenamesByPath() : List<String> {
-        val path = "src/jvmTest/resources"
         val resourcesPath = Paths.get(projectDirAbsolutePath, path)
         return Files.walk(resourcesPath)
             .filter { item -> Files.isRegularFile(item) }
@@ -204,7 +206,7 @@ internal class DiamondTests {
     @ParameterizedTest(name = "{0}")
     @MethodSource("getAllFilenamesByPath")
     fun test(filepath: String) {
-        assertEquals(runTest("src/jvmTest/resources$filepath"), true)
+        assertEquals(runTest("$path$filepath"), true)
     }
 
 }
