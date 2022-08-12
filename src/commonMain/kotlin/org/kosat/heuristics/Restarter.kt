@@ -32,8 +32,8 @@ class Restarter(private val solver: CDCL) {
         restartNumber = lubyMultiplierConstant * luby(lubyPosition++)
 
         solver.level = 0
-        solver.units.clear()
         solver.clearTrail(0)
+        solver.qhead = solver.trail.size
     }
 
 

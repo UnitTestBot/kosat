@@ -35,19 +35,18 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     val vars: MutableList<VarState> = MutableList(numberOfVariables + 1) { VarState(VarValue.UNDEFINED, null, -1) }
 
     // all decisions and consequences, contains variables
-    private val trail: MutableList<Int> = mutableListOf()
+    val trail: MutableList<Int> = mutableListOf()
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
     private val watchers = MutableList(numberOfVariables * 2 + 1) { mutableListOf<Clause>() }
-
-    // list of unit clauses to propagate
-    val units: MutableList<Clause> = mutableListOf() // TODO must be queue
 
     var reduceNumber = 6000.0
     var reduceIncrement = 500.0
 
     // current decision level
     var level: Int = 0
+
+    var qhead = 0
 
     // minimization lemma in analyze conflicts
     private val minimizeMarks = MutableList(numberOfVariables * 2 + 1) { 0 }
@@ -64,6 +63,14 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // restart search from time to time
     private val restarter = Restarter(this)
+
+    private fun uncheckedEnqueue(lit: Lit, reason: Clause? = null) {
+        setValue(lit, VarValue.TRUE)
+        val v = variable(lit)
+        vars[v].reason = reason
+        vars[v].level = level
+        trail.add(lit)
+    }
 
     /** Variable states **/
 
@@ -156,7 +163,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         // handling case of clause of size 1
         if (clause.size == 1) {
-            units.add(clause)
+            uncheckedEnqueue(clause[0])
         } else {
             addConstraint(clause)
         }
@@ -166,7 +173,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // delete last variable from the trail
     private fun trailRemoveLast() {
-        val v = trail.removeLast()
+        val lit = trail.removeLast()
+        val v = variable(lit)
         polarity[v] = getValue(v)
         setValue(v, VarValue.UNDEFINED)
         vars[v].reason = null
@@ -176,7 +184,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // clear trail until given level
     fun clearTrail(until: Int = -1) {
-        while (trail.isNotEmpty() && vars[trail.last()].level > until) {
+        while (trail.isNotEmpty() && vars[variable(trail.last())].level > until) {
             trailRemoveLast()
         }
     }
@@ -263,8 +271,14 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
                 backjump(lemma)
 
+                // after backjump there is only one clause to propagate
+                qhead = trail.size
+
                 // if lemma.size == 1 we already added it to units at 0 level
-                if (lemma.size != 1) {
+                if (lemma.size == 1) {
+                    uncheckedEnqueue(lemma[0])
+                } else {
+                    uncheckedEnqueue(lemma[0], lemma)
                     addLearnt(lemma)
                 }
 
@@ -280,6 +294,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 restarter.update()
             } else {
                 // NO CONFLICT
+                require(qhead == trail.size)
 
                 // If (the problem is already) SAT, return the current assignment
                 if (trail.size == numberOfVariables) {
@@ -299,7 +314,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                     nextDecisionVariable = -variable(nextDecisionVariable)
                 } // TODO move to nextDecisionVariable
 
-                assign(nextDecisionVariable, null)
+                uncheckedEnqueue(nextDecisionVariable)
             }
         }
     }
@@ -336,36 +351,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         watchers[watchedPos(clause[0])].add(clause)
         watchers[watchedPos(clause[1])].add(clause)
     }
-
-    // update watchers for clauses linked with literal; 95% of time we are in this function
-    private fun updateWatchers(lit: Int) {
-        val clausesToRemove = mutableSetOf<Clause>()
-        watchers[watchedPos(-lit)].forEach { brokenClause ->
-            if (!brokenClause.deleted) {
-                if (variable(brokenClause[0]) == variable(lit)) {
-                    brokenClause[0] = brokenClause[1].also { brokenClause[1] = brokenClause[0] }
-                }
-                // if second watcher is true skip clause
-                if (getValue(brokenClause[0]) != VarValue.TRUE) {
-                    var firstNotFalse = -1
-                    for (ind in 2 until brokenClause.size) {
-                        if (getValue(brokenClause[ind]) != VarValue.FALSE) {
-                            firstNotFalse = ind
-                            break
-                        }
-                    }
-                    if (firstNotFalse == -1) {
-                        units.add(brokenClause)
-                    } else {
-                        watchers[watchedPos(brokenClause[firstNotFalse])].add(brokenClause)
-                        brokenClause[firstNotFalse] = brokenClause[1].also { brokenClause[1] = brokenClause[firstNotFalse] }
-                        clausesToRemove.add(brokenClause)
-                    }
-                }
-            }
-        }
-        watchers[watchedPos(-lit)].removeAll(clausesToRemove)
-    } // TODO does kotlin create new "ссылки" to objects or there are only one?
+    // TODO does kotlin create new "ссылки" to objects or there are only one?
 
     /** CDCL functions **/
 
@@ -392,42 +378,51 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // return conflict clause, or null if there is no conflict clause
     private fun propagate(): Clause? {
-        while (units.size > 0) {
-            val clause = units.removeLast()
-            if (clause.any { getValue(it) == VarValue.TRUE }) continue
-
-            if (clause.all { getValue(it) == VarValue.FALSE }) {
-                return clause
+        var conflict: Clause? = null
+        while (qhead < trail.size) {
+            val lit = trail[qhead++]
+            if (getValue(lit) == VarValue.FALSE) {
+                return vars[variable(lit)].reason
             }
 
-            val lit = clause.first { getValue(it) == VarValue.UNDEFINED }
-            assign(lit, clause)
+            val clausesToRemove = mutableSetOf<Clause>()
+            for (brokenClause in watchers[watchedPos(-lit)]) {
+                if (!brokenClause.deleted) {
+                    if (variable(brokenClause[0]) == variable(lit)) {
+                        brokenClause[0] = brokenClause[1].also { brokenClause[1] = brokenClause[0] }
+                    }
+                    // if second watcher is true skip clause
+                    if (getValue(brokenClause[0]) != VarValue.TRUE) {
+                        var firstNotFalse = -1
+                        for (ind in 2 until brokenClause.size) {
+                            if (getValue(brokenClause[ind]) != VarValue.FALSE) {
+                                firstNotFalse = ind
+                                break
+                            }
+                        }
+                        if (firstNotFalse == -1 && getValue(brokenClause[0]) == VarValue.FALSE) {
+                            conflict = brokenClause
+                            break
+                        } else if (firstNotFalse == -1) {
+                            uncheckedEnqueue(brokenClause[0], brokenClause)
+                        } else {
+                            watchers[watchedPos(brokenClause[firstNotFalse])].add(brokenClause)
+                            brokenClause[firstNotFalse] = brokenClause[1].also { brokenClause[1] = brokenClause[firstNotFalse] }
+                            clausesToRemove.add(brokenClause)
+                        }
+                    }
+                }
+            }
+            watchers[watchedPos(-lit)].removeAll(clausesToRemove)
+            if (conflict != null) break
         }
-
-        return null
-    }
-
-    // add a variable to the trail and update watchers of clauses linked to this literal
-    private fun assign(lit: Int, clause: Clause?) {
-        if (getValue(lit) != VarValue.UNDEFINED) return
-
-        setValue(lit, VarValue.TRUE)
-        val v = variable(lit)
-        vars[v].reason = clause
-        vars[v].level = level
-        trail.add(v)
-        updateWatchers(lit)
+        return conflict
     }
 
     // change level, undefine variables, clear units (if clause.size == 1 we backjump to 0 level)
     private fun backjump(clause: Clause) {
         level = clause.map { vars[variable(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
-
         clearTrail(level)
-
-        // after backjump it's the only clause to propagate
-        units.clear()
-        units.add(clause)
     }
 
     /** contains used variables during conflict analyze (should resize in [addVariable]) **/
@@ -467,7 +462,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         while (numberOfActiveVariables > 1) {
 
-            val v = trail[ind--]
+            val v = variable(trail[ind--])
             if (!analyzeActivity[v]) continue
 
             vars[v].reason?.forEach { u ->
@@ -485,7 +480,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         var newClause: Clause
 
-        trail.last { analyzeActivity[it] }.let { v ->
+        trail.last { analyzeActivity[variable(it)] }.let { lit ->
+            val v = variable(lit)
             require(v != -1)
             updateLemma(lemma, if (getValue(v) == VarValue.TRUE) -v else v)
             newClause = Clause(lemma.toMutableList())
