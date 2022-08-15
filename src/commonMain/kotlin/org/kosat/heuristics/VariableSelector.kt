@@ -132,7 +132,7 @@ class FixedOrder(val solver: CDCL): VariableSelector() {
 
 }
 
-class VsidsWithoutQueue(private var numberOfVariables: Int = 0) : VariableSelector() {
+class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solver: CDCL) : VariableSelector() {
     private val decay = 50
     private val multiplier = 2.0
     private var numberOfConflicts = 0
@@ -194,8 +194,8 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0) : VariableSelect
     private fun getMaxActivityVariable(vars: List<VarState>): Int {
         var v: Int = -1
         var max = -1.0
-        for (i in 0..numberOfVariables) {
-            if (max < activity[i]) {
+        for (i in 1 .. numberOfVariables) {
+            if (solver.getValue(i) == VarValue.UNDEFINED && max < activity[i]) {
                 v = i
                 max = activity[i]
             }
