@@ -195,7 +195,7 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
         var v: Int = -1
         var max = -1.0
         for (i in 1 .. numberOfVariables) {
-            if (solver.getValue(i) == VarValue.UNDEFINED && max < activity[i]) {
+            if (vars[i].value == VarValue.UNDEFINED && max < activity[i]) {
                 v = i
                 max = activity[i]
             }
