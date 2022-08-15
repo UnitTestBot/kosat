@@ -34,7 +34,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     // contains current assignment, clause it came from and decision level when it happened
     val vars: MutableList<VarState> = MutableList(numberOfVariables + 1) { VarState(VarValue.UNDEFINED, null, -1) }
 
-    // all decisions and consequences, contains variables
+    // all decisions and consequences, contains literals
     val trail: MutableList<Int> = mutableListOf()
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
@@ -56,7 +56,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // branching heuristic
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
-    // private val variableSelector: VariableSelector = Simple(this)
+    // private val variableSelector: VariableSelector = FixedOrder(this)
 
     // preprocessing includes deleting subsumed clauses and bve, offed by default
     private var preprocessor: Preprocessor? = null

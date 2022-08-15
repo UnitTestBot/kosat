@@ -106,7 +106,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
 }
 
 
-class Simple(val solver: CDCL): VariableSelector() {
+class FixedOrder(val solver: CDCL): VariableSelector() {
     override fun build(clauses: List<Clause>) {
 
     }
@@ -130,4 +130,76 @@ class Simple(val solver: CDCL): VariableSelector() {
 
     }
 
+}
+
+class VsidsWithoutQueue(private var numberOfVariables: Int = 0) : VariableSelector() {
+    private val decay = 50
+    private val multiplier = 2.0
+    private var numberOfConflicts = 0
+    private var activityInc = 1.0
+    private var incLimit = 1e100
+
+    // list of activity for variables
+    private val activity = mutableListOf<Double>()
+
+    override fun update(lemma: Clause) {
+        lemma.forEach { lit ->
+            val v = variable(lit)
+            activity[v] += activityInc
+        }
+
+        numberOfConflicts++
+        if (numberOfConflicts == decay) {
+            activityInc *= multiplier
+            // update activity
+            numberOfConflicts = 0
+            if (activityInc > incLimit) {
+                activity.forEachIndexed { ind, value ->
+                    activity[ind] = value / activityInc
+                }
+                activityInc = 1.0
+            }
+        }
+    }
+
+    override fun addVariable() {
+        activity.add(0.0)
+        numberOfVariables++
+    }
+
+    override fun build(clauses: List<Clause>) {
+        while (activity.size < numberOfVariables + 1) {
+            activity.add(0.0)
+        }
+        clauses.forEach { clause ->
+            clause.forEach { lit ->
+                activity[variable(lit)] += activityInc
+            }
+        }
+    }
+
+    override fun nextDecision(vars: List<VarState>, level: Int): Int {
+        return if (level > assumptions.size) {
+            getMaxActivityVariable(vars)
+        } else {
+            assumptions[level - 1]
+        }
+    }
+
+    override fun backTrack(variable: Int) {
+
+    }
+
+    // Looks for index of undefined variable with max activity
+    private fun getMaxActivityVariable(vars: List<VarState>): Int {
+        var v: Int = -1
+        var max = -1.0
+        for (i in 0..numberOfVariables) {
+            if (max < activity[i]) {
+                v = i
+                max = activity[i]
+            }
+        }
+        return v
+    }
 }
