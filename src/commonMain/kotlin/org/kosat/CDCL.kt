@@ -323,6 +323,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     private fun reset() {
         level = 0
         clearTrail(0)
+        qhead = trail.size
     }
 
     // return current assignment of variables
@@ -338,6 +339,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                     VarValue.FALSE -> -index - 1
                     VarValue.UNDEFINED -> {
                         println(vars)
+                        println(trail)
                         throw Exception("Unexpected unassigned variable")
                     }
                 }
