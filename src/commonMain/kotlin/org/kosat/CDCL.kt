@@ -244,6 +244,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         preprocessor?.apply()
 
         // extreme cases
+        if (constraints.isEmpty()) return getModel()
         if (constraints.any { it.isEmpty() }) return null
         if (constraints.any { it.all { lit -> getValue(lit) == VarValue.FALSE } }) return null
 
@@ -421,6 +422,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // change level, undefine variables, clear units (if clause.size == 1 we backjump to 0 level)
     private fun backjump(clause: Clause) {
+        //FIXME
         level = clause.map { vars[variable(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
         clearTrail(level)
     }

@@ -62,8 +62,6 @@ internal class DiamondTests {
 
         if (ans == null) return !isSolution // null ~ UNSAT
 
-        if (ans.isEmpty()) return false
-
         val cnfRequest = readCnfRequests(input).first()
         if (ans.size != cnfRequest.vars) return false
 
@@ -104,7 +102,7 @@ internal class DiamondTests {
 
 
     private fun runTests(path: String) : Boolean {
-        val filenames = getAllFilenamesByPath()//.filter { !it.startsWith("benchmark") }
+        val filenames = getAllFilenamesByPath(testsPath)//.filter { !it.startsWith("benchmark") }
         println(filenames)
         println(buildPadding(headerNames))
 
