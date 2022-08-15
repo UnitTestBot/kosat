@@ -1,5 +1,7 @@
 package org.kosat.heuristics
 
+import org.kosat.swap
+
 class PriorityQueue {
     val heap: MutableList<Pair<Double, Int>> = mutableListOf()
     val order: MutableList<Int> = mutableListOf()
@@ -19,7 +21,7 @@ class PriorityQueue {
     }
 
     fun swap(u: Int, v: Int) {
-        heap[u] = heap[v].also { heap[v] = heap[u] }
+        heap.swap(u, v)
         order[heap[u].second] = u
         order[heap[v].second] = v
     }

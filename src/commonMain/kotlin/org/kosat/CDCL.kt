@@ -126,8 +126,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         variableSelector.addVariable()
 
-        analyzeActivity.add(false)
-
         vars.add(VarState(VarValue.UNDEFINED, null, -1))
 
         watchers.add(mutableListOf())
@@ -391,7 +389,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
             for (brokenClause in watchers[watchedPos(-lit)]) {
                 if (!brokenClause.deleted) {
                     if (variable(brokenClause[0]) == variable(lit)) {
-                        brokenClause[0] = brokenClause[1].also { brokenClause[1] = brokenClause[0] }
+                        brokenClause.swap(0, 1)
                     }
                     // if second watcher is true skip clause
                     if (getValue(brokenClause[0]) != VarValue.TRUE) {
@@ -409,7 +407,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                             uncheckedEnqueue(brokenClause[0], brokenClause)
                         } else {
                             watchers[watchedPos(brokenClause[firstNotFalse])].add(brokenClause)
-                            brokenClause[firstNotFalse] = brokenClause[1].also { brokenClause[1] = brokenClause[firstNotFalse] }
+                            brokenClause.swap(firstNotFalse, 1)
                             clausesToRemove.add(brokenClause)
                         }
                     }
@@ -427,9 +425,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         clearTrail(level)
     }
 
-    /** contains used variables during conflict analyze (should resize in [addVariable]) **/
-    private val analyzeActivity = MutableList(numberOfVariables + 1) { false }
-
     // deleting lits that have ancestor in implication graph in reason
     private fun minimize(clause: Clause): Clause {
         mark++
@@ -444,6 +439,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     // analyze conflict and return new clause
     private fun analyzeConflict(conflict: Clause): Clause {
 
+        val seen = MutableList(numberOfVariables + 1) { false }
+
         fun updateLemma(lemma: MutableSet<Int>, lit: Int) {
             lemma.add(lit)
         }
@@ -453,7 +450,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         conflict.forEach { lit ->
             if (vars[variable(lit)].level == level) {
-                analyzeActivity[variable(lit)] = true
+                seen[variable(lit)] = true
                 numberOfActiveVariables++
             } else {
                 updateLemma(lemma, lit)
@@ -465,32 +462,32 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         while (numberOfActiveVariables > 1) {
 
             val v = variable(trail[ind--])
-            if (!analyzeActivity[v]) continue
+            if (!seen[v]) continue
 
             vars[v].reason?.forEach { u ->
                 val current = variable(u)
                 if (vars[current].level != level) {
                     updateLemma(lemma, u)
-                } else if (current != v && !analyzeActivity[current]) {
-                    analyzeActivity[current] = true
+                } else if (current != v && !seen[current]) {
+                    seen[current] = true
                     numberOfActiveVariables++
                 }
             }
-            analyzeActivity[v] = false
+            seen[v] = false
             numberOfActiveVariables--
         }
 
         var newClause: Clause
 
-        trail.last { analyzeActivity[variable(it)] }.let { lit ->
+        trail.last { seen[variable(it)] }.let { lit ->
             val v = variable(lit)
             require(v != -1)
             updateLemma(lemma, if (getValue(v) == VarValue.TRUE) -v else v)
             newClause = Clause(lemma.toMutableList())
             val uipIndex = newClause.indexOfFirst { variable(it) == v }
             // fancy swap (move UIP vertex to 0 position)
-            newClause[uipIndex] = newClause[0].also { newClause[0] = newClause[uipIndex] }
-            analyzeActivity[v] = false
+            newClause.swap(uipIndex, 0)
+            seen[v] = false
         }
         // move last defined literal to 1 position TODO: there's room for simplify this
         if (newClause.size > 1) {
@@ -503,7 +500,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                     v = i
                 }
             }
-            newClause[1] = newClause[v].also { newClause[v] = newClause[1] }
+            newClause.swap(1, v)
         }
         return minimize(newClause)
     }
