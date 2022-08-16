@@ -179,11 +179,11 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
     }
 
     override fun nextDecision(vars: List<VarState>, level: Int): Int {
-        return if (level > assumptions.size) {
-            getMaxActivityVariable(vars)
-        } else {
-            assumptions[level - 1]
+        if (assumptions.any { solver.getValue(it) == VarValue.FALSE }) {
+            return 0
         }
+        // if there is undefined assumption pick it, other way pick best choice
+        return assumptions.firstOrNull { solver.getValue(it) == VarValue.UNDEFINED } ?: getMaxActivityVariable(vars)
     }
 
     override fun backTrack(variable: Int) {

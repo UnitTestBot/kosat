@@ -1,9 +1,9 @@
 package org.kosat
 
-import org.kosat.heuristics.FixedOrder
 import org.kosat.heuristics.Preprocessor
 import org.kosat.heuristics.Restarter
 import org.kosat.heuristics.VariableSelector
+import org.kosat.heuristics.VsidsWithoutQueue
 import kotlin.math.abs
 
 // CDCL
@@ -56,8 +56,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // branching heuristic
     // private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
-    // private val variableSelector: VariableSelector = VsidsWithoutQueue(numberOfVariables, this)
-    private val variableSelector: VariableSelector = FixedOrder(this)
+    private val variableSelector: VariableSelector = VsidsWithoutQueue(numberOfVariables, this)
+    // private val variableSelector: VariableSelector = FixedOrder(this)
 
     // preprocessing includes deleting subsumed clauses and bve, offed by default
     private var preprocessor: Preprocessor? = null
@@ -310,6 +310,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 // try to guess variable
                 level++
                 var nextDecisionVariable = variableSelector.nextDecision(vars, level)
+
+                if (nextDecisionVariable == 0) {
+                    reset()
+                    return null
+                }
 
                 // phase saving heuristic
                 if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarValue.FALSE) {
