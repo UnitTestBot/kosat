@@ -2,8 +2,8 @@ package org.kosat
 
 import org.kosat.heuristics.Preprocessor
 import org.kosat.heuristics.Restarter
-import org.kosat.heuristics.VSIDS
 import org.kosat.heuristics.VariableSelector
+import org.kosat.heuristics.VsidsWithoutQueue
 import kotlin.math.abs
 
 // CDCL
@@ -34,7 +34,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     // contains current assignment, clause it came from and decision level when it happened
     val vars: MutableList<VarState> = MutableList(numberOfVariables + 1) { VarState(VarValue.UNDEFINED, null, -1) }
 
-    // all decisions and consequences, contains variables
+    // all decisions and consequences, contains literals
     val trail: MutableList<Int> = mutableListOf()
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
@@ -55,8 +55,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     /** Heuristics **/
 
     // branching heuristic
-    private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
-    // private val variableSelector: VariableSelector = Simple(this)
+    // private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
+    private val variableSelector: VariableSelector = VsidsWithoutQueue(numberOfVariables, this)
+    // private val variableSelector: VariableSelector = FixedOrder(this)
 
     // preprocessing includes deleting subsumed clauses and bve, offed by default
     private var preprocessor: Preprocessor? = null
@@ -307,6 +308,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 // try to guess variable
                 level++
                 var nextDecisionVariable = variableSelector.nextDecision(vars, level)
+
+                if (nextDecisionVariable == 0) {
+                    reset()
+                    return null
+                }
 
                 // phase saving heuristic
                 if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarValue.FALSE) {
