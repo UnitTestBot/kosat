@@ -421,9 +421,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     }
 
     // change level, undefine variables, clear units (if clause.size == 1 we backjump to 0 level)
+    // Pre-conditions: second element in clause should have first max level except current one
     private fun backjump(clause: Clause) {
-        //FIXME
-        level = clause.map { vars[variable(it)].level }.sortedDescending().firstOrNull { it != level } ?: 0
+        level = if (clause.size > 1) vars[variable(clause[1])].level else 0
         clearTrail(level)
     }
 
@@ -439,6 +439,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     }
 
     // analyze conflict and return new clause
+    /** Post-condition:
+     *      - first element in clause has max (current) propagate level
+     *      - second element in clause has second max propagate level
+     */
     private fun analyzeConflict(conflict: Clause): Clause {
 
         val seen = MutableList(numberOfVariables + 1) { false }
@@ -485,25 +489,17 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
             val v = variable(lit)
             require(v != -1)
             updateLemma(lemma, if (getValue(v) == VarValue.TRUE) -v else v)
-            newClause = Clause(lemma.toMutableList())
+            newClause = minimize(Clause(lemma.toMutableList()))
             val uipIndex = newClause.indexOfFirst { variable(it) == v }
             // fancy swap (move UIP vertex to 0 position)
             newClause.swap(uipIndex, 0)
             seen[v] = false
         }
-        // move last defined literal to 1 position TODO: there's room for simplify this
+        // move last defined literal to 1 position
         if (newClause.size > 1) {
-            var v = 0
-            var previousLevel = -1
-            newClause.forEachIndexed { i, lit ->
-                val literalLevel = vars[variable(lit)].level
-                if (literalLevel != level && literalLevel > previousLevel) {
-                    previousLevel = literalLevel
-                    v = i
-                }
-            }
-            newClause.swap(1, v)
+            val secondMax = newClause.drop(1).indices.maxByOrNull { vars[variable(newClause[it + 1])].level } ?: 0
+            newClause.swap(1, secondMax + 1)
         }
-        return minimize(newClause)
+        return newClause
     }
 }
