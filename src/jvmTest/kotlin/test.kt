@@ -1,35 +1,46 @@
-import org.junit.jupiter.api.Test
-import org.kosat.readCnfRequests
-import java.io.File
-import kotlin.system.measureTimeMillis
+
 import com.github.lipen.satlib.solver.MiniSatSolver
+import com.soywiz.klock.measureTimeWithResult
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
+import org.kosat.CDCL
+import org.kosat.Clause
+import org.kosat.SolverType
+import org.kosat.readCnfRequests
 import org.kosat.solveCnf
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.abs
+import kotlin.math.round
 import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
 import kotlin.test.assertEquals
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
     private val format = ".cnf"
     private val headerNames = listOf("Name:", "KoSAT time:", "MiniSAT time:", "Result:", "Solvable:")
 
-    private fun getAllFilenamesByPath(path: String) : List<String> {
-        val resourcesPath = Paths.get(projectDirAbsolutePath, path)
+    private fun getAllFilenames() : List<String> {
+        val resourcesPath = Paths.get(projectDirAbsolutePath, testsPath)
         return Files.walk(resourcesPath)
             .filter { item -> Files.isRegularFile(item) }
-            .map { item -> item.toString().substring(projectDirAbsolutePath.length + path.length + 1) }.filter { it.endsWith(format) }.toList()
+            .map { item -> item.toString().substring(projectDirAbsolutePath.length + testsPath.length + 1) }
+            .filter { it.endsWith(format) }.toList()
     }
 
 
     private fun buildPadding(names: List<String>, padding: Int = 13, separator: String = " | "): String {
         val result = StringBuilder()
 
-        names.forEach {
-            result.append(it.padEnd(padding, ' '))
+        names.forEachIndexed { ind, it ->
+
+            result.append(it.padEnd(if (ind == 0) 40 else padding, ' '))
             result.append(separator)
         }
         return if (result.isNotEmpty()) result.dropLast(separator.length).toString() else ""
@@ -41,23 +52,57 @@ internal class DiamondTests {
         with(MiniSatSolver()) {
             val lit = List(data.vars) { newLiteral() }
             for (clause in data.clauses)
-                addClause(clause.lit.map { it.sign * lit[abs(it) - 1] })
-
-            return solve()
+                addClause(clause.lits.map { it.sign * lit[abs(it) - 1] })
+            val result = solve()
+            println("MiniSat conflicts: ${backend.numberOfConflicts}")
+            return result
         }
     }
-
     private fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boolean {
+
         if (ans == null) return !isSolution // null ~ UNSAT
 
         val cnfRequest = readCnfRequests(input).first()
         if (ans.size != cnfRequest.vars) return false
 
-        return cnfRequest.clauses.all { clause -> clause.lit.any { ans.contains(it) } }
+        return cnfRequest.clauses.all { clause -> clause.lits.any { ans.contains(it) } }
     }
 
+    fun Double.round(decimals: Int): Double {
+        var multiplier = 1.0
+        repeat(decimals) { multiplier *= 10 }
+        return round(this * multiplier) / multiplier
+    }
+
+    private fun runTest(filepath: String): Boolean {
+        MiniSatSolver().close()
+
+        val input = File(filepath).readText()
+
+        val (solution, timeKoSat) = measureTimeWithResult { solveCnf(readCnfRequests(input).first()) }
+
+        val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
+
+        val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
+
+        println(
+            buildPadding(listOf(
+                filepath, // test name
+                timeKoSat.seconds.round(3).toString(),
+                timeMiniSat.seconds.round(3).toString(),
+                checkRes,
+                if (isSolution) "SAT" else "UNSAT"
+            ))
+        )
+        if (checkRes == "WA") {
+            return false
+        }
+        return true
+    }
+
+
     private fun runTests(path: String) : Boolean {
-        val filenames = getAllFilenamesByPath(path).filter { !it.startsWith("superHard") }
+        val filenames = getAllFilenamesByPath(testsPath)//.filter { !it.startsWith("benchmark") }
         println(filenames)
         println(buildPadding(headerNames))
 
@@ -72,14 +117,9 @@ internal class DiamondTests {
 
             val input = File(filename).readText()
 
-            var solution: List<Int>?
-            var isSolution: Boolean
+            val (solution, timeKoSat) = measureTimeWithResult { solveCnf(readCnfRequests(input).first()) }
 
-            val timeKoSat = (measureTimeMillis {
-                solution = solveCnf(readCnfRequests(input).first())
-            }.toDouble() / 1000).toString()
-
-            val timeMiniSat = measureTimeMillis { isSolution = processMiniSatSolver(input) }.toDouble() / 1000
+            val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
 
             val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
@@ -90,14 +130,21 @@ internal class DiamondTests {
             println(
                 buildPadding(listOf(
                     it.dropLast(format.length), // test name
-                    timeKoSat,
-                    timeMiniSat.toString(),
+                    timeKoSat.seconds.round(3).toString(),
+                    timeMiniSat.seconds.round(3).toString(),
                     checkRes,
                     if (isSolution) "SAT" else "UNSAT"
                 ))
             )
         }
         return allCorrect
+    }
+
+    private fun getAllFilenamesByPath(path: String) : List<String> {
+        val resourcesPath = Paths.get(projectDirAbsolutePath, path)
+        return Files.walk(resourcesPath)
+            .filter { item -> Files.isRegularFile(item) }
+            .map { item -> item.toString().substring(projectDirAbsolutePath.length + path.length + 1) }.filter { it.endsWith(format) }.toList()
     }
 
     @Test
@@ -123,35 +170,35 @@ internal class DiamondTests {
             val variables = fileFirstLine[2]
             val clauses = fileFirstLine[3]
 
-            var solution: List<Int>?
-            var isSolution: Boolean
+            val first = readCnfRequests(fileInput).first()
+
+            val solver = CDCL(first.clauses as MutableList<Clause>, first.vars, SolverType.INCREMENTAL)
 
             repeat(5) { ind ->
-                val assumptions = List(ind) { Random.nextInt(1, variables.toInt() + 2) }.map {
+                val assumptions = if (first.vars == 0) listOf() else List(ind)
+                { Random.nextInt(1, first.vars + 1 ) }.map {
                     if (Random.nextBoolean()) it else -it
                 }
 
                 val input = fileFirstLine.dropLast(2).joinToString(" ") + " " +
-                        (variables.toInt() + 1).toString() + " " +
+                        (variables.toInt()).toString() + " " +
                         (clauses.toInt() + assumptions.size).toString() + "\n" +
                         lines.drop(1).joinToString(separator = "\n") +
                         assumptions.joinToString(prefix = "\n", separator = " 0\n", postfix =  " 0")
 
                 println(assumptions)
 
-                val timeKoSat = (measureTimeMillis {
-                    solution = solveCnf(readCnfRequests(input).first())
-                }.toDouble() / 1000).toString()
+                val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
 
-                val timeMiniSat = measureTimeMillis { isSolution = processMiniSatSolver(input) }.toDouble() / 1000
+                val (solution, timeKoSat) = measureTimeWithResult { solver.solve(assumptions) }
 
                 val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
                 println(
                     buildPadding(listOf(
                         filename.dropLast(format.length), // test name
-                        timeKoSat,
-                        timeMiniSat.toString(),
+                        timeKoSat.seconds.round(3).toString(),
+                        timeMiniSat.seconds.round(3).toString(),
                         checkRes,
                         if (isSolution) "SAT" else "UNSAT"
                     ))
@@ -160,9 +207,11 @@ internal class DiamondTests {
         }
     }
 
-    @Test
-    fun test() {
-        assertEquals(runTests("src/jvmTest/resources/"), true)
-    }
+    private val testsPath = "src/jvmTest/resources/testCover"
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("getAllFilenames")
+    fun test(filepath: String) {
+        assertEquals(runTest("$testsPath$filepath"), true)
+    }
 }

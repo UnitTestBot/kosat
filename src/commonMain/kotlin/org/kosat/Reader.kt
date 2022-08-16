@@ -1,13 +1,11 @@
 package org.kosat
 
-class Clause(val lit: MutableList<Int>)
-
 class CnfRequest(val vars: Int, val clauses: List<Clause>)
 
 /**
  * Reads [CnfRequest]'s assuming [s] is formatted according [Simplified DIMACS](http://www.satcompetition.org/2004/format-solvers2004.html)
  */
-class Scanner(val s: String) {
+class Scanner(private val s: String) {
     private var pos = 0
     fun hasNext(): Boolean {
         while (pos < s.length && s[pos].isWhitespace())
@@ -44,21 +42,21 @@ fun readCnfRequests(dimacs: String) = sequence {
         if (token == "c") {
             scanner.nextLine()
             continue
-        } //skip comment
+        } // skip comment
 
         if (token == "%") {
             break
         }
 
         if (token != "p")
-            error ("Illegal token $token. Only 'c' and 'p' command are supported")
+            error("Illegal token $token. Only 'c' and 'p' command are supported")
 
         val cnf = scanner.next()
         if (cnf != "cnf")
-            error ("Illegal request $cnf. Only 'cnf' supported")
+            error("Illegal request $cnf. Only 'cnf' supported")
 
-        val vars = scanner.nextInt() //don't need this variable
-        val clauses = List(scanner.nextInt()) { mutableListOf<Int>()}
+        val vars = scanner.nextInt() // don't need this variable
+        val clauses = List(scanner.nextInt()) { mutableListOf<Int>() }
         for (i in clauses.indices) {
             while (true) {
                 val nxt = scanner.nextInt()

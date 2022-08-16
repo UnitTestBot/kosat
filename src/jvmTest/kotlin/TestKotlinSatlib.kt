@@ -3,10 +3,15 @@ import com.github.lipen.satlib.solver.MiniSatSolver
 import com.github.lipen.satlib.solver.solve
 import org.junit.jupiter.api.Test
 
+
+
 internal class TestKotlinSatlib {
+
+    private inline fun <T : AutoCloseable?, R> T.useWith(block: T.() -> R): R = use(block)
+
     @Test
     fun runMiniSat() {
-        with(MiniSatSolver()) {
+        MiniSatSolver().useWith {
             val x = newLiteral()
             val y = newLiteral()
             val z = newLiteral()
