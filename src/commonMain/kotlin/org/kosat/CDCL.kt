@@ -4,7 +4,6 @@ import org.kosat.heuristics.Preprocessor
 import org.kosat.heuristics.Restarter
 import org.kosat.heuristics.VariableSelector
 import org.kosat.heuristics.VsidsWithoutQueue
-import kotlin.math.abs
 
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
@@ -34,22 +33,18 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     val vars: MutableList<VarState> = MutableList(numberOfVariables) { VarState(VarValue.UNDEFINED, null, -1) }
 
     // all decisions and consequences, contains literals
-    val trail: MutableList<Int> = mutableListOf()
+    val trail: MutableList<Lit> = mutableListOf()
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
     private val watchers = MutableList(numberOfVariables * 2) { mutableListOf<Clause>() }
 
-    var reduceNumber = 6000.0
-    var reduceIncrement = 500.0
+    private var reduceNumber = 6000.0
+    private var reduceIncrement = 500.0
 
     // current decision level
     var level: Int = 0
 
     var qhead = 0
-
-    // minimization lemma in analyze conflicts
-    private val minimizeMarks = MutableList(numberOfVariables * 2) { 0 }
-    var mark = 0
 
     /** Heuristics **/
 
@@ -93,30 +88,21 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         }
     }
 
-/*    // TODO: rename
-    private fun watchedPos(lit: Int): Int {
-        return if (lit < 0) {
-            2 * (-lit)
-        } else {
-            2 * lit - 1
-        }
-    }*/
-
     /** Interface **/
 
     constructor() : this(mutableListOf<Clause>())
 
     // convert DIMACS format: variables are numbered starting from zero
     // literals - lit = var * 2, -lit = var * 2 + 1
-    fun negative(v: Int) = v * 2 + 1
-    fun positive(v: Int) = v * 2
+    private fun negative(v: Int) = v * 2 + 1
+    private fun positive(v: Int) = v * 2
 
     private fun Clause.renumber() = Clause(
         this.lits.map { lit ->
             if (lit < 0) {
-                (-lit - 1) * 2 + 1
+                negative(-lit - 1)
             } else {
-                (lit - 1) * 2
+                positive(lit - 1)
             }}.toMutableList())
 
     private fun MutableList<Clause>.renumber() = this.map { it.renumber() }
@@ -147,8 +133,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
-        minimizeMarks.add(0)
-        minimizeMarks.add(0)
 
         return numberOfVariables
     }
@@ -331,7 +315,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
                 // phase saving heuristic
                 if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarValue.FALSE) {
-                    nextDecisionVariable = (variable(nextDecisionVariable) * 2) xor 1
+                    nextDecisionVariable = variable(nextDecisionVariable) xor 1
                 } // TODO move to nextDecisionVariable
 
                 uncheckedEnqueue(nextDecisionVariable)
@@ -448,11 +432,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // deleting lits that have ancestor in implication graph in reason
     private fun minimize(clause: Clause): Clause {
-        mark++
-        clause.forEach { minimizeMarks[it] = mark }
+        val minimizeMarks = MutableList(numberOfVariables * 2) { false }
+        clause.forEach { minimizeMarks[it] = true }
         return Clause(clause.filterNot { lit ->
             vars[variable(lit)].reason?.all {
-                minimizeMarks[it] == mark
+                minimizeMarks[it]
             } ?: false
         }.toMutableList())
     }
@@ -506,7 +490,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         trail.last { seen[variable(it)] }.let { lit ->
             val v = variable(lit)
-            updateLemma(lemma, if (getValue(v * 2) == VarValue.TRUE) (v * 2) + 1 else v * 2)
+            updateLemma(lemma, if (getValue(positive(v)) == VarValue.TRUE) negative(v) else positive(v))
             newClause = minimize(Clause(lemma.toMutableList()))
             val uipIndex = newClause.indexOfFirst { variable(it) == v }
             // fancy swap (move UIP vertex to 0 position)

@@ -42,7 +42,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
             }
             activity[v] += activityInc
 
-        } // todo litIndex
+        }
 
         numberOfConflicts++
         if (numberOfConflicts == decay) {
@@ -65,7 +65,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
     }
 
     override fun build(clauses: List<Clause>) {
-        while (activity.size < numberOfVariables + 1) {
+        while (activity.size < numberOfVariables) {
             activity.add(0.0)
         }
         clauses.forEach { clause ->
@@ -104,7 +104,6 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         return v
     }
 }
-
 
 class FixedOrder(val solver: CDCL): VariableSelector() {
     override fun build(clauses: List<Clause>) {
@@ -178,9 +177,9 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
         }
     }
 
-    override fun nextDecision(vars: List<VarState>, level: Int): Int {
+    override fun nextDecision(vars: List<VarState>, level: Int): Lit {
         if (assumptions.any { solver.getValue(it) == VarValue.FALSE }) {
-            return 0
+            return -1
         }
         // if there is undefined assumption pick it, other way pick best choice
         return assumptions.firstOrNull { solver.getValue(it) == VarValue.UNDEFINED } ?: getMaxActivityVariable(vars)
@@ -191,7 +190,7 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
     }
 
     // Looks for index of undefined variable with max activity
-    private fun getMaxActivityVariable(vars: List<VarState>): Int {
+    private fun getMaxActivityVariable(vars: List<VarState>): Lit {
         var v: Int = -1
         var max = -1.0
         (0 until numberOfVariables).forEach { i ->
