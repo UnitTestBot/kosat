@@ -46,6 +46,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     var qhead = 0
 
+    // minimization lemma in analyze conflicts
+    private val minimizeMarks = MutableList(numberOfVariables * 2) { 0 }
+    var mark = 0
+
     /** Heuristics **/
 
     // branching heuristic
@@ -133,6 +137,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
+
+        minimizeMarks.add(0)
+        minimizeMarks.add(0)
 
         return numberOfVariables
     }
@@ -432,11 +439,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // deleting lits that have ancestor in implication graph in reason
     private fun minimize(clause: Clause): Clause {
-        val minimizeMarks = MutableList(numberOfVariables * 2) { false }
-        clause.forEach { minimizeMarks[it] = true }
+        mark++
+        clause.forEach { minimizeMarks[it] = mark }
         return Clause(clause.filterNot { lit ->
             vars[variable(lit)].reason?.all {
-                minimizeMarks[it]
+                minimizeMarks[it] == mark
             } ?: false
         }.toMutableList())
     }
