@@ -211,7 +211,7 @@ internal class DiamondTests {
         }
     }
 
-    private val testsPath = "src/jvmTest/resources/testCover"
+    private val testsPath = "src/jvmTest/resources"
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("getAllFilenames")

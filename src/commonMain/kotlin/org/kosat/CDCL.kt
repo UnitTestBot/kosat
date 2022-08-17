@@ -181,8 +181,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     private fun trailRemoveLast() {
         val lit = trail.removeLast()
         val v = variable(lit)
-        polarity[v] = getValue(lit)
-        setValue(lit, VarValue.UNDEFINED)
+        polarity[v] = getValue(positive(v))
+        setValue(positive(v), VarValue.UNDEFINED)
         vars[v].reason = null
         vars[v].level = -1
         variableSelector.backTrack(v)
@@ -214,7 +214,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
             return null
         }
         assumptions.forEach { lit ->
-            if (result.find { it == lit xor 1 } != null) {
+            if (result.find { it == (lit xor 1) } != null) {
                 assumptions = emptyList()
                 return null
             }
@@ -322,7 +322,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
                 // phase saving heuristic
                 if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarValue.FALSE) {
-                    nextDecisionVariable = variable(nextDecisionVariable) xor 1
+                    nextDecisionVariable = positive(variable(nextDecisionVariable)) xor 1
                 } // TODO move to nextDecisionVariable
 
                 uncheckedEnqueue(nextDecisionVariable)
