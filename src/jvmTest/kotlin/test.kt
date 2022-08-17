@@ -77,6 +77,10 @@ internal class DiamondTests {
     private fun runTest(filepath: String): Boolean {
         MiniSatSolver().close()
 
+        if (filepath == "src/jvmTest/resources/testCover\\small\\full3.cnf") {
+            println("!!")
+        }
+
         val input = File(filepath).readText()
 
         val (solution, timeKoSat) = measureTimeWithResult { solveCnf(readCnfRequests(input).first()) }

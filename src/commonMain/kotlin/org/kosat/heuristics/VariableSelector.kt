@@ -168,7 +168,7 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
     }
 
     override fun build(clauses: List<Clause>) {
-        while (activity.size < numberOfVariables + 1) {
+        while (activity.size < numberOfVariables) {
             activity.add(0.0)
         }
         clauses.forEach { clause ->
@@ -194,9 +194,9 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
     private fun getMaxActivityVariable(vars: List<VarState>): Int {
         var v: Int = -1
         var max = -1.0
-        for (i in 1 .. numberOfVariables) {
+        (0 until numberOfVariables).forEach { i ->
             if (vars[i].value == VarValue.UNDEFINED && max < activity[i]) {
-                v = i
+                v = i * 2
                 max = activity[i]
             }
         }
