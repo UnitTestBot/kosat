@@ -190,8 +190,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     private fun trailRemoveLast() {
         val lit = trail.removeLast()
         val v = variable(lit)
-        polarity[v] = getValue(v)
-        setValue(v, VarValue.UNDEFINED)
+        polarity[v] = getValue(lit)
+        setValue(lit, VarValue.UNDEFINED)
         vars[v].reason = null
         vars[v].level = -1
         variableSelector.backTrack(v)
@@ -331,7 +331,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
                 // phase saving heuristic
                 if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarValue.FALSE) {
-                    nextDecisionVariable = variable(nextDecisionVariable) xor 1
+                    nextDecisionVariable = (variable(nextDecisionVariable) * 2) xor 1
                 } // TODO move to nextDecisionVariable
 
                 uncheckedEnqueue(nextDecisionVariable)
@@ -506,7 +506,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         trail.last { seen[variable(it)] }.let { lit ->
             val v = variable(lit)
-            updateLemma(lemma, if (getValue(v) == VarValue.TRUE) (v * 2) + 1 else v * 2)
+            updateLemma(lemma, if (getValue(v * 2) == VarValue.TRUE) (v * 2) + 1 else v * 2)
             newClause = minimize(Clause(lemma.toMutableList()))
             val uipIndex = newClause.indexOfFirst { variable(it) == v }
             // fancy swap (move UIP vertex to 0 position)
