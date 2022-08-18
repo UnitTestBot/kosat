@@ -81,8 +81,6 @@ internal class DiamondTests {
     }
 
     private fun runTest(filepath: String): Boolean {
-        println(filepath)
-
         MiniSatSolver().close()
 
         val input = File(filepath).readText()
@@ -111,7 +109,6 @@ internal class DiamondTests {
     }
 
     private fun runAssumptionTest(filepath: String): Boolean {
-        println(filepath)
         MiniSatSolver().close()
 
         val fileInput = File(filepath).readText()
