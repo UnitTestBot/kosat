@@ -213,8 +213,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
             assumptions = emptyList()
             return null
         }
-        assumptions.forEach { lit ->
-            if (result.find { it == (lit xor 1) } != null) {
+        currentAssumptions.forEach { lit ->
+            if (result.find { it == -lit } != null) {
                 assumptions = emptyList()
                 return null
             }
