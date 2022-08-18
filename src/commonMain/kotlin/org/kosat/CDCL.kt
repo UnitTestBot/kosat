@@ -22,18 +22,22 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     // we never store clauses of size 1
     // they are lying at 0 decision level of trail
 
-    // initial constraints + externally added by newClause
+    // initial constraints + externally added clauses by newClause
     val constraints = mutableListOf<Clause>()
 
     // learnt from conflicts clauses, once in a while their number halved
     val learnts = mutableListOf<Clause>()
+
     var numberOfVariables: Int = 0
 
-    // contains current assignment, clause it came from and decision level when it happened
+    // for each variable contains current assignment, clause it came from and decision level when it happened
     val vars: MutableList<VarState> = MutableList(numberOfVariables) { VarState(VarValue.UNDEFINED, null, -1) }
 
     // all decisions and consequences, contains literals
-    val trail: MutableList<Lit> = mutableListOf()
+    private val trail: MutableList<Lit> = mutableListOf()
+
+    // index of first don't propagated element in trail
+    private var qhead = 0
 
     // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
     private val watchers = MutableList(numberOfVariables * 2) { mutableListOf<Clause>() }
@@ -42,13 +46,11 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     private var reduceIncrement = 500.0
 
     // current decision level
-    var level: Int = 0
-
-    var qhead = 0
+    private var level: Int = 0
 
     // minimization lemma in analyze conflicts
     private val minimizeMarks = MutableList(numberOfVariables * 2) { 0 }
-    var mark = 0
+    private var mark = 0
 
     /** Heuristics **/
 
@@ -57,12 +59,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     private val variableSelector: VariableSelector = VsidsWithoutQueue(numberOfVariables, this)
     // private val variableSelector: VariableSelector = FixedOrder(this)
 
-    // preprocessing includes deleting subsumed clauses and bve, offed by default
+    // preprocessing includes deleting subsumed clauses and bve, off by default
     private var preprocessor: Preprocessor? = null
 
     // restart search from time to time
     private val restarter = Restarter(this)
 
+    // add literal to the end of the trail (but don't propagate)
     private fun uncheckedEnqueue(lit: Lit, reason: Clause? = null) {
         setValue(lit, VarValue.TRUE)
         val v = variable(lit)
@@ -195,13 +198,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         }
     }
 
+    // phase saving heuristic
+    private var polarity: MutableList<VarValue> = mutableListOf()
+
     /** Solve with assumptions **/
 
     // assumptions for incremental sat-solver
     private var assumptions: List<Int> = emptyList()
-
-    // phase saving
-    private var polarity: MutableList<VarValue> = mutableListOf()
 
     fun solve(currentAssumptions: List<Int>): List<Int>? {
         require(solverType == SolverType.INCREMENTAL)
@@ -273,14 +276,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 // build new clause by conflict clause
                 val lemma = analyzeConflict(conflictClause)
 
+                // compute lbd "score" for lemma
                 lemma.lbd = lemma.distinctBy { vars[variable(it)].level }.size
 
+                // return to decision level where lemma would be propagated
                 backjump(lemma)
 
                 // after backjump there is only one clause to propagate
                 qhead = trail.size
 
-                // if lemma.size == 1 we already added it to units at 0 level
+                // if lemma.size == 1 we just add it to 0 decision level of trail
                 if (lemma.size == 1) {
                     uncheckedEnqueue(lemma[0])
                 } else {
@@ -315,6 +320,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 level++
                 var nextDecisionVariable = variableSelector.nextDecision(vars, level)
 
+                // in case there is assumption propagated to false
                 if (nextDecisionVariable == -1) {
                     reset()
                     return null
@@ -330,7 +336,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         }
     }
 
-    private fun reset() {
+    fun reset() {
         level = 0
         clearTrail(0)
         qhead = trail.size
@@ -357,7 +363,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     /** Two watchers **/
 
-    // add watchers to new clause. Run and addConstraint and addLearnt
+    // add watchers to new clause. Run in addConstraint in addLearnt
     private fun addWatchers(clause: Clause) {
         require(clause.size > 1)
         watchers[clause[0]].add(clause)
@@ -366,7 +372,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     /** CDCL functions **/
 
-    // add new constraint, executes only in newClause
+    // add new constraint and watchers to it, executes only in newClause
     private fun addConstraint(clause: Clause) {
         require(clause.size != 1)
         constraints.add(clause)
@@ -449,7 +455,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     }
 
     // analyze conflict and return new clause
-    /** Post-condition:
+    /** Post-conditions:
      *      - first element in clause has max (current) propagate level
      *      - second element in clause has second max propagate level
      */
@@ -500,7 +506,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
             updateLemma(lemma, if (getValue(positive(v)) == VarValue.TRUE) negative(v) else positive(v))
             newClause = minimize(Clause(lemma.toMutableList()))
             val uipIndex = newClause.indexOfFirst { variable(it) == v }
-            // fancy swap (move UIP vertex to 0 position)
+            // move UIP vertex to 0 position
             newClause.swap(uipIndex, 0)
             seen[v] = false
         }
