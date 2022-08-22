@@ -141,6 +141,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         minimizeMarks.add(0)
         minimizeMarks.add(0)
 
+        seen.add(false)
+
         return numberOfVariables
     }
 
@@ -456,9 +458,10 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
      *      - first element in clause has max (current) propagate level
      *      - second element in clause has second max propagate level
      */
-    private fun analyzeConflict(conflict: Clause): Clause {
 
-        val seen = MutableList(numberOfVariables) { false }
+    private val seen = MutableList(numberOfVariables) { false }
+
+    private fun analyzeConflict(conflict: Clause): Clause {
 
         fun updateLemma(lemma: MutableSet<Int>, lit: Int) {
             lemma.add(lit)
