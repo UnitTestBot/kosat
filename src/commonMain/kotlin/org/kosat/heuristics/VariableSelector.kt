@@ -21,7 +21,7 @@ abstract class VariableSelector {
     abstract fun backTrack(variable: Int)
 }
 
-class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
+class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : VariableSelector() {
     private val decay = 50
     private val multiplier = 2.0
     private var numberOfConflicts = 0
@@ -76,12 +76,20 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         activityPQ.buildHeap(activity)
     }
 
+    // TODO: Expects to return variable but returns literal
     override fun nextDecision(vars: List<VarState>, level: Int): Int {
-        return if (level > assumptions.size) {
+        if (assumptions.any { solver.getValue(it) == VarValue.FALSE }) {
+            return -1
+        }
+        // if there is undefined assumption pick it, other way pick best choice
+        return assumptions.firstOrNull { solver.getValue(it) == VarValue.UNDEFINED } ?: getMaxActivityVariable(vars)
+
+        // TODO: Does it have a sense? Don't delete!
+        /*return if (level > assumptions.size) {
             getMaxActivityVariable(vars)
         } else {
             assumptions[level - 1]
-        }
+        }*/
     }
 
     override fun backTrack(variable: Int) {
@@ -101,7 +109,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
                 break
             }
         }
-        return v
+        return v * 2
     }
 }
 
@@ -193,7 +201,7 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
     private fun getMaxActivityVariable(vars: List<VarState>): Lit {
         var v: Int = -1
         var max = -1.0
-        (0 until numberOfVariables).forEach { i ->
+        for (i in 0 until numberOfVariables) {
             if (vars[i].value == VarValue.UNDEFINED && max < activity[i]) {
                 v = i * 2
                 max = activity[i]

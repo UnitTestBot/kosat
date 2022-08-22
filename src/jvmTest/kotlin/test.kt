@@ -71,7 +71,7 @@ internal class DiamondTests {
         val cnfRequest = readCnfRequests(input).first()
         if (ans.size != cnfRequest.vars) return false
 
-        return cnfRequest.clauses.all { clause -> clause.lits.any { ans.contains(it) } }
+        return cnfRequest.clauses.all { clause -> clause.lits.any { ans[abs(it) - 1] == it } }
     }
 
     fun Double.round(decimals: Int): Double {
