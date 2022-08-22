@@ -7,12 +7,12 @@ import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.SolverType
 import org.kosat.readCnfRequests
+import org.kosat.round
 import org.kosat.solveCnf
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.abs
-import kotlin.math.round
 import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
@@ -71,13 +71,9 @@ internal class DiamondTests {
         val cnfRequest = readCnfRequests(input).first()
         if (ans.size != cnfRequest.vars) return false
 
-        return cnfRequest.clauses.all { clause -> clause.lits.any { ans.contains(it) } }
-    }
+        val sign = ans.sortedBy { abs(it) }.map { if (it > 0) 1 else -1 }
 
-    fun Double.round(decimals: Int): Double {
-        var multiplier = 1.0
-        repeat(decimals) { multiplier *= 10 }
-        return round(this * multiplier) / multiplier
+        return cnfRequest.clauses.all { clause -> clause.lits.any { it * sign[abs(it) - 1] > 0 } }
     }
 
     private fun runTest(filepath: String): Boolean {
@@ -126,8 +122,9 @@ internal class DiamondTests {
         var res = "OK"
 
         repeat(5) { ind ->
+            val random = Random(ind)
             val assumptions = if (first.vars == 0) listOf() else List(ind)
-            { Random.nextInt(1, first.vars + 1) }.map {
+            { random.nextInt(1, first.vars + 1) }.map {
                 if (Random.nextBoolean()) it else -it
             }
 
