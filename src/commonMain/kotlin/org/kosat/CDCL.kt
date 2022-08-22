@@ -328,7 +328,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
                 // phase saving heuristic
                 if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarValue.FALSE) {
-                    nextDecisionVariable = positive(variable(nextDecisionVariable)) xor 1
+                    nextDecisionVariable = negative(variable(nextDecisionVariable))
                 } // TODO move to nextDecisionVariable
 
                 uncheckedEnqueue(nextDecisionVariable)

@@ -126,8 +126,9 @@ internal class DiamondTests {
         var res = "OK"
 
         repeat(5) { ind ->
+            val random = Random(ind)
             val assumptions = if (first.vars == 0) listOf() else List(ind)
-            { Random.nextInt(1, first.vars + 1) }.map {
+            { random.nextInt(1, first.vars + 1) }.map {
                 if (Random.nextBoolean()) it else -it
             }
 
