@@ -71,9 +71,7 @@ internal class DiamondTests {
         val cnfRequest = readCnfRequests(input).first()
         if (ans.size != cnfRequest.vars) return false
 
-        val sign = ans.sortedBy { abs(it) }.map { if (it > 0) 1 else -1 }
-
-        return cnfRequest.clauses.all { clause -> clause.lits.any { it * sign[abs(it) - 1] > 0 } }
+        return cnfRequest.clauses.all { clause -> clause.lits.any { it == ans[abs(it) - 1] } }
     }
 
     private fun runTest(filepath: String): Boolean {
