@@ -2,6 +2,8 @@ package org.kosat.heuristics
 
 import org.kosat.swap
 
+// TODO: Refactor code
+
 class PriorityQueue {
     val heap: MutableList<Pair<Double, Int>> = mutableListOf()
     val order: MutableList<Int> = mutableListOf()
@@ -94,30 +96,33 @@ class PriorityQueue {
     }
 
     fun buildHeap(activity: MutableList<Double>) {
-        for (ind in 1..activity.lastIndex) {
+        for (ind in 0..activity.lastIndex) {
             heap.add(Pair(activity[ind], ind))
         }
-        for (ind in (heap.size / 2)..0) {
-            heapify(ind)
-        }
         size = heap.size
-        while (order.size < size + 1) {
+        while (order.size < size) {
             order.add(0)
         }
         heap.forEachIndexed { ind, elem ->
             order[elem.second] = ind
         }
+        for (ind in (heap.size / 2) downTo 0) {
+            heapify(ind)
+        }
         maxSize = size
     }
 
     operator fun Pair<Double, Int>.compareTo(other: Pair<Double, Int>): Int {
-        return if (this.first > other.first || (this.first == other.first && this.second > other.second)) {
+        return if (this.first > other.first || (this.first == other.first && this.second < other.second)) {
             1
-        } else if (this.first < other.first || (this.first == other.first && this.second < other.second)) {
+        } else if (this.first < other.first || (this.first == other.first && this.second > other.second)) {
             -1
+        } else if (this.second > other.second) {
+            -1
+        } else if (this.second < other.second) {
+            1
         } else {
             0
         }
     }
-
 }

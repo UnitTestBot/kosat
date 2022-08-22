@@ -1,9 +1,6 @@
 package org.kosat
 
-import org.kosat.heuristics.Preprocessor
-import org.kosat.heuristics.Restarter
-import org.kosat.heuristics.VariableSelector
-import org.kosat.heuristics.VsidsWithoutQueue
+import org.kosat.heuristics.*
 
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
@@ -56,7 +53,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // branching heuristic
     // private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
-    private val variableSelector: VariableSelector = VsidsWithoutQueue(numberOfVariables, this)
+    private val variableSelector: VariableSelector = VSIDS(numberOfVariables, this)
     // private val variableSelector: VariableSelector = FixedOrder(this)
 
     // preprocessing includes deleting subsumed clauses and bve, off by default
