@@ -1,6 +1,9 @@
 package org.kosat
 
-import org.kosat.heuristics.*
+import org.kosat.heuristics.Preprocessor
+import org.kosat.heuristics.Restarter
+import org.kosat.heuristics.VSIDS
+import org.kosat.heuristics.VariableSelector
 
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
@@ -401,35 +404,37 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 return vars[variable(lit)].reason
             }
 
-            val clausesToRemove = mutableSetOf<Clause>()
+            val clausesToKeep = mutableListOf<Clause>()
             for (brokenClause in watchers[lit xor 1]) {
                 if (!brokenClause.deleted) {
-                    if (variable(brokenClause[0]) == variable(lit)) {
-                        brokenClause.swap(0, 1)
-                    }
-                    // if second watcher is true skip clause
-                    if (getValue(brokenClause[0]) != VarValue.TRUE) {
-                        var firstNotFalse = -1
-                        for (ind in 2 until brokenClause.size) {
-                            if (getValue(brokenClause[ind]) != VarValue.FALSE) {
-                                firstNotFalse = ind
-                                break
-                            }
+                    clausesToKeep.add(brokenClause)
+                    if (conflict == null) {
+                        if (variable(brokenClause[0]) == variable(lit)) {
+                            brokenClause.swap(0, 1)
                         }
-                        if (firstNotFalse == -1 && getValue(brokenClause[0]) == VarValue.FALSE) {
-                            conflict = brokenClause
-                            break
-                        } else if (firstNotFalse == -1) {
-                            uncheckedEnqueue(brokenClause[0], brokenClause)
-                        } else {
-                            watchers[brokenClause[firstNotFalse]].add(brokenClause)
-                            brokenClause.swap(firstNotFalse, 1)
-                            clausesToRemove.add(brokenClause)
+                        // if second watcher is true skip clause
+                        if (getValue(brokenClause[0]) != VarValue.TRUE) {
+                            var firstNotFalse = -1
+                            for (ind in 2 until brokenClause.size) {
+                                if (getValue(brokenClause[ind]) != VarValue.FALSE) {
+                                    firstNotFalse = ind
+                                    break
+                                }
+                            }
+                            if (firstNotFalse == -1 && getValue(brokenClause[0]) == VarValue.FALSE) {
+                                conflict = brokenClause
+                            } else if (firstNotFalse == -1) {
+                                uncheckedEnqueue(brokenClause[0], brokenClause)
+                            } else {
+                                watchers[brokenClause[firstNotFalse]].add(brokenClause)
+                                brokenClause.swap(firstNotFalse, 1)
+                                clausesToKeep.removeLast()
+                            }
                         }
                     }
                 }
             }
-            watchers[lit xor 1].removeAll(clausesToRemove)
+            watchers[lit xor 1] = clausesToKeep
             if (conflict != null) break
         }
         return conflict
