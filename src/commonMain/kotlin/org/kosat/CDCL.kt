@@ -1,6 +1,9 @@
 package org.kosat
 
-import org.kosat.heuristics.*
+import org.kosat.heuristics.Restarter
+import org.kosat.heuristics.VariableSelector
+import org.kosat.heuristics.VSIDS
+import org.kosat.heuristics.Preprocessor
 
 // CDCL
 fun solveCnf(cnf: CnfRequest): List<Int>? {
@@ -78,9 +81,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     fun getValue(lit: Lit): VarValue {
         if (vars[variable(lit)].value == VarValue.UNDEFINED) return VarValue.UNDEFINED
         return if (lit % 2 == 1)
-                !vars[variable(lit)].value
-            else
-                vars[variable(lit)].value
+            !vars[variable(lit)].value
+        else
+            vars[variable(lit)].value
     }
 
     // set value for literal
@@ -107,7 +110,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 negative(-lit - 1)
             } else {
                 positive(lit - 1)
-            }}.toMutableList())
+            }
+        }.toMutableList()
+    )
 
     private fun MutableList<Clause>.renumber() = this.map { it.renumber() }
 
@@ -118,7 +123,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     ) : this(solverType) {
         reserveVars(initialVarsNumber)
         initialClauses.renumber().forEach { newClause(it) }
-        polarity = MutableList(numberOfVariables + 1) { VarValue.UNDEFINED } // TODO is phaseSaving adapted for incremental?
+        polarity =
+            MutableList(numberOfVariables + 1) { VarValue.UNDEFINED } // TODO is phaseSaving adapted for incremental?
     }
 
     private fun reserveVars(max: Int) {
@@ -348,16 +354,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         }
 
         return vars.mapIndexed { index, v ->
-                when (v.value) {
-                    VarValue.TRUE -> index + 1
-                    VarValue.FALSE -> -index - 1
-                    VarValue.UNDEFINED -> {
-                        println(vars)
-                        println(trail)
-                        throw Exception("Unexpected unassigned variable")
-                    }
+            when (v.value) {
+                VarValue.TRUE -> index + 1
+                VarValue.FALSE -> -index - 1
+                VarValue.UNDEFINED -> {
+                    println(vars)
+                    println(trail)
+                    throw Exception("Unexpected unassigned variable")
                 }
             }
+        }
     }
 
     /** Two watchers **/
