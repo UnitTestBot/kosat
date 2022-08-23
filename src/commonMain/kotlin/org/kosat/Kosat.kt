@@ -1,100 +1,100 @@
 package org.kosat
 
-class Clause(val lit: MutableList<Int>)
+import kotlin.math.abs
 
-class CnfRequest(val vars: Int, val clauses: List<Clause>)
+interface Solver {
+    /**
+     * Number of variables added (via [addVariable]) to the SAT solver.
+     */
+    val numberOfVariables: Int
 
-/**
- * Reads [CnfRequest]'s assuming [s] is formatted according [Simplified DIMACS](http://www.satcompetition.org/2004/format-solvers2004.html)
- */
-class Scanner(val s: String) {
-    private var pos = 0
-    fun hasNext(): Boolean {
-        while (pos < s.length && s[pos].isWhitespace())
-            pos++
-        return pos < s.length
-    }
+    /**
+     * Number of clauses added (via [addClause]) to the SAT solver.
+     */
+    val numberOfClauses: Int
 
-    fun next(): String {
-        while (pos < s.length && s[pos].isWhitespace())
-            pos++
+    /**
+     * Add a variable to CNF and return its number
+     */
+    fun addVariable(): Int
 
-        val start = pos
-        while (pos < s.length && !s[pos].isWhitespace())
-            pos++
+    /**
+     * Add a clause to CNF as pure literals or list of literals
+     */
+    fun addClause(lit: Lit)
+    fun addClause(lit1: Lit, lit2: Lit)
+    fun addClause(lit1: Lit, lit2: Lit, lit3: Lit)
+    fun addClause(literals: List<Lit>)
+    fun addClause(literals: Iterable<Lit>)
 
-        return s.substring(start, pos)
-    }
+    /**
+     * Solve CNF without assumptions
+     */
+    fun solve(): Boolean
 
-    fun nextLine() {
-        while (pos < s.length)
-            if (s[pos++] == '\n') break
-    }
+    /**
+     *  Solve CNF with the passed `assumptions`
+     */
+    fun solve(assumptions: List<Lit>): Boolean
+    fun solve(assumptions: Iterable<Lit>): Boolean
 
-    fun nextInt(): Int = next().toInt()
+    /**
+     * Query the Boolean value of a literal.
+     *
+     * **Note:** the solver should be in the SAT state.
+     */
+    fun getValue(lit: Lit): Boolean
+
+    /**
+     * Query the satisfying assignment (model) for the SAT problem.
+     *
+     * In general, the Solver implementations construct the model on each call to [getModel].
+     * The model could have the large size, so make sure to call this method only once.
+     *
+     * **Note:** the solver should be in the SAT state.
+     * Solver return the latest model (cached)
+     * even when the solver is already not in the SAT state (due to possibly new added clauses),
+     * but it is advisable to query the model right after the call to [solve] which returned `true`.
+     */
+    fun getModel(): List<Lit>
 }
 
+class Kosat(clauses: MutableList<MutableList<Lit>>, vars: Int = 0) : Solver {
+    override val numberOfVariables get() = solver.numberOfVariables
+    override val numberOfClauses get() = solver.constraints.size + solver.learnts.size
 
-fun readCnfRequests(dimacs: String) = sequence {
-    val scanner = Scanner(dimacs)
+    private var model: List<Lit>? = null
+    private val solver = CDCL(clauses.map { Clause(it) }.toMutableList(), vars)
 
-    while (scanner.hasNext()) {
-        val token = scanner.next()
+    override fun addVariable(): Int {
+        solver.addVariable()
+        return solver.numberOfVariables
+    }
 
-        if (token == "c") {
-            scanner.nextLine()
-            continue
-        } //skip comment
+    override fun addClause(literals: List<Lit>) {
+        solver.newClause(Clause(literals.toMutableList()))
+    }
 
-        if (token == "%") {
-            break
-        }
+    override fun addClause(lit: Lit) = addClause(listOf(lit))
+    override fun addClause(lit1: Lit, lit2: Lit) = addClause(listOf(lit1, lit2))
+    override fun addClause(lit1: Lit, lit2: Lit, lit3: Lit) = addClause(listOf(lit1, lit2, lit3))
+    override fun addClause(literals: Iterable<Lit>) = addClause(literals.toList())
 
-        if (token != "p")
-            error ("Illegal token $token. Only 'c' and 'p' command are supported")
+    override fun solve(): Boolean {
+        model = solver.solve()
+        return model != null
+    }
 
-        val cnf = scanner.next()
-        if (cnf != "cnf")
-            error ("Illegal request $cnf. Only 'cnf' supported")
+    override fun solve(assumptions: List<Lit>): Boolean {
+        model = solver.solve(assumptions)
+        return model != null
+    }
 
-        val vars = scanner.nextInt() //don't need this variable
-        val clauses = List(scanner.nextInt()) { mutableListOf<Int>()}
-        for (i in clauses.indices) {
-            while (true) {
-                val nxt = scanner.nextInt()
+    override fun solve(assumptions: Iterable<Lit>): Boolean = solve(assumptions.toList())
 
-                if (nxt == 0) break
-                else clauses[i].add(nxt)
-            }
-        }
+    override fun getModel(): List<Lit> = model ?: listOf()
 
-        yield(CnfRequest(vars, clauses.map { Clause(it) }))
+    override fun getValue(lit: Lit): Boolean {
+        return model?.get(abs(lit) - 1) == lit
     }
 }
-
-
-
-fun processCnfRequests(requests: Sequence<CnfRequest>) = buildString {
-    for (cnf in requests) {
-        appendLine("v Start processing CNF request with ${cnf.vars} variables and ${cnf.clauses.size} clauses")
-
-        val model: List<Int>? = solveCnf(cnf)
-
-        if (model == null) {
-            appendLine("s UNSATISFIABLE")
-            continue
-        }
-
-        appendLine("s SATISFIABLE")
-        if (model.isEmpty())
-            appendLine("c Done: formula is tautology. Any solution satisfies it.")
-        else {
-            appendLine("v " + model.joinToString(" "))
-            appendLine("c Done")
-        }
-    }
-}
-
-
-
-
