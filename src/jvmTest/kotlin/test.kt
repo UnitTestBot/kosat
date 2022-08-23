@@ -60,7 +60,9 @@ internal class DiamondTests {
                 addClause(clause.lits.map { it.sign * lit[abs(it) - 1] })
             val result = solve()
             println("MiniSat conflicts: ${backend.numberOfConflicts}")
+            println("Minisat decisions: ${backend.numberOfDecisions}")
             return result
+
         }
     }
 
@@ -80,8 +82,6 @@ internal class DiamondTests {
         val input = File(filepath).readText()
 
         val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
-
-        println("Minisat time: ${timeMiniSat.seconds.round(3)}")
 
         val (solution, timeKoSat) = measureTimeWithResult { solveCnf(readCnfRequests(input).first()) }
 

@@ -2,19 +2,24 @@ package org.kosat.heuristics
 
 import org.kosat.swap
 
-// TODO: Refactor code
-
 class PriorityQueue {
+    // stores max-heap built on variable activities
     val heap: MutableList<Pair<Double, Int>> = mutableListOf()
-    val order: MutableList<Int> = mutableListOf()
-    var maxSize = -1
+
+    // for each variable contains index with it position in heap
+    val index: MutableList<Int> = mutableListOf()
+
+    // maximum possible size of heap
+    private var capacity = -1
+
+    // current size
     var size = 0
 
-    private fun ls(u: Int): Int {
+    private fun leftChild(u: Int): Int {
         return 2 * u + 1
     }
 
-    private fun rs(u: Int): Int {
+    private fun rightChild(u: Int): Int {
         return 2 * u + 2
     }
 
@@ -22,30 +27,31 @@ class PriorityQueue {
         return (u - 1) / 2
     }
 
-    fun swap(u: Int, v: Int) {
+    private fun swap(u: Int, v: Int) {
         heap.swap(u, v)
-        order[heap[u].second] = u
-        order[heap[v].second] = v
+        index[heap[u].second] = u
+        index[heap[v].second] = v
     }
 
-    fun heapify(u: Int) {
-        if (ls(u) > size - 1) {
+    // if for element both children subtrees are heaps - make a heap for O(logn)
+    private fun heapify(u: Int) {
+        if (leftChild(u) > size - 1) {
             return
         }
-        if (rs(u) > size - 1) {
-            if (heap[ls(u)] > heap[u]) {
-                swap(u, ls(u))
+        if (rightChild(u) > size - 1) {
+            if (heap[leftChild(u)] > heap[u]) {
+                swap(u, leftChild(u))
             }
             return
         }
-        if (heap[ls(u)] > heap[rs(u)]) {
-            if (heap[ls(u)] > heap[u]) {
-                swap(u, ls(u))
-                heapify(ls(u))
+        if (heap[leftChild(u)] > heap[rightChild(u)]) {
+            if (heap[leftChild(u)] > heap[u]) {
+                swap(u, leftChild(u))
+                heapify(leftChild(u))
             }
-        } else if (heap[rs(u)] > heap[u]) {
-            swap(u, rs(u))
-            heapify(rs(u))
+        } else if (heap[rightChild(u)] > heap[u]) {
+            swap(u, rightChild(u))
+            heapify(rightChild(u))
         }
     }
 
@@ -55,23 +61,27 @@ class PriorityQueue {
         }
     }
 
-    fun getMax(): Pair<Double, Int> {
+    // returns element on top of heap
+    fun top(): Pair<Double, Int> {
         require(size != 0)
         return heap[0]
     }
 
-    fun deleteMax() {
+    // delete element on top of heap and returns it
+    fun pop(): Pair<Double, Int> {
         require(size != 0)
+        val max = top()
         swap(0, size - 1)
-        order[heap[size - 1].second] = -1
+        index[heap[size - 1].second] = -1
         size--
         if (heap.isNotEmpty()) {
             heapify(0)
         }
+        return max
     }
 
     // if some value of vertex increased this function lift this vertex up to save heap structure
-    fun liftVertex(u: Int) {
+    fun siftUp(u: Int) {
         var curInd = u
         var parent = parent(curInd)
         while (curInd > 0 && heap[curInd] > heap[parent]) {
@@ -81,18 +91,18 @@ class PriorityQueue {
         }
     }
 
-    fun addValue(newValue: Pair<Double, Int>) {
-        require(size != maxSize)
+    fun insert(newValue: Pair<Double, Int>) {
+        require(size != capacity)
         heap[size] = newValue
-        order[newValue.second] = size
+        index[newValue.second] = size
         size++
-        liftVertex(size - 1)
+        siftUp(size - 1)
     }
 
-    fun increaseActivity(ind: Int, delta: Double) {
-        val u = order[ind]
+    fun increaseActivity(variable: Int, delta: Double) {
+        val u = index[variable]
         heap[u] = Pair(heap[u].first + delta, heap[u].second)
-        liftVertex(u)
+        siftUp(u)
     }
 
     fun buildHeap(activity: MutableList<Double>) {
@@ -100,16 +110,16 @@ class PriorityQueue {
             heap.add(Pair(activity[ind], ind))
         }
         size = heap.size
-        while (order.size < size) {
-            order.add(0)
+        while (index.size < size) {
+            index.add(0)
         }
         heap.forEachIndexed { ind, elem ->
-            order[elem.second] = ind
+            index[elem.second] = ind
         }
         for (ind in (heap.size / 2) downTo 0) {
             heapify(ind)
         }
-        maxSize = size
+        capacity = size
     }
 
     operator fun Pair<Double, Int>.compareTo(other: Pair<Double, Int>): Int {
