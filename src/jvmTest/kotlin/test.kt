@@ -79,9 +79,11 @@ internal class DiamondTests {
 
         val input = File(filepath).readText()
 
-        val (solution, timeKoSat) = measureTimeWithResult { solveCnf(readCnfRequests(input).first()) }
-
         val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
+
+        println("Minisat time: ${timeMiniSat.seconds.round(3)}")
+
+        val (solution, timeKoSat) = measureTimeWithResult { solveCnf(readCnfRequests(input).first()) }
 
         val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
