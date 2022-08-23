@@ -37,11 +37,10 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
     override fun update(lemma: Clause) {
         lemma.forEach { lit ->
             val v = variable(lit)
-            if (activityPQ.order[v] != -1) {
+            activity[v] += activityInc
+            if (activityPQ.index[v] != -1) {
                 activityPQ.increaseActivity(v, activityInc)
             }
-            activity[v] += activityInc
-
         }
 
         numberOfConflicts++
@@ -93,8 +92,8 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
     }
 
     override fun backTrack(variable: Int) {
-        if (activityPQ.order[variable] == -1) {
-            activityPQ.addValue(Pair(activity[variable], variable))
+        if (activityPQ.index[variable] == -1) {
+            activityPQ.insert(Pair(activity[variable], variable))
         }
     }
 
@@ -103,8 +102,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
         var v: Int
         while (true) {
             require(activityPQ.size > 0)
-            v = activityPQ.getMax().second
-            activityPQ.deleteMax()
+            v = activityPQ.pop().second
             if (vars[v].value == VarValue.UNDEFINED) {
                 break
             }

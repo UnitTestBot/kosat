@@ -231,11 +231,14 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     // half of learnt get reduced
     fun reduceDB() {
         learnts.sortByDescending { it.lbd }
-        val lim = learnts.size / 2
-        var i = 0
-        learnts.forEach { clause ->
-            if (i < lim) {
-                i++
+        val deletionLimit = learnts.size / 2
+        var cnt = 0
+        for (clause in learnts) {
+            if (cnt == deletionLimit) {
+                break
+            }
+            if (!clause.deleted) {
+                cnt++
                 clause.deleted = true
             }
         }
@@ -246,7 +249,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     fun solve(): List<Int>? {
 
-        var totalNumberOfConflicts = 0
+        var numberOfConflicts = 0
+        var numberOfDecisions = 0
 
         preprocessor = if (solverType == SolverType.NON_INCREMENTAL) {
             Preprocessor(this)
@@ -267,11 +271,12 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
             val conflictClause = propagate()
             if (conflictClause != null) {
                 // CONFLICT
-                totalNumberOfConflicts++
+                numberOfConflicts++
 
                 // in case there is a conflict in CNF and trail is already in 0 state
                 if (level == 0) {
-                    println("KoSat conflicts:   $totalNumberOfConflicts")
+                    println("KoSat conflicts:   $numberOfConflicts")
+                    println("KoSat decisions:   $numberOfDecisions")
                     return null
                 }
 
@@ -313,7 +318,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 if (trail.size == numberOfVariables) {
                     val model = getModel()
                     reset()
-                    println("KoSat conflicts:   $totalNumberOfConflicts")
+                    println("KoSat conflicts:   $numberOfConflicts")
+                    println("KoSat decisions:   $numberOfDecisions")
                     return model
                 }
 
@@ -321,6 +327,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 // try to guess variable
                 level++
                 var nextDecisionVariable = variableSelector.nextDecision(vars, level)
+                numberOfDecisions++
 
                 // in case there is assumption propagated to false
                 if (nextDecisionVariable == -1) {
