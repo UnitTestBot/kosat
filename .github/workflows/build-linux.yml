@@ -37,4 +37,4 @@ jobs:
         run: ./gradlew build -x jvmTest --stacktrace --scan
 
       - name: Run tests
-        run: ./gradlew cleanTest test --no-build-cache --stacktrace
+        run: ./gradlew cleanTest jvmTest --no-build-cache --stacktrace
