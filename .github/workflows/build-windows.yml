@@ -35,7 +35,7 @@ jobs:
           ldd src/jvmMain/resources/lib/win64/*.dll
 
       - name: Build project using Gradle
-        run: ./gradlew build -x test --stacktrace --scan
+        run: ./gradlew build -x jvmTest --stacktrace --scan
 
       - name: Run tests
         run: ./gradlew cleanTest test --no-build-cache --stacktrace
