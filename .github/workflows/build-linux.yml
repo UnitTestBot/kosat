@@ -1,10 +1,6 @@
-name: Build
+name: Build (Linux)
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+on: [ push, pull_request ]
 
 jobs:
   build:
@@ -38,24 +34,7 @@ jobs:
           ldd src/jvmMain/resources/lib/linux64/*.so
 
       - name: Build project using Gradle
-        run: ./gradlew build -x test --stacktrace --scan
+        run: ./gradlew build -x jvmTest -x jsBrowserTest --stacktrace --scan
 
       - name: Run tests
-        run: ./gradlew cleanTest test --no-build-cache --stacktrace
-
-      - name: Deploy site
-        if: ${{ success() }} && github.event_name == 'push'
-        run: |
-          set -o xtrace
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          sudo cp -r ./build/distributions /usr
-          git fetch
-          git stash
-          git checkout gh-pages
-          rm -rf docs
-          mkdir docs
-          sudo cp -r /usr/distributions/* ./docs/
-          git add .
-          git commit -am "${{ github.event.head_commit.message }}"
-          git push
+        run: ./gradlew cleanTest jvmTest --no-build-cache --stacktrace
