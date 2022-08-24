@@ -1,4 +1,4 @@
-name: Build
+name: Deploy site
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Build project using Gradle
-        run: ./gradlew build -x test --stacktrace --scan
+        run: ./gradlew build -x test -x jvmTest --stacktrace --scan
 
       - name: Deploy site
         if: ${{ success() }} && github.event_name == 'push'
