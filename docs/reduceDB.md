@@ -8,11 +8,11 @@ future conflicts, they just occupy a space and make propagation much longer.
 
 To get rid of this effect we reduce number of learnts in array once in a while.  
 The strategy is to remove half of learnts when their number becomes equal to 
-reduceNumber (6000 by default), after reducing reducedNumber increases by 
+reduceNumber (6000 by default), after this operation reducedNumber is increased by 
 reduceIncrement (500 by default).  
 
-But we need to choose which learned clauses to remove. There is some metrics 
-to understand by clause good it or not. There are 2 main ones: LBD, VSIDS like metric.
+But we need to choose clauses to remove. There are some metrics 
+to understand if clause is good or not. There are 2 main: LBD or VSIDS-like metric.
 
 
 ### LBD
