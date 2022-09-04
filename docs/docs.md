@@ -6,7 +6,7 @@ in [definition.md](definitions.md) file.
 TODO: Dimacs format
 
 Solver using:
-1. ReNumeration  -- Polina TODO
+1. [ReNumeration](numeration.md)
 2. Preprocessing?
 3. Trail  -- room for improvements
 4. Analyze conflict
