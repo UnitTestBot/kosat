@@ -1,5 +1,6 @@
 # What is KoSAT?
-####![Windows](https://github.com/UnitTestBot/kosat/actions/workflows/build-windows.yml/badge.svg) ![Linux](https://github.com/UnitTestBot/kosat/actions/workflows/build-linux.yml/badge.svg)
+![Windows](https://github.com/UnitTestBot/kosat/actions/workflows/build-windows.yml/badge.svg) ![Linux](https://github.com/UnitTestBot/kosat/actions/workflows/build-linux.yml/badge.svg)
+
 KoSAT is **pure Kotlin** CDCL SAT solver based on MiniSat core.
 It is solving boolean satisfiability problems given in DIMACS format.
 Solver supports incremental solving.
@@ -67,7 +68,7 @@ need to know. **It may be useful even if you are new to SAT problem.**
 
 > Check this out [here](docs/docs.md).
 
-## Contribution & Support
+## Contribution & Support ⭐
 KoSAT is an open source project. If you have found any bugs
 or want to suggest some effective heuristics for solver, we are
 open for your help! 

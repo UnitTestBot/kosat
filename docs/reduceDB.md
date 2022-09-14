@@ -17,10 +17,10 @@ to understand if clause is good or not. There are 2 main: LBD or VSIDS-like metr
 
 ### LBD
 
-[Justification of LBD](https://www.ijcai.org/Proceedings/09/Papers/074.pdf),
-
 *Definition*. Given a clause C, and a partition of its literals into n subsets 
 according to the current assignment, s.t. literals are partitioned
 w.r.t their decision level. The LBD of C is exactly n.
 
 Clause with small lbd give us fast propagation and therefore faster assignment.\
+
+[Justification of LBD](https://www.ijcai.org/Proceedings/09/Papers/074.pdf)

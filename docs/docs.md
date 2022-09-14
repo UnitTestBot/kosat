@@ -20,10 +20,6 @@ how it looks like, you can find it [here](dimacs.md).
 10. [ReduceDB based on LBD](reduceDB.md)
 
 
-https://users.aalto.fi/~tjunttil/2020-DP-AUT/notes-sat/index.html - site with UIP trail
-https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.636.4327&rep=rep1&type=pdf - lbd   
-https://www.ijcai.org/Proceedings/09/Papers/074.pdf - lbd definition
-
 ### About CDCL
 Conflict-driven clause learning (CDCL) is an algorithm for 
 solving the Boolean satisfiability problem (SAT). It underlies
