@@ -23,8 +23,4 @@ to understand if clause is good or not. There are 2 main: LBD or VSIDS-like metr
 according to the current assignment, s.t. literals are partitioned
 w.r.t their decision level. The LBD of C is exactly n.
 
-Clause with small lbd give us fast propagation and therefore faster assignment.
-
-### VSIDS
-
-TODO: Danya?
+Clause with small lbd give us fast propagation and therefore faster assignment.\

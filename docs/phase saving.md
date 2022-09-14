@@ -1,26 +1,23 @@
 ## Value Choosing
 
-Every time we pick a decision variable (by some branching heuristic) we must choose its
-value too. This problem is solved in this section.
+Each time we pick a decision variable (by some branching heuristic), we also need to choose its
+value. This page is about some efficient strategies of doing it.
 
 ### Simple Approach
 
-A simple strategy is to always pick the 'true' value (or always 'false'). There is a paper that
-states picking 'false' is usually better, but I've lost it. Another simple approach is to pick value randomly.  
-These methods don't use any information about a problem, so there is room for improvement.
+A simple strategy is to always pick `True` value of a variable (or always `False`). 
+Unfortunately, this strategy is not good (e.g. when the only solution
+consists of all `False` variables).
+
+Another more effective approach is to pick value randomly. It's a kind
+of random, but this method can be rather effective in practice.
 
 ### Phase Saving
 
-If CNF may be split into sub-problems our algorithm would interfere with itself, because
-when it starts to solve the next sub-problem backjump would throw us to the decision level of
-previous sub-problem, and we will be forced to solve it once again.
+The idea of this heuristic is to store last assigned value for each variable in a
+special array called `polarity`. And when we need to choose a value
+of variable, we just take it from this array.
 
-TODO: it helps with branching too.
 
-To prevent this we used phase saving.  
-[Good paper on the topic](http://reasoning.cs.ucla.edu/fetch.php?id=81&type=pdf)
-(the solution to the problem is in the 5th section)
-
-Idea is to store the last value of the variable obtained by
-the decision or from propagation in the array called polarity. Next time we want this
-variable to be a decision we choose its value from polarity.
+More about **phase saving** [here](http://reasoning.cs.ucla.edu/fetch.php?id=81&type=pdf)
+(in 5-th section)

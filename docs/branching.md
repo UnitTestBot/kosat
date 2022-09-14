@@ -1,6 +1,6 @@
 ## Branching heuristics
 
-Goal is to decide which variable is going to be next decision variable. 
+Main goal is to decide which variable is going to be next decision variable. 
 There are some basic approaches: simple, VSIDS, MTF.
 
 ### Simple
@@ -41,7 +41,3 @@ double up `activityInc` too much. So when it becomes more than
 set value of `activityInc` to 1.
 
 links (???)
-
-### MTF
-
-TODO

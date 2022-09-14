@@ -1,34 +1,36 @@
 # Brand new SAT-solver using Kotlin
 
-If you don't know some word in the documentation there is a chance its definition exists
-in [definition.md](definitions.md) file.
+If you don't know any word in documentation, you can try to
+find it in [Glossary](definitions.md) with main terms used here.
 
-TODO: Dimacs format
+KoSAT is solving problems given in DIMACS format. If you don't know
+how it looks like, you can find it [here](dimacs.md).
 
-Solver using:
+### KoSAT heuristics and features
+
 1. [ReNumeration](numeration.md)
-2. Preprocessing?
-3. Trail  -- room for improvements
-4. Analyze conflict
-8. UIP vertex
-5. Backjump
-6. Propagate
-7. 2 Watched literals
-9. VSIDS
-10. Restarts (Luby) -- done
-11. Phase saving -- done
-12. ReduceDB + LBD -- done
-13. Work with assumptions
+2. [Trail](trail.md)
+3. [Conflict analysis](analyze.md)
+4. [Backjump](backjump.md)
+5. [Propagation](propagation.md)
+6. [2-watched literals](watched%20literals.md)
+7. [VSIDS](branching.md)
+8. [Luby restarts](restarts.md)
+9. [Phase saving](phase%20saving.md)
+10. [ReduceDB based on LBD](reduceDB.md)
 
 
-https://users.aalto.fi/~tjunttil/2020-DP-AUT/notes-sat/index.html - site with UIP trail and so on  
-http://minisat.se/downloads/MiniSat.pdf - minisat structure  
-https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.636.4327&rep=rep1&type=pdf - lbd  
-http://reasoning.cs.ucla.edu/fetch.php?id=81&type=pdf - phase saving  
+https://users.aalto.fi/~tjunttil/2020-DP-AUT/notes-sat/index.html - site with UIP trail
+https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.636.4327&rep=rep1&type=pdf - lbd   
 https://www.ijcai.org/Proceedings/09/Papers/074.pdf - lbd definition
 
+### About CDCL
+Conflict-driven clause learning (CDCL) is an algorithm for 
+solving the Boolean satisfiability problem (SAT). It underlies
+almost all SAT solvers, so it's important to know its structure.
 
-The algorithm without hard details looks like this:
+This is what a simple CDCL algorithm looks like:
+
 ```kotlin
 while (true) {  
     propagate() // propagation of unit clauses
@@ -37,7 +39,7 @@ while (true) {
         if (topLevelConflict) {
             return Unsatisfiable
         }
-        analyze() // analyze conflict to produce new clause
+        analyze(conflictClause) // analyze conflict to produce new clause
         backjump() // undo assignments until new clause is unit
     } else {
         // No conflict
@@ -49,31 +51,51 @@ while (true) {
 }
 
 ```
-So we're just trying to do some partial assignment, if we get conflict we learn a new clause
-that will not allow us this partial assignment. And if we assigned all variables then the answer
-to the problem is SAT.
+As you can see, the algorithm's main idea is to make partial
+assignments and learn information if something goes wrong.
+So if we get a conflict, we try to analyze it and learn new 
+clause, based on this conflict. If all variables are assigned,
+and there is no conflict, this means we have found a solution.
 
-We store our decision literals and literals concluded by propagation on the [trail](trail.md). Also, we store
-for every variable in the `vars` array: value (TRUE, FALSE, UNDEFINED), reason (clause it was concluded from, decision
-variables had null), level (decision level where it was concluded or decision variable which corresponds to
-this level).
+### Code structure
 
-Our decisions increase `level` by 1.
+#### Storing data
 
-Let's go through all functions mentioned in this simple realization:
-1. [propagation()](propagate.md) -- The Goal of propagation is to make all possible conclusions
-   of partial assignment that we've got. And find a conflict clause (clause where all literals
-   are 'false') if there is one.
-2. If we've got conflict we check whether `level` equals 0, if so then there is conflict concluded from
-   initial clauses. Another way we [analyze()](analyze.md) conflict clause and reasons of variables to
-   build new clause (called lemma). And then [backjump()](backjump.md) to `level` where lemma
-   would be unit clause (this is possible because we constructed lemma this way).
-3. If there is no conflict firstly we check whether there are still unassigned variables if there are no
-   then we just constructed a solution and the problem is SAT. Another way we want to choose a new decision
-   variable and value for it. There are some different approaches to do so, they are considered in
-   detail in [branching.md](branching.md).
+All variables are stored in the `vars` array. It means they have
+some useful characteristics:
+- value (TRUE, FALSE, UNDEFINED)
+- reason (clause it was concluded from, if it's not a decision variable)
+- level (decision level when variable was assigned)
 
-Now we're going to consider advanced heuristics used in our algorithm:
-1. [Restarts](restarts.md)
-2. [ReduceDB](reduceDB.md)
-3. [Minimizing lemma](minimizing.md)
+Trail is used for decision literals and propagations. You can find
+more information about it [here](trail.md).
+
+Clauses are stored in 2 arrays: constraints and learnts.
+- `Constraints` array is used for clauses given in initial problem and doesn't
+change during solution.
+- `Learnts` array is used for clauses learned during the process
+of partial assignment. This array can be modified many times, and
+sometimes its size can be rather big to prove problem has no solution.
+
+#### More about basics of CDCL
+
+Let's go through all functions mentioned in simple implementation:
+
+1. [propagate()](propagation.md) — This function is important for
+   making decisions based on current partial assignment. In details,
+   it adds literals on trail, i.e. values of variables which follows
+   from assignment
+2. If `propagate()` got a conflict, we check whether `level` equals to 0 - 
+   this means that conflict follows from initial task, i.e. problem is `UNSAT`.
+   Otherwise, we run [analyze()](analyze.md) function with a 
+   conflict clause to construct a new clause (called lemma). 
+   
+3. [backjump()](backjump.md) is used to return to `level` where lemma
+   would be unit clause (it's possible because we've constructed lemma
+   in this way).
+4. 
+   If there is no conflict, we need to check if all variables are assigned.
+   In this case, problem is `SAT`, and we have a solution. Otherwise, 
+   we continue making decisions. That's why we need 
+   [pickNewBranchingLiteral()](branching.md).
+
