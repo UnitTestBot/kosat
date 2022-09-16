@@ -4,6 +4,7 @@ plugins {
     kotlin("multiplatform") version "1.6.21"
     id("de.undercouch.download") version "4.1.1"
     application
+    `maven-publish`
 }
 
 group = "org.kosat"
