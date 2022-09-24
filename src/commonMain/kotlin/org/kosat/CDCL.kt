@@ -20,7 +20,7 @@ fun variable(lit: Lit): Int = lit / 2
 class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // we never store clauses of size 1
-    // they are lying at 0 decision level of trail
+    // they are located at 0 decision level on trail
 
     // initial constraints + externally added clauses by newClause
     val constraints = mutableListOf<Clause>()
@@ -99,19 +99,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     constructor() : this(mutableListOf<Clause>())
 
-    // convert DIMACS format: variables are numbered starting from zero
-    // literals - lit = var * 2, -lit = var * 2 + 1
-    private fun negative(v: Int) = v * 2 + 1
-    private fun positive(v: Int) = v * 2
-
-    private fun Clause.renumber() = Clause(
-        this.lits.map { lit ->
-            if (lit < 0) {
-                negative(-lit - 1)
-            } else {
-                positive(lit - 1)
-            }}.toMutableList())
-
     private fun MutableList<Clause>.renumber() = this.map { it.renumber() }
 
     constructor(
@@ -167,12 +154,12 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         // delete every false literal from new clause
         clause.lits.removeAll { getValue(it) == VarValue.FALSE }
 
-        // if clause contains x and -x than it is useless
+        // if clause contains x and -x then it is useless
         if (clause.any { (it xor 1) in clause }) {
             return
         }
 
-        // handling case of clause of size 1
+        // handling case for clauses of size 1
         if (clause.size == 1) {
             uncheckedEnqueue(clause[0])
         } else {
@@ -275,8 +262,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
                 // in case there is a conflict in CNF and trail is already in 0 state
                 if (level == 0) {
-                    println("KoSat conflicts:   $numberOfConflicts")
-                    println("KoSat decisions:   $numberOfDecisions")
+                    // println("KoSat conflicts:   $numberOfConflicts")
+                    // println("KoSat decisions:   $numberOfDecisions")
                     return null
                 }
 
@@ -318,8 +305,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 if (trail.size == numberOfVariables) {
                     val model = getModel()
                     reset()
-                    println("KoSat conflicts:   $numberOfConflicts")
-                    println("KoSat decisions:   $numberOfDecisions")
+                    // println("KoSat conflicts:   $numberOfConflicts")
+                    // println("KoSat decisions:   $numberOfDecisions")
                     return model
                 }
 
