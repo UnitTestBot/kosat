@@ -6,10 +6,10 @@ It is solving boolean satisfiability problems given in DIMACS format.
 Solver supports incremental solving.
 
 ## How to use KoSAT?
-There are many ways to use our solver:
+There are many ways how to use our solver:
 <details>
   <summary>On site</summary>
-
+<br/>
 In the picture below you can see site dialog window. 
 All you need is to enter the problem in DIMACS format and click on the
 ***CHECK SAT*** button.
@@ -32,7 +32,7 @@ ____________
 </details>
 <details>
   <summary>By Java/Kotlin</summary>
-
+<br/>
 Use KoSAT directly from Kotlin. You can add it as a JitPack
 dependency. 
 
