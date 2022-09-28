@@ -1,4 +1,4 @@
-##Incremental
+## Incremental
 
 1. Incremental solver maintains adding clauses after it's already been solved.
 2. Incremental solver supports to run it with assumptions (partial assignment of variables). 

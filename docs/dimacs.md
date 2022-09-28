@@ -1,4 +1,4 @@
-##DIMACS
+## DIMACS
 
 We use common format for SATs - DIMACS.
 
@@ -11,7 +11,7 @@ c comment line
 CNF starts with headline ```p cnf [number of variables] [number of clauses]```.
 
 Next ```[number of clauses]``` lines consist of clauses where variables are indexed
-from one and could be positive or negative (it means not). Clause input ends with 0.
+from one and could be positive or negative (i.e. negation of variable). Clauses input ends with 0.
 
 ```
 p cnf 3 2

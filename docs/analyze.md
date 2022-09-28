@@ -13,13 +13,13 @@ The decision literals don't have ancestors and added to the graph each on its ow
 literals derived by chosen literals and all previous assignments in the graph are added to 
 the current level. 
 
-###Conflict
+### Conflict
 
 A pair of opposite literals is called a conflict. This means that 
 a variable must take on both positive and negative values at 
 the same time. So we want to find a cut which caused the conflict.
 
-###Algorithm
+### Algorithm
 
 Put all literals from the conflict clause into a queue. All literals from previous levels
 automatically go to the derived clause. Then we take literals from the queue and do the same 
