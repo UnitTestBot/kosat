@@ -10,9 +10,11 @@ There are many ways how to use our solver:
 <details>
   <summary>On site</summary>
 <br/>
+
 In the picture below you can see site dialog window. 
-All you need is to enter the problem in DIMACS format and click on the
-***CHECK SAT*** button.
+All you need is to enter the problem in DIMACS format and click
+`CHECK SAT` button.
+
 
 [![img](assets/site.png)](http://www.utbot.org/kosat/)
 
@@ -23,6 +25,7 @@ ____________
 </details>
 <details>
   <summary>By Javascript</summary>
+<br/>
 
 1. Download kosat.js file from releases.
 2. Import this file in your. For example:  
@@ -33,6 +36,7 @@ ____________
 <details>
   <summary>By Java/Kotlin</summary>
 <br/>
+
 Use KoSAT directly from Kotlin. You can add it as a JitPack
 dependency. 
 
