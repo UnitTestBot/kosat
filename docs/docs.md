@@ -18,7 +18,7 @@ how it looks like, you can find it [here](dimacs.md).
 8. [Luby restarts](restarts.md)
 9. [Phase saving](phase%20saving.md)
 10. [ReduceDB based on LBD](reduceDB.md)
-
+11. [Incremental solving](incremental.md)
 
 ### About CDCL
 Conflict-driven clause learning (CDCL) is an algorithm for 

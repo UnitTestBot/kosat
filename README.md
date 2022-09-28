@@ -111,7 +111,7 @@ ____________
 8. [Luby restarts](docs/restarts.md)
 9. [Phase saving](docs/phase%20saving.md)
 10. [ReduceDB based on LBD](docs/reduceDB.md)
-
+11. [Incremental solving](docs/incremental.md)
 </details>
 
 ## Documentation
