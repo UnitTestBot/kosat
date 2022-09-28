@@ -108,7 +108,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     ) : this(solverType) {
         reserveVars(initialVarsNumber)
         initialClauses.renumber().forEach { newClause(it) }
-        polarity = MutableList(numberOfVariables + 1) { VarValue.UNDEFINED } // TODO is phaseSaving adapted for incremental?
+        polarity = MutableList(numberOfVariables + 1) { VarValue.UNDEFINED }
     }
 
     private fun reserveVars(max: Int) {
@@ -118,7 +118,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     }
 
     // public function for adding new variables
-    fun addVariable(): Int { // TODO simple checks of duplicate variables in newClause
+    fun addVariable(): Int {
         numberOfVariables++
 
         variableSelector.addVariable()
@@ -325,7 +325,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
                 // phase saving heuristic
                 if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarValue.FALSE) {
                     nextDecisionVariable = negative(variable(nextDecisionVariable))
-                } // TODO move to nextDecisionVariable
+                }
 
                 uncheckedEnqueue(nextDecisionVariable)
             }

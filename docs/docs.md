@@ -73,6 +73,8 @@ change during solution.
 of partial assignment. This array can be modified many times, and
 sometimes its size can be rather big to prove problem has no solution.
 
+> **Note:** we don't keep clauses of size 1, as they are stored on trail 0-level.
+
 #### More about basics of CDCL
 
 Let's go through all functions mentioned in simple implementation:
