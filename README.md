@@ -1,12 +1,11 @@
 # What is KoSAT?
-![Windows](https://github.com/UnitTestBot/kosat/actions/workflows/build-windows.yml/badge.svg) ![Linux](https://github.com/UnitTestBot/kosat/actions/workflows/build-linux.yml/badge.svg)
-
+![Windows](https://github.com/UnitTestBot/kosat/actions/workflows/build-windows.yml/badge.svg) ![Linux](https://github.com/UnitTestBot/kosat/actions/workflows/build-linux.yml/badge.svg) 
 KoSAT is **pure Kotlin** CDCL SAT solver based on MiniSat core.
 It is solving boolean satisfiability problems given in DIMACS format.
 Solver supports incremental solving.
 
 ## How to use KoSAT?
-There are many ways how to use our solver:
+There are different ways how to use our solver:
 <details>
   <summary>On site</summary>
 <br/>
@@ -21,16 +20,6 @@ All you need is to enter the problem in DIMACS format and click
 The site is available at the link below:
 
 > http://www.utbot.org/kosat/
-____________
-</details>
-<details>
-  <summary>By Javascript</summary>
-<br/>
-
-1. Download kosat.js file from releases.
-2. Import this file in your. For example:  
-`const kosat = require("./kosat.js");`
-3. Use Kosat interface (described in [incremental](docs/incremental.md) documentation).
 ____________
 </details>
 <details>
@@ -60,7 +49,7 @@ allprojects {
 
 ```
 dependencies {
-    implementation("com.github.UnitTestBot.kosat:kosat:docs-SNAPSHOT")
+    implementation("com.github.UnitTestBot.kosat:kosat:main-SNAPSHOT")
 }
 ```
 

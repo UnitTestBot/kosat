@@ -22,11 +22,10 @@ abstract class VariableSelector {
 }
 
 class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : VariableSelector() {
-    private val decay = 50
-    private val multiplier = 2.0
+    private val multiplier = 1.1
     private var numberOfConflicts = 0
     private var activityInc = 1.0
-    private var incLimit = 1e100
+    private var activityLimit = 1e100
 
     // list of activity for variables
     private val activity = mutableListOf<Double>()
@@ -41,21 +40,17 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
             if (activityPQ.index[v] != -1) {
                 activityPQ.increaseActivity(v, activityInc)
             }
-        }
-
-        numberOfConflicts++
-        if (numberOfConflicts == decay) {
-            activityInc *= multiplier
-            // update activity
-            numberOfConflicts = 0
-            if (activityInc > incLimit) {
+            if (activity[v] > activityLimit) {
                 activity.forEachIndexed { ind, value ->
-                    activity[ind] = value / activityInc
+                    activity[ind] = value / activityLimit
                 }
-                activityPQ.divideAllElements(activityInc)
-                activityInc = 1.0
+                activityPQ.divideAllElements(activityLimit)
+                activityInc /= activityLimit
             }
         }
+
+        activityInc *= multiplier
+        numberOfConflicts++
     }
 
     override fun addVariable() {
@@ -75,20 +70,13 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
         activityPQ.buildHeap(activity)
     }
 
-    // TODO: Expects to return variable but returns literal
+    // returns the literal as the assumptions give information about the value of the variable
     override fun nextDecision(vars: List<VarState>, level: Int): Int {
         if (assumptions.any { solver.getValue(it) == VarValue.FALSE }) {
             return -1
         }
         // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { solver.getValue(it) == VarValue.UNDEFINED } ?: getMaxActivityVariable(vars)
-
-        // TODO: Does it have a sense? Don't delete!
-        /*return if (level > assumptions.size) {
-            getMaxActivityVariable(vars)
-        } else {
-            assumptions[level - 1]
-        }*/
+        return assumptions.firstOrNull { solver.getValue(it) == VarValue.UNDEFINED } ?: (getMaxActivityVariable(vars) * 2)
     }
 
     override fun backTrack(variable: Int) {
@@ -107,7 +95,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
                 break
             }
         }
-        return v * 2
+        return v
     }
 }
 
@@ -140,7 +128,7 @@ class FixedOrder(val solver: CDCL): VariableSelector() {
 class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solver: CDCL) : VariableSelector() {
     private val decay = 50
     private val multiplier = 2.0
-    private val incLimit = 1e100
+    private val activityLimit = 1e100
     private var activityInc = 1.0
 
     private var numberOfConflicts = 0
@@ -159,7 +147,7 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
             activityInc *= multiplier
             // update activity
             numberOfConflicts = 0
-            if (activityInc > incLimit) {
+            if (activityInc > activityLimit) {
                 activity.forEachIndexed { ind, value ->
                     activity[ind] = value / activityInc
                 }
@@ -189,7 +177,7 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
             return -1
         }
         // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { solver.getValue(it) == VarValue.UNDEFINED } ?: getMaxActivityVariable(vars)
+        return assumptions.firstOrNull { solver.getValue(it) == VarValue.UNDEFINED } ?: (getMaxActivityVariable(vars) * 2)
     }
 
     override fun backTrack(variable: Int) {
@@ -202,7 +190,7 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
         var max = -1.0
         for (i in 0 until numberOfVariables) {
             if (vars[i].value == VarValue.UNDEFINED && max < activity[i]) {
-                v = i * 2
+                v = i
                 max = activity[i]
             }
         }

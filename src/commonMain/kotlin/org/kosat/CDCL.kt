@@ -1,6 +1,5 @@
 package org.kosat
 
-import org.kosat.heuristics.Preprocessor
 import org.kosat.heuristics.Restarter
 import org.kosat.heuristics.VSIDS
 import org.kosat.heuristics.VariableSelector
@@ -55,12 +54,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     /** Heuristics **/
 
     // branching heuristic
-    // private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables, this)
-    // private val variableSelector: VariableSelector = FixedOrder(this)
-
-    // preprocessing includes deleting subsumed clauses and bve, off by default
-    private var preprocessor: Preprocessor? = null
 
     // restart search from time to time
     private val restarter = Restarter(this)
@@ -239,13 +233,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
-        preprocessor = if (solverType == SolverType.NON_INCREMENTAL) {
-            Preprocessor(this)
-        } else {
-            null
-        }
-        preprocessor?.apply()
-
         // extreme cases
         if (constraints.isEmpty()) return getModel()
         if (constraints.any { it.isEmpty() }) return null
@@ -313,21 +300,21 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
                 // try to guess variable
                 level++
-                var nextDecisionVariable = variableSelector.nextDecision(vars, level)
+                var nextDecisionLiteral = variableSelector.nextDecision(vars, level)
                 numberOfDecisions++
 
                 // in case there is assumption propagated to false
-                if (nextDecisionVariable == -1) {
+                if (nextDecisionLiteral == -1) {
                     reset()
                     return null
                 }
 
                 // phase saving heuristic
-                if (level > assumptions.size && polarity[variable(nextDecisionVariable)] == VarValue.FALSE) {
-                    nextDecisionVariable = negative(variable(nextDecisionVariable))
+                if (level > assumptions.size && polarity[variable(nextDecisionLiteral)] == VarValue.FALSE) {
+                    nextDecisionLiteral = negative(variable(nextDecisionLiteral))
                 }
 
-                uncheckedEnqueue(nextDecisionVariable)
+                uncheckedEnqueue(nextDecisionLiteral)
             }
         }
     }
@@ -339,22 +326,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     }
 
     // return current assignment of variables
-    private fun getModel(): List<Int> {
-        if (solverType == SolverType.NON_INCREMENTAL) {
-            preprocessor?.recoverAnswer()
-        }
-
-        return vars.mapIndexed { index, v ->
-                when (v.value) {
-                    VarValue.TRUE -> index + 1
-                    VarValue.FALSE -> -index - 1
-                    VarValue.UNDEFINED -> {
-                        println(vars)
-                        println(trail)
-                        throw Exception("Unexpected unassigned variable")
-                    }
-                }
+    private fun getModel(): List<Int> = vars.mapIndexed { index, v ->
+        when (v.value) {
+            VarValue.TRUE -> index + 1
+            VarValue.FALSE -> -index - 1
+            VarValue.UNDEFINED -> {
+                println(vars)
+                println(trail)
+                throw Exception("Unexpected unassigned variable")
             }
+        }
     }
 
     /** Two watchers **/
@@ -375,8 +356,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         if (clause.isNotEmpty()) {
             addWatchers(clause)
         }
-
-        preprocessor?.addClause(clause)
     }
 
     // add clause and add watchers to it
@@ -386,7 +365,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         if (clause.isNotEmpty()) {
             addWatchers(clause)
         }
-        preprocessor?.addClause(clause)
     }
 
     // return conflict clause, or null if there is no conflict clause

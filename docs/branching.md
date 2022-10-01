@@ -34,11 +34,8 @@ we get by analyze. The `activity` array should be updated, and
 also we need to update heap. For this operation there is a special
 index array - for each variable it contains index of its position
 in heap array. So bumping activity works as a `siftUp` operation
-for heap. Variables are bumped by `activityInc`
+for heap. Variables are bumped by `activityInc` and this variable
+is multiplied by `multiplier` after each conflict.
 
-After some number of conflicts (decay) we reduce activity of all
-variables by half. But in big CNF's it's a long operation so instead
-of doing it we double value of `activityInc`. Of course, we can't
-double up `activityInc` too much. So when it becomes more than
-`incLimit` we honestly divide all activities by `incLimit` and
-set value of `activityInc` to 1.
+If the biggest activity value is more than `activityLimit`, we divide
+all activity by `activityLimit`.
