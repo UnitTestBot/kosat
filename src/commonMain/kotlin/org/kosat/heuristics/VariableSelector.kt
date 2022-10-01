@@ -31,20 +31,19 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
     private val activity = mutableListOf<Double>()
 
     // priority queue of activity of undefined variables
-    private var activityPQ = PriorityQueue()
+    private var activityPQ = PriorityQueue(activity)
 
     override fun update(lemma: Clause) {
         lemma.forEach { lit ->
             val v = variable(lit)
             activity[v] += activityInc
             if (activityPQ.index[v] != -1) {
-                activityPQ.increaseActivity(v, activityInc)
+                activityPQ.siftUp(activityPQ.index[v])
             }
             if (activity[v] > activityLimit) {
                 activity.forEachIndexed { ind, value ->
                     activity[ind] = value / activityLimit
                 }
-                activityPQ.divideAllElements(activityLimit)
                 activityInc /= activityLimit
             }
         }
@@ -81,7 +80,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
 
     override fun backTrack(variable: Int) {
         if (activityPQ.index[variable] == -1) {
-            activityPQ.insert(Pair(activity[variable], variable))
+            activityPQ.insert(variable)
         }
     }
 
@@ -90,7 +89,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
         var v: Int
         while (true) {
             require(activityPQ.size > 0)
-            v = activityPQ.pop().second
+            v = activityPQ.pop()
             if (vars[v].value == VarValue.UNDEFINED) {
                 break
             }

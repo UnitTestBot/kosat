@@ -38,4 +38,4 @@ for heap. Variables are bumped by `activityInc` and this variable
 is multiplied by `multiplier` after each conflict.
 
 If the biggest activity value is more than `activityLimit`, we divide
-all activity by `activityLimit`.
+all activities by `activityLimit` in order to avoid overflow.
