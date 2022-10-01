@@ -89,6 +89,7 @@ ____________
 
 <details>
   <summary>Main features implemented in solver</summary>
+<br/>
 
 1. [ReNumeration](docs/numeration.md)
 2. [Trail](docs/trail.md)
