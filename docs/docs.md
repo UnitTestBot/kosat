@@ -16,9 +16,13 @@ how it looks like, you can find it [here](dimacs.md).
 6. [2-watched literals](watched%20literals.md)
 7. [VSIDS](branching.md)
 8. [Luby restarts](restarts.md)
-9. [Phase saving](phase%20saving.md)
+9. [Polarity choice](polarity%20choice.md)
 10. [ReduceDB based on LBD](reduceDB.md)
 11. [Incremental solving](incremental.md)
+
+### Interface
+If you want to use KoSAT solver in your kotlin project, you can
+find more about its interface [here](interface.md)
 
 ### About CDCL
 Conflict-driven clause learning (CDCL) is an algorithm for 
@@ -36,7 +40,7 @@ while (true) {
             return Unsatisfiable
         }
         analyze(conflictClause) // analyze conflict to produce new clause
-        backjump() // undo assignments until new clause is unit
+        backjump(level) // undo assignments until new clause is unit
     } else {
         // No conflict
         if (allVariablesAssigned) {
@@ -88,7 +92,7 @@ Let's go through all functions mentioned in simple implementation:
    Otherwise, we run [analyze()](analyze.md) function with a 
    conflict clause to construct a new clause (called lemma). 
    
-3. [backjump()](backjump.md) is used to return to `level` where lemma
+3. [backjump(level: Int)](backjump.md) is used to return to `level` where lemma
    would be unit clause (it's possible because we've constructed lemma
    in this way).
 4. 

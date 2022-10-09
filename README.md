@@ -100,7 +100,7 @@ ____________
 6. [2-watched literals](docs/watched%20literals.md)
 7. [VSIDS](docs/branching.md)
 8. [Luby restarts](docs/restarts.md)
-9. [Phase saving](docs/phase%20saving.md)
+9. [Polarity choice](docs/polarity%20choice.md)
 10. [ReduceDB based on LBD](docs/reduceDB.md)
 11. [Incremental solving](docs/incremental.md)
 </details>

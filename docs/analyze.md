@@ -15,11 +15,11 @@ the current level.
 
 ### Conflict
 
-A pair of opposite literals is called a conflict. This means that 
-a variable must take on both positive and negative values at 
-the same time. So we want to find a cut which caused the conflict.
+We say we get a conflict if after some partial assignments follows
+that a variable must take on both positive and negative values at 
+the same time. Thus, we want to find a cut which caused the conflict.
 
-### Algorithm
+### Algorithm of making lemma
 
 Put all literals from the conflict clause into a queue. All literals from previous levels
 automatically go to the derived clause. Then we take literals from the queue and do the same 

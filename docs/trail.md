@@ -1,6 +1,6 @@
 ## Trail
 
-We store all decision literals and ones concluded from propagation 
+SAT solver stores all decision literals and ones concluded from propagation 
 in order they were assigned. Array with this literals is called `trail`. 
 Thus, the current partial assignment is directly visible in `trail`.
 
