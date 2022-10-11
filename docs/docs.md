@@ -40,7 +40,7 @@ while (true) {
             return Unsatisfiable
         }
         analyze(conflictClause) // analyze conflict to produce new clause
-        backjump(level) // undo assignments until new clause is unit
+        backjump(lemma) // undo assignments until new clause is unit
     } else {
         // No conflict
         if (allVariablesAssigned) {
@@ -92,7 +92,7 @@ Let's go through all functions mentioned in simple implementation:
    Otherwise, we run [analyze()](analyze.md) function with a 
    conflict clause to construct a new clause (called lemma). 
    
-3. [backjump(level: Int)](backjump.md) is used to return to `level` where lemma
+3. [backjump()](backjump.md) is used to return to `level` where lemma
    would be unit clause (it's possible because we've constructed lemma
    in this way).
 4. 

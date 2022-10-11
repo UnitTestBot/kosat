@@ -5,7 +5,7 @@ to work with literals and variables by some reasons:
 - negative indices of literals
 - numbering from 1
 
-That's why we decided to renumber input, given in classical [DIMACS](dimacs.md) format.
+That's why we decided to renumber the input, described in classical [DIMACS](dimacs.md) format.
 
 > **Note:** we talk here about internal numeration, which is different from
 DIMACS.

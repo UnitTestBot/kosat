@@ -5,6 +5,8 @@ assignments of variables are incorrect as they create a conflict.
 In order to fix that we need to make `backjump`. This means, we just
 need to reduce current level. 
 
+In our implementation `backjump` takes `lemma` as an argument. 
+
 ### Changing level
 
 We need to choose a `level` such that added clause becomes a unit.
