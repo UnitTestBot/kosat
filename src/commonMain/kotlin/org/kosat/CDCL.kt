@@ -119,6 +119,8 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         vars.add(VarState(VarValue.UNDEFINED, null, -1))
 
+        polarity.add(VarValue.UNDEFINED)
+
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
 
