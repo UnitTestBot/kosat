@@ -39,7 +39,7 @@ while (true) {
         if (topLevelConflict) {
             return Unsatisfiable
         }
-        analyze(conflictClause) // analyze conflict to produce new clause
+        val lemma = analyze(conflictClause) // analyze conflict and learn a new clause
         backjump(lemma) // undo assignments until new clause is unit
     } else {
         // No conflict
