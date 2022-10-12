@@ -59,8 +59,6 @@ fun dpll(clauses: ArrayList<ArrayList<Int>>): PersistentList<Int>? {
     if (clauses.isEmpty())
         return persistentListOf<Int>().addAll(unitLits)
 
-    // todo pure literal elimination rule
-
     val chosenLit = chooseLiteral(clauses)
 
     // make clone
