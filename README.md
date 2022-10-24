@@ -56,7 +56,7 @@ dependencies {
 
 Now you can use KoSAT project.
 ### Here is simple code example:
-```
+``` kotlin
 import org.kosat.Kosat
 
 fun main() {
