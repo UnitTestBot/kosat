@@ -5,6 +5,12 @@ import org.kosat.heuristics.VSIDS
 import org.kosat.heuristics.VariableSelector
 
 // CDCL
+/**
+ * Solves [cnf] and returns
+ * `null` if request unsatisfiable
+ * [emptyList] is request is tautology
+ * assignments of literals otherwise
+ */
 fun solveCnf(cnf: CnfRequest): List<Int>? {
     val clauses = (cnf.clauses.map { it.lits }).toMutableList()
     return CDCL(clauses.map { Clause(it) }.toMutableList(), cnf.vars).solve()
@@ -330,13 +336,13 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     // return current assignment of variables
     private fun getModel(): List<Int> = vars.mapIndexed { index, v ->
         when (v.value) {
-            VarValue.TRUE -> index + 1
+            VarValue.TRUE, VarValue.UNDEFINED -> index + 1
             VarValue.FALSE -> -index - 1
-            VarValue.UNDEFINED -> {
-                println(vars)
-                println(trail)
-                throw Exception("Unexpected unassigned variable")
-            }
+//            VarValue.UNDEFINED -> {
+//                println(vars)
+//                println(trail)
+//                throw Exception("Unexpected unassigned variable")
+//            }
         }
     }
 

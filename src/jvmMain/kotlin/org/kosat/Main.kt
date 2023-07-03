@@ -20,7 +20,11 @@ fun main(args: Array<String>) {
 
     when (args.size) {
         0 -> run(System.`in`.bufferedReader().readText())
-        2 -> if (args[0] == "--file") run(File(args[1]).readText()) else usage()
+        2 ->
+            if (args[0] == "--file")
+                run(File(args[1]).readText())
+            else
+                usage()
         else -> usage()
     }
 }
