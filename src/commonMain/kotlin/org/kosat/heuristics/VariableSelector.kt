@@ -1,11 +1,6 @@
 package org.kosat.heuristics
 
-import org.kosat.CDCL
-import org.kosat.Clause
-import org.kosat.Lit
-import org.kosat.VarState
-import org.kosat.VarValue
-import org.kosat.variable
+import org.kosat.*
 
 abstract class VariableSelector {
     protected var assumptions: List<Lit> = emptyList()
@@ -15,10 +10,10 @@ abstract class VariableSelector {
     }
 
     abstract fun build(clauses: List<Clause>)
-    abstract fun nextDecision(vars: List<VarState>, level: Int): Int
+    abstract fun nextDecision(vars: List<VarState>, level: Int): Lit
     abstract fun addVariable()
     abstract fun update(lemma: Clause)
-    abstract fun backTrack(variable: Int)
+    abstract fun backTrack(variable: Var)
 }
 
 class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : VariableSelector() {
@@ -35,7 +30,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
 
     override fun update(lemma: Clause) {
         lemma.forEach { lit ->
-            val v = variable(lit)
+            val v = lit.variable
             activity[v] += activityInc
             if (activityPQ.index[v] != -1) {
                 activityPQ.siftUp(activityPQ.index[v])
@@ -63,34 +58,35 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
         }
         clauses.forEach { clause ->
             clause.forEach { lit ->
-                activity[variable(lit)] += activityInc
+                activity[lit.variable] += activityInc
             }
         }
         activityPQ.buildHeap(activity)
     }
 
     // returns the literal as the assumptions give information about the value of the variable
-    override fun nextDecision(vars: List<VarState>, level: Int): Int {
-        if (assumptions.any { solver.getValue(it) == VarValue.FALSE }) {
-            return -1
+    override fun nextDecision(vars: List<VarState>, level: Int): Lit {
+        if (assumptions.any { solver.getValue(it) == LBool.FALSE }) {
+            return Lit.UNDEF
         }
         // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { solver.getValue(it) == VarValue.UNDEFINED } ?: (getMaxActivityVariable(vars) * 2)
+        return assumptions.firstOrNull { solver.getValue(it) == LBool.UNDEFINED }
+                ?: getMaxActivityVariable(vars).positiveLit
     }
 
-    override fun backTrack(variable: Int) {
+    override fun backTrack(variable: Var) {
         if (activityPQ.index[variable] == -1) {
-            activityPQ.insert(variable)
+            activityPQ.insert(variable.ord)
         }
     }
 
     // Looks for index of undefined variable with max activity
-    private fun getMaxActivityVariable(vars: List<VarState>): Int {
-        var v: Int
+    private fun getMaxActivityVariable(vars: List<VarState>): Var {
+        var v: Var
         while (true) {
             require(activityPQ.size > 0)
-            v = activityPQ.pop()
-            if (vars[v].value == VarValue.UNDEFINED) {
+            v = Var(activityPQ.pop())
+            if (vars[v].value == LBool.UNDEFINED) {
                 break
             }
         }
@@ -98,16 +94,16 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
     }
 }
 
-class FixedOrder(val solver: CDCL): VariableSelector() {
+class FixedOrder(val solver: CDCL) : VariableSelector() {
     override fun build(clauses: List<Clause>) {
 
     }
 
-    override fun nextDecision(vars: List<VarState>, level: Int): Int {
+    override fun nextDecision(vars: List<VarState>, level: Int): Lit {
         for (i in 1..vars.lastIndex) {
-            if (vars[i].value == VarValue.UNDEFINED) return i
+            if (vars[i].value == LBool.UNDEFINED) return Lit(i)
         }
-        return -1
+        return Lit.UNDEF
     }
 
     override fun addVariable() {
@@ -118,7 +114,7 @@ class FixedOrder(val solver: CDCL): VariableSelector() {
 
     }
 
-    override fun backTrack(variable: Int) {
+    override fun backTrack(variable: Var) {
 
     }
 
@@ -137,7 +133,7 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
 
     override fun update(lemma: Clause) {
         lemma.forEach { lit ->
-            val v = variable(lit)
+            val v = lit.variable
             activity[v] += activityInc
         }
 
@@ -166,30 +162,30 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
         }
         clauses.forEach { clause ->
             clause.forEach { lit ->
-                activity[variable(lit)] += activityInc
+                activity[lit.variable] += activityInc
             }
         }
     }
 
     override fun nextDecision(vars: List<VarState>, level: Int): Lit {
-        if (assumptions.any { solver.getValue(it) == VarValue.FALSE }) {
-            return -1
+        if (assumptions.any { solver.getValue(it) == LBool.FALSE }) {
+            return Lit.UNDEF
         }
         // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { solver.getValue(it) == VarValue.UNDEFINED } ?: (getMaxActivityVariable(vars) * 2)
+        return assumptions.firstOrNull { solver.getValue(it) == LBool.UNDEFINED } ?: getMaxActivityVariable(vars).positiveLit
     }
 
-    override fun backTrack(variable: Int) {
+    override fun backTrack(variable: Var) {
 
     }
 
     // Looks for index of undefined variable with max activity
-    private fun getMaxActivityVariable(vars: List<VarState>): Lit {
-        var v: Int = -1
+    private fun getMaxActivityVariable(vars: List<VarState>): Var {
+        var v = Var.UNDEF
         var max = -1.0
         for (i in 0 until numberOfVariables) {
-            if (vars[i].value == VarValue.UNDEFINED && max < activity[i]) {
-                v = i
+            if (vars[i].value == LBool.UNDEFINED && max < activity[i]) {
+                v = Var(i)
                 max = activity[i]
             }
         }

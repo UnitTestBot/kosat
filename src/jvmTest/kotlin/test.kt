@@ -59,7 +59,7 @@ internal class DiamondTests {
         }
     }
 
-    private fun checkKoSatSolution(ans: List<VarValue>?, input: String, isSolution: Boolean): Boolean {
+    private fun checkKoSatSolution(ans: List<LBool>?, input: String, isSolution: Boolean): Boolean {
 
         if (ans == null) return !isSolution // null ~ UNSAT
 
@@ -68,10 +68,10 @@ internal class DiamondTests {
 
         return cnfRequest.clauses.all { clause ->
             clause.toClause().any {
-                if (it and 1 == 0) {
-                    ans[variable(it)] == VarValue.TRUE
+                if (it.isPos) {
+                    ans[it.variable] == LBool.TRUE
                 } else {
-                    ans[variable(it)] == VarValue.FALSE
+                    ans[it.variable] == LBool.FALSE
                 }
             }
         }
@@ -127,8 +127,6 @@ internal class DiamondTests {
             }.map {
                 DimacsLiteral(if (Random.nextBoolean()) it else -it)
             }
-
-            println(assumptions.map { it.value })
 
             val input = fileFirstLine.dropLast(2).joinToString(" ") + " " +
                     (variables.toInt()).toString() + " " +

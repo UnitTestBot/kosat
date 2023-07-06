@@ -87,7 +87,7 @@ fun processCnfRequests(requests: Sequence<CnfRequest>) = buildString {
             appendLine("c Done: formula is tautology. Any solution satisfies it.")
         else {
             appendLine("v " + model.mapIndexed { index, value ->
-                if (value == VarValue.TRUE) index + 1 else -(index + 1)
+                if (value == LBool.TRUE) index + 1 else -(index + 1)
             }.joinToString(" "))
             appendLine("c Done")
         }

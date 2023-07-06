@@ -10,12 +10,10 @@ import org.kosat.heuristics.VariableSelector
  * [emptyList] is request is tautology
  * assignments of literals otherwise
  */
-fun solveCnf(cnf: CnfRequest): List<VarValue>? {
+fun solveCnf(cnf: CnfRequest): List<LBool>? {
     val clauses = (cnf.clauses.map { it.toClause() }).toMutableList()
     return CDCL(clauses, cnf.vars).solve()
 }
-
-fun variable(lit: Lit): Int = lit shr 1
 
 class CDCL {
 
@@ -41,7 +39,7 @@ class CDCL {
      * for each variable contains current assignment,
      * clause it came from ([VarState.reason]) and decision level when it happened
      */
-    val vars: MutableList<VarState> = MutableList(numberOfVariables) { VarState(VarValue.UNDEFINED, null, -1) }
+    val vars: MutableList<VarState> = MutableList(numberOfVariables) { VarState(LBool.UNDEFINED, null, -1) }
 
     /** Trail of assignments, contains literals in the order they were assigned */
     private val trail: MutableList<Lit> = mutableListOf()
@@ -74,12 +72,12 @@ class CDCL {
 
     /**
      * Adds a literal to the end of the [trail],
-     * assigns [VarValue.TRUE] to it and [VarValue.FALSE] to the negation,
+     * assigns [LBool.TRUE] to it and [LBool.FALSE] to the negation,
      * but does not propagate it yet
      */
     private fun uncheckedEnqueue(lit: Lit, reason: Clause? = null) {
-        setValue(lit, VarValue.TRUE)
-        val v = variable(lit)
+        setValue(lit, LBool.TRUE)
+        val v = lit.variable
         vars[v].reason = reason
         vars[v].level = level
         trail.add(lit)
@@ -87,19 +85,18 @@ class CDCL {
 
     // ---- Variable states ----
 
-    fun getValue(lit: Lit): VarValue {
-        if (vars[variable(lit)].value == VarValue.UNDEFINED) return VarValue.UNDEFINED
-        return if (lit % 2 == 1)
-            !vars[variable(lit)].value
+    fun getValue(lit: Lit): LBool {
+        return if (lit.isNeg)
+            !vars[lit.variable].value
         else
-            vars[variable(lit)].value
+            vars[lit.variable].value
     }
 
-    private fun setValue(lit: Lit, value: VarValue) {
-        if (lit % 2 == 1) {
-            vars[variable(lit)].value = !value
+    private fun setValue(lit: Lit, value: LBool) {
+        if (lit.isPos) {
+            vars[lit.variable].value = value
         } else {
-            vars[variable(lit)].value = value
+            vars[lit.variable].value = !value
         }
     }
 
@@ -113,7 +110,7 @@ class CDCL {
     ) {
         reserveVars(initialVarsNumber)
         initialClauses.forEach { newClause(it) }
-        polarity = MutableList(numberOfVariables + 1) { VarValue.UNDEFINED }
+        polarity = MutableList(numberOfVariables + 1) { LBool.UNDEFINED }
     }
 
     private fun reserveVars(max: Int) {
@@ -128,9 +125,9 @@ class CDCL {
 
         variableSelector.addVariable()
 
-        vars.add(VarState(VarValue.UNDEFINED, null, -1))
+        vars.add(VarState(LBool.UNDEFINED, null, -1))
 
-        polarity.add(VarValue.UNDEFINED)
+        polarity.add(LBool.UNDEFINED)
 
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
@@ -148,21 +145,21 @@ class CDCL {
         require(level == 0)
 
         // add not mentioned variables from new clause
-        val maxVar = clause.maxOfOrNull { variable(it) } ?: 0
+        val maxVar = clause.maxOfOrNull { it.variable.ord } ?: 0
         while (numberOfVariables < maxVar) {
             addVariable()
         }
 
         // don't add clause if it already had true literal
-        if (clause.any { getValue(it) == VarValue.TRUE }) {
+        if (clause.any { getValue(it) == LBool.TRUE }) {
             return
         }
 
         // delete every false literal from new clause
-        clause.lits.removeAll { getValue(it) == VarValue.FALSE }
+        clause.lits.removeAll { getValue(it) == LBool.FALSE }
 
-        // if clause contains x and -x then it is useless
-        if (clause.any { (it xor 1) in clause }) {
+        // if the clause contains x and -x then it is useless
+        if (clause.any { it.neg in clause }) {
             return
         }
 
@@ -179,9 +176,9 @@ class CDCL {
     // delete last variable from the trail
     private fun trailRemoveLast() {
         val lit = trail.removeLast()
-        val v = variable(lit)
-        polarity[v] = getValue(positive(v))
-        setValue(positive(v), VarValue.UNDEFINED)
+        val v = lit.variable
+        polarity[v] = getValue(v.positiveLit)
+        setValue(v.positiveLit, LBool.UNDEFINED)
         vars[v].reason = null
         vars[v].level = -1
         variableSelector.backTrack(v)
@@ -189,20 +186,20 @@ class CDCL {
 
     // clear trail until given level
     private fun clearTrail(until: Int = -1) {
-        while (trail.isNotEmpty() && vars[variable(trail.last())].level > until) {
+        while (trail.isNotEmpty() && vars[trail.last().variable].level > until) {
             trailRemoveLast()
         }
     }
 
     // phase saving heuristic
-    private var polarity: MutableList<VarValue> = mutableListOf()
+    private var polarity: MutableList<LBool> = mutableListOf()
 
     /** Solve with assumptions **/
 
     // assumptions for incremental sat-solver
     private var assumptions: List<Lit> = emptyList()
 
-    fun solve(currentAssumptions: List<Lit>): List<VarValue>? {
+    fun solve(currentAssumptions: List<Lit>): List<LBool>? {
         assumptions = currentAssumptions
         variableSelector.initAssumptions(assumptions)
         val result = solve()
@@ -211,7 +208,7 @@ class CDCL {
             return null
         }
         currentAssumptions.forEach { lit ->
-            if (result[variable(lit)] != if (lit and 1 == 1) VarValue.FALSE else VarValue.TRUE) {
+            if (result[lit.variable] != if (lit.isPos) LBool.TRUE else LBool.FALSE) {
                 assumptions = emptyList()
                 return null
             }
@@ -239,7 +236,7 @@ class CDCL {
 
     /** Solve **/
 
-    fun solve(): List<VarValue>? {
+    fun solve(): List<LBool>? {
 
         var numberOfConflicts = 0
         var numberOfDecisions = 0
@@ -247,7 +244,7 @@ class CDCL {
         // extreme cases
         if (constraints.isEmpty()) return getModel()
         if (constraints.any { it.isEmpty() }) return null
-        if (constraints.any { it.all { lit -> getValue(lit) == VarValue.FALSE } }) return null
+        if (constraints.any { it.all { lit -> getValue(lit) == LBool.FALSE } }) return null
 
         variableSelector.build(constraints)
 
@@ -269,7 +266,7 @@ class CDCL {
                 val lemma = analyzeConflict(conflictClause)
 
                 // compute lbd "score" for lemma
-                lemma.lbd = lemma.distinctBy { vars[variable(it)].level }.size
+                lemma.lbd = lemma.distinctBy { vars[it.variable].level }.size
 
                 // return to decision level where lemma would be propagated
                 backjump(lemma)
@@ -315,14 +312,14 @@ class CDCL {
                 numberOfDecisions++
 
                 // in case there is assumption propagated to false
-                if (nextDecisionLiteral == -1) {
+                if (nextDecisionLiteral.isUndef) {
                     reset()
                     return null
                 }
 
                 // phase saving heuristic
-                if (level > assumptions.size && polarity[variable(nextDecisionLiteral)] == VarValue.FALSE) {
-                    nextDecisionLiteral = negative(variable(nextDecisionLiteral))
+                if (level > assumptions.size && polarity[nextDecisionLiteral.variable] == LBool.FALSE) {
+                    nextDecisionLiteral = nextDecisionLiteral.neg
                 }
 
                 uncheckedEnqueue(nextDecisionLiteral)
@@ -337,10 +334,10 @@ class CDCL {
     }
 
     // return current assignment of variables
-    private fun getModel(): List<VarValue> = vars.map {
+    private fun getModel(): List<LBool> = vars.map {
         when (it.value) {
-            VarValue.TRUE, VarValue.UNDEFINED -> VarValue.TRUE
-            VarValue.FALSE -> VarValue.FALSE
+            LBool.TRUE, LBool.UNDEFINED -> LBool.TRUE
+            LBool.FALSE -> LBool.FALSE
         }
     }
 
@@ -379,8 +376,8 @@ class CDCL {
         while (qhead < trail.size) {
             val lit = trail[qhead++]
 
-            if (getValue(lit) == VarValue.FALSE) {
-                return vars[variable(lit)].reason
+            if (getValue(lit) == LBool.FALSE) {
+                return vars[lit.variable].reason
             }
 
             // Checking the list of clauses watching the negation of the literal.
@@ -389,7 +386,7 @@ class CDCL {
             // unit propagation (only one unassigned literal left), or invalidation
             // of the watchers (both watchers are false, but there are others)
             val clausesToKeep = mutableListOf<Clause>()
-            val possiblyBrokenClauses = watchers[lit xor 1]
+            val possiblyBrokenClauses = watchers[lit.neg]
 
             for (clause in possiblyBrokenClauses) {
                 if (clause.deleted) continue
@@ -401,23 +398,23 @@ class CDCL {
                 // we are always watching the first two literals in the clause
                 // this makes sure that the second watcher is lit,
                 // and the first one is the other one
-                if (variable(clause[0]) == variable(lit)) {
+                if (clause[0].variable == lit.variable) {
                     clause.swap(0, 1)
                 }
 
                 // if first watcher (not lit) is true then the clause is already true, skipping it
-                if (getValue(clause[0]) == VarValue.TRUE) continue
+                if (getValue(clause[0]) == LBool.TRUE) continue
 
                 // Index of the first literal in the clause not assigned to false
                 var firstNotFalse = -1
                 for (ind in 2 until clause.size) {
-                    if (getValue(clause[ind]) != VarValue.FALSE) {
+                    if (getValue(clause[ind]) != LBool.FALSE) {
                         firstNotFalse = ind
                         break
                     }
                 }
 
-                if (firstNotFalse == -1 && getValue(clause[0]) == VarValue.FALSE) {
+                if (firstNotFalse == -1 && getValue(clause[0]) == LBool.FALSE) {
                     // all the literals in the clause are already assigned to false
                     conflict = clause
                 } else if (firstNotFalse == -1) { // getValue(brokenClause[0]) == VarValue.UNDEFINED
@@ -432,7 +429,7 @@ class CDCL {
                 }
             }
 
-            watchers[lit xor 1] = clausesToKeep
+            watchers[lit.neg] = clausesToKeep
 
             if (conflict != null) break
         }
@@ -442,7 +439,7 @@ class CDCL {
     // change level, undefine variables, clear units (if clause.size == 1 we backjump to 0 level)
     // Pre-conditions: second element in clause should have first max level except current one
     private fun backjump(clause: Clause) {
-        level = if (clause.size > 1) vars[variable(clause[1])].level else 0
+        level = if (clause.size > 1) vars[clause[1].variable].level else 0
         clearTrail(level)
     }
 
@@ -455,17 +452,17 @@ class CDCL {
     private val seen = MutableList(numberOfVariables) { false }
 
     private fun analyzeConflict(conflict: Clause): Clause {
-
-        fun updateLemma(lemma: MutableSet<Int>, lit: Int) {
+        // TODO: inline
+        fun updateLemma(lemma: MutableSet<Lit>, lit: Lit) {
             lemma.add(lit)
         }
 
         var numberOfActiveVariables = 0
-        val lemma = mutableSetOf<Int>()
+        val lemma = mutableSetOf<Lit>()
 
         conflict.forEach { lit ->
-            if (vars[variable(lit)].level == level) {
-                seen[variable(lit)] = true
+            if (vars[lit.variable].level == level) {
+                seen[lit.variable] = true
                 numberOfActiveVariables++
             } else {
                 updateLemma(lemma, lit)
@@ -475,12 +472,11 @@ class CDCL {
 
 
         while (numberOfActiveVariables > 1) {
-
-            val v = variable(trail[ind--])
+            val v = trail[ind--].variable
             if (!seen[v]) continue
 
             vars[v].reason?.forEach { u ->
-                val current = variable(u)
+                val current = u.variable
                 if (vars[current].level != level) {
                     updateLemma(lemma, u)
                 } else if (current != v && !seen[current]) {
@@ -494,27 +490,27 @@ class CDCL {
 
         var newClause: Clause
 
-        trail.last { seen[variable(it)] }.let { lit ->
-            val v = variable(lit)
-            updateLemma(lemma, if (getValue(positive(v)) == VarValue.TRUE) negative(v) else positive(v))
+        trail.last { seen[it.variable] }.let { lit ->
+            val v = lit.variable
+            updateLemma(lemma, if (getValue(v.positiveLit) == LBool.TRUE) v.negativeLit else v.positiveLit)
 
             // Simplify clause by removing redundant literals which follow from their reasons
             currentMinimizationMark++
             lemma.forEach { minimizeMarks[it] = currentMinimizationMark }
             newClause = Clause(lemma.filter { possiblyImpliedLit ->
-                vars[variable(possiblyImpliedLit)].reason?.any {
+                vars[possiblyImpliedLit.variable].reason?.any {
                     minimizeMarks[it] != currentMinimizationMark
                 } ?: true
             }.toMutableList())
 
-            val uipIndex = newClause.indexOfFirst { variable(it) == v }
+            val uipIndex = newClause.indexOfFirst { it.variable == v }
             // move UIP vertex to 0 position
             newClause.swap(uipIndex, 0)
             seen[v] = false
         }
         // move last defined literal to 1 position
         if (newClause.size > 1) {
-            val secondMax = newClause.drop(1).indices.maxByOrNull { vars[variable(newClause[it + 1])].level } ?: 0
+            val secondMax = newClause.drop(1).indices.maxByOrNull { vars[newClause[it + 1].variable].level } ?: 0
             newClause.swap(1, secondMax + 1)
         }
         return newClause
