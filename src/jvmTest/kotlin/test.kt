@@ -3,7 +3,13 @@ import com.soywiz.klock.measureTimeWithResult
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import org.kosat.*
+import org.kosat.CDCL
+import org.kosat.DimacsLiteral
+import org.kosat.LBool
+import org.kosat.get
+import org.kosat.readCnfRequests
+import org.kosat.round
+import org.kosat.solveCnf
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -56,12 +62,10 @@ internal class DiamondTests {
             println("MiniSat conflicts: ${backend.numberOfConflicts}")
             println("Minisat decisions: ${backend.numberOfDecisions}")
             return result
-
         }
     }
 
     private fun checkKoSatSolution(ans: List<LBool>?, input: String, isSolution: Boolean): Boolean {
-
         if (ans == null) return !isSolution // null ~ UNSAT
 
         val cnfRequest = readCnfRequests(input).first()
@@ -96,9 +100,9 @@ internal class DiamondTests {
                     timeKoSat.seconds.round(3).toString(),
                     timeMiniSat.seconds.round(3).toString(),
                     checkRes,
-                    if (isSolution) "SAT" else "UNSAT"
-                )
-            )
+                    if (isSolution) "SAT" else "UNSAT",
+                ),
+            ),
         )
 
         return checkRes != "WA"
@@ -123,17 +127,21 @@ internal class DiamondTests {
 
         repeat(5) { ind ->
             val random = Random(ind)
-            val assumptions = if (first.vars == 0) listOf() else List(ind) {
-                random.nextInt(1, first.vars + 1)
-            }.map {
-                DimacsLiteral(if (Random.nextBoolean()) it else -it)
+            val assumptions = if (first.vars == 0) {
+                listOf()
+            } else {
+                List(ind) {
+                    random.nextInt(1, first.vars + 1)
+                }.map {
+                    DimacsLiteral(if (Random.nextBoolean()) it else -it)
+                }
             }
 
             val input = fileFirstLine.dropLast(2).joinToString(" ") + " " +
-                    (variables.toInt()).toString() + " " +
-                    (clauses.toInt() + assumptions.size).toString() + "\n" +
-                    lines.drop(1).joinToString(separator = "\n") +
-                    assumptions.map { it.value }.joinToString(prefix = "\n", separator = " 0\n", postfix = " 0")
+                (variables.toInt()).toString() + " " +
+                (clauses.toInt() + assumptions.size).toString() + "\n" +
+                lines.drop(1).joinToString(separator = "\n") +
+                assumptions.map { it.value }.joinToString(prefix = "\n", separator = " 0\n", postfix = " 0")
 
             val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
 
@@ -150,9 +158,9 @@ internal class DiamondTests {
                         timeKoSat.seconds.round(3).toString(),
                         timeMiniSat.seconds.round(3).toString(),
                         checkRes,
-                        if (isSolution) "SAT" else "UNSAT"
-                    )
-                )
+                        if (isSolution) "SAT" else "UNSAT",
+                    ),
+                ),
             )
         }
         return res != "WA"

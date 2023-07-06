@@ -1,6 +1,13 @@
 package org.kosat.heuristics
 
-import org.kosat.*
+import org.kosat.CDCL
+import org.kosat.Clause
+import org.kosat.LBool
+import org.kosat.Lit
+import org.kosat.Var
+import org.kosat.VarState
+import org.kosat.get
+import org.kosat.set
 
 abstract class VariableSelector {
     protected var assumptions: List<Lit> = emptyList()
@@ -71,7 +78,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
         }
         // if there is undefined assumption pick it, other way pick best choice
         return assumptions.firstOrNull { solver.getValue(it) == LBool.UNDEFINED }
-                ?: getMaxActivityVariable(vars).posLit
+            ?: getMaxActivityVariable(vars).posLit
     }
 
     override fun backTrack(variable: Var) {
@@ -96,7 +103,6 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
 
 class FixedOrder(val solver: CDCL) : VariableSelector() {
     override fun build(clauses: List<Clause>) {
-
     }
 
     override fun nextDecision(vars: List<VarState>, level: Int): Lit {
@@ -107,17 +113,13 @@ class FixedOrder(val solver: CDCL) : VariableSelector() {
     }
 
     override fun addVariable() {
-
     }
 
     override fun update(lemma: Clause) {
-
     }
 
     override fun backTrack(variable: Var) {
-
     }
-
 }
 
 class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solver: CDCL) : VariableSelector() {
@@ -176,7 +178,6 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
     }
 
     override fun backTrack(variable: Var) {
-
     }
 
     // Looks for index of undefined variable with max activity
