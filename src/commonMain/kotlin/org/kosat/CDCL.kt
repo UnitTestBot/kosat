@@ -276,7 +276,7 @@ class CDCL {
     }
 
     // half of learnt get reduced
-    private fun reduceDB() {
+    fun reduceDB() {
         learnts.sortByDescending { it.lbd }
         val deletionLimit = learnts.size / 2
         var cnt = 0
