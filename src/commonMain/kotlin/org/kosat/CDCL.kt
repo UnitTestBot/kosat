@@ -18,28 +18,31 @@ fun solveCnf(cnf: CnfRequest): List<LBool>? {
 class CDCL {
 
     /**
-     * Initial constraints and externally added clauses by [newClause]
+     * Initial constraints and externally added clauses by [newClause].
      * Clauses of size 1 are never stored and instead are located at level 0
-     * on the trail
+     * on the trail.
      */
     val constraints = mutableListOf<Clause>()
 
     /**
-     * The clauses learnt by the solver during the conflict analysis
+     * The clauses learnt by the solver during the conflict analysis.
      * This should be replaced by a more efficient data structure
      * with a proper reduction mechanism. Learned clauses of size 1
      * are being [uncheckedEnqueue]'d to the level 0 of the trail.
      */
     val learnts = mutableListOf<Clause>()
 
+    /**
+     * The count of variables in the problem.
+     */
     var numberOfVariables: Int = 0
-    private val numberOfLiterals get() = numberOfVariables shl 1
+        private set
 
     /**
-     * for each variable contains current assignment,
-     * clause it came from ([VarState.reason]) and decision level when it happened
+     * For each variable contains current assignment,
+     * clause it came from ([VarState.reason]) and decision level when it happened.
      */
-    val vars: MutableList<VarState> = MutableList(numberOfVariables) { VarState(LBool.UNDEFINED, null, -1) }
+    val vars: MutableList<VarState> = mutableListOf()
 
     /**
      * Trail of assignments, contains literals in the order they were assigned
@@ -47,28 +50,30 @@ class CDCL {
     private val trail: MutableList<Lit> = mutableListOf()
 
     /**
-     * index of first element in the trail which has not been propagated yet
+     * Index of first element in the trail which has not been propagated yet
      */
     private var qhead = 0
 
     /**
-     * two watched literals heuristic; in `watchers[i]` set of clauses watched by variable i
+     * Two-watched literals heuristic.
+     * `i`-th element of this list is set of clauses watched by variable `i`
      */
-    private val watchers = MutableList(numberOfLiterals) { mutableListOf<Clause>() }
+    private val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
     // controls the learned clause database reduction, should be replaced and moved in the future
     private var reduceNumber = 6000.0
     private var reduceIncrement = 500.0
 
     /**
-     * current decision level
+     * The current decision level.
      */
     private var level: Int = 0
 
     /**
-     * Used in analyzeConflict() to simplify clauses by removing literals implied by their reasons
+     * Used in analyzeConflict() to simplify clauses by
+     * removing literals implied by their reasons.
      */
-    private val minimizeMarks = MutableList(numberOfLiterals) { 0 }
+    private val minimizeMarks = mutableListOf<Int>()
 
     /**
      * @see [minimizeMarks]
@@ -82,16 +87,16 @@ class CDCL {
      */
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables, this)
 
-    // TODO: rewrite this
     /**
-     * restart search from time to time
+     * The restart strategy, used to decide when to restart the search
+     * @see [solve]
      */
     private val restarter = Restarter(this)
 
     /**
      * Adds a literal to the end of the [trail],
      * assigns [LBool.TRUE] to it and [LBool.FALSE] to the negation,
-     * but does not propagate it yet
+     * but does not propagate it yet.
      */
     private fun uncheckedEnqueue(lit: Lit, reason: Clause? = null) {
         setValue(lit, LBool.TRUE)
@@ -103,6 +108,9 @@ class CDCL {
 
     // ---- Variable states ---- //
 
+    /**
+     * @return the value assigned to the literal during solving.
+     */
     fun getValue(lit: Lit): LBool {
         return if (lit.isNeg) {
             !vars[lit.variable].value
@@ -111,6 +119,11 @@ class CDCL {
         }
     }
 
+    /**
+     * Sets the value of the literal to [value].
+     * By construction, guarantees that the value
+     * of the negation is set to `!value`.
+     */
     private fun setValue(lit: Lit, value: LBool) {
         if (lit.isPos) {
             vars[lit.variable].value = value
@@ -121,24 +134,34 @@ class CDCL {
 
     // ---- Public Interface ---- //
 
+    /**
+     * Create a new solver instance with no clauses.
+     */
     constructor() : this(mutableListOf<Clause>())
 
+    /**
+     * Create a new solver instance with given clauses.
+     * @param initialClauses the initial clauses.
+     * @param initialVarsNumber the number of variables in the problem, if known.
+     * Can help to avoid resizing of internal data structures.
+     */
     constructor(
         initialClauses: Iterable<Clause>,
         initialVarsNumber: Int = 0,
     ) {
-        reserveVars(initialVarsNumber)
+        while (numberOfVariables < initialVarsNumber) {
+            addVariable()
+        }
+
         initialClauses.forEach { newClause(it) }
         polarity = MutableList(numberOfVariables + 1) { LBool.UNDEFINED }
     }
 
-    private fun reserveVars(max: Int) {
-        while (numberOfVariables < max) {
-            addVariable()
-        }
-    }
-
-    // public function for adding new variables
+    /**
+     * Add a new variable to the solver.
+     * The [addClause] technically adds variables automatically,
+     * but sometimes not all variables have to be mentioned in the clauses.
+     */
     fun addVariable(): Int {
         numberOfVariables++
 
@@ -159,7 +182,9 @@ class CDCL {
         return numberOfVariables
     }
 
-    // public function for adding new clauses
+    /**
+     * Add a new clause to the solver.
+     */
     fun newClause(clause: Clause) {
         require(level == 0)
 
@@ -192,7 +217,10 @@ class CDCL {
 
     // ---- Trail ---- //
 
-    // delete last variable from the trail
+    /**
+     * Delete last variable from the trail, reset its value to
+     * [LBool.UNDEFINED], memorize its polarity
+     */
     private fun trailRemoveLast() {
         val lit = trail.removeLast()
         val v = lit.variable
@@ -203,21 +231,32 @@ class CDCL {
         variableSelector.backTrack(v)
     }
 
-    // clear trail until given level
-    private fun clearTrail(until: Int = -1) {
+    /**
+     * Remove variables from the trail until the given layer is reached.
+     * @param until the layer to stop at. Variables on this layer will **not** be removed.
+     */
+    private fun clearTrail(until: Int) {
         while (trail.isNotEmpty() && vars[trail.last().variable].level > until) {
             trailRemoveLast()
         }
     }
 
-    // phase saving heuristic
+    /**
+     * Used for phase saving heuristic. Memorizes the polarity of
+     * the given variable when it was last assigned, but reset during backtracking.
+     */
     private var polarity: MutableList<LBool> = mutableListOf()
 
     // --- Solve with assumptions ---- //
 
-    // assumptions for incremental sat-solver
+    /**
+     * The assumptions given to an incremental solver.
+     */
     private var assumptions: List<Lit> = emptyList()
 
+    /**
+     * Solve the problem with the given assumptions.
+     */
     fun solve(currentAssumptions: List<Lit>): List<LBool>? {
         assumptions = currentAssumptions
         variableSelector.initAssumptions(assumptions)
