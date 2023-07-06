@@ -89,15 +89,13 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
 
     // Looks for index of undefined variable with max activity
     private fun getMaxActivityVariable(vars: List<VarState>): Var {
-        var v: Var
         while (true) {
             require(activityPQ.size > 0)
-            v = Var(activityPQ.pop())
+            val v = activityPQ.pop()
             if (vars[v].value == LBool.UNDEFINED) {
-                break
+                return Var(v)
             }
         }
-        return v
     }
 }
 
