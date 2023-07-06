@@ -53,7 +53,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     // current decision level
     private var level: Int = 0
 
-    // minimization lemma in analyze conflicts
+    // Used in analyzeConflict() to simplify clauses by removing literals implied by their reasons
     private val minimizeMarks = MutableList(numberOfVariables * 2) { 0 }
     private var currentMinimizationMark = 0
 
@@ -165,7 +165,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         if (clause.size == 1) {
             uncheckedEnqueue(clause[0])
         } else {
-            addConstraint(clause)
+            addClause(clause)
         }
     }
 
@@ -183,7 +183,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     }
 
     // clear trail until given level
-    fun clearTrail(until: Int = -1) {
+    private fun clearTrail(until: Int = -1) {
         while (trail.isNotEmpty() && vars[variable(trail.last())].level > until) {
             trailRemoveLast()
         }
@@ -218,7 +218,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     }
 
     // half of learnt get reduced
-    fun reduceDB() {
+    private fun reduceDB() {
         learnts.sortByDescending { it.lbd }
         val deletionLimit = learnts.size / 2
         var cnt = 0
@@ -358,7 +358,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     /** CDCL functions **/
 
     // add new constraint and watchers to it, executes only in newClause
-    private fun addConstraint(clause: Clause) {
+    private fun addClause(clause: Clause) {
         require(clause.size != 1)
         constraints.add(clause)
         if (clause.isNotEmpty()) {
@@ -380,41 +380,62 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         var conflict: Clause? = null
         while (qhead < trail.size) {
             val lit = trail[qhead++]
+
             if (getValue(lit) == VarValue.FALSE) {
                 return vars[variable(lit)].reason
             }
 
+            // Checking the list of clauses watching the negation of the literal.
+            // In those clauses, both of the watched literals might be false,
+            // which can either lead to a conflict (all literals in clause are false),
+            // unit propagation (only one unassigned literal left), or invalidation
+            // of the watchers (both watchers are false, but there are others)
             val clausesToKeep = mutableListOf<Clause>()
-            for (brokenClause in watchers[lit xor 1]) {
-                if (!brokenClause.deleted) {
-                    clausesToKeep.add(brokenClause)
-                    if (conflict == null) {
-                        if (variable(brokenClause[0]) == variable(lit)) {
-                            brokenClause.swap(0, 1)
-                        }
-                        // if second watcher is true skip clause
-                        if (getValue(brokenClause[0]) != VarValue.TRUE) {
-                            var firstNotFalse = -1
-                            for (ind in 2 until brokenClause.size) {
-                                if (getValue(brokenClause[ind]) != VarValue.FALSE) {
-                                    firstNotFalse = ind
-                                    break
-                                }
-                            }
-                            if (firstNotFalse == -1 && getValue(brokenClause[0]) == VarValue.FALSE) {
-                                conflict = brokenClause
-                            } else if (firstNotFalse == -1) {
-                                uncheckedEnqueue(brokenClause[0], brokenClause)
-                            } else {
-                                watchers[brokenClause[firstNotFalse]].add(brokenClause)
-                                brokenClause.swap(firstNotFalse, 1)
-                                clausesToKeep.removeLast()
-                            }
-                        }
+            val possiblyBrokenClauses = watchers[lit xor 1]
+
+            for (clause in possiblyBrokenClauses) {
+                if (clause.deleted) continue
+
+                clausesToKeep.add(clause)
+
+                if (conflict != null) continue
+
+                // we are always watching the first two literals in the clause
+                // this makes sure that the second watcher is lit,
+                // and the first one is the other one
+                if (variable(clause[0]) == variable(lit)) {
+                    clause.swap(0, 1)
+                }
+
+                // if first watcher (not lit) is true then the clause is already true, skipping it
+                if (getValue(clause[0]) == VarValue.TRUE) continue
+
+                // Index of the first literal in the clause not assigned to false
+                var firstNotFalse = -1
+                for (ind in 2 until clause.size) {
+                    if (getValue(clause[ind]) != VarValue.FALSE) {
+                        firstNotFalse = ind
+                        break
                     }
                 }
+
+                if (firstNotFalse == -1 && getValue(clause[0]) == VarValue.FALSE) {
+                    // all the literals in the clause are already assigned to false
+                    conflict = clause
+                } else if (firstNotFalse == -1) { // getValue(brokenClause[0]) == VarValue.UNDEFINED
+                    // the only unassigned literal (which is the second watcher) in the clause must be true
+                    uncheckedEnqueue(clause[0], clause)
+                } else {
+                    // there is at least one literal in the clause not assigned to false,
+                    // so we can use it as a new first watcher instead
+                    watchers[clause[firstNotFalse]].add(clause)
+                    clause.swap(firstNotFalse, 1)
+                    clausesToKeep.removeLast()
+                }
             }
+
             watchers[lit xor 1] = clausesToKeep
+
             if (conflict != null) break
         }
         return conflict
