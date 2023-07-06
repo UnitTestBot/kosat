@@ -10,9 +10,9 @@ import org.kosat.heuristics.VariableSelector
  * [emptyList] is request is tautology
  * assignments of literals otherwise
  */
-fun solveCnf(cnf: CnfRequest): List<Int>? {
-    val clauses = (cnf.clauses.map { it.lits }).toMutableList()
-    return CDCL(clauses.map { Clause(it) }.toMutableList(), cnf.vars).solve()
+fun solveCnf(cnf: CnfRequest): List<VarValue>? {
+    val clauses = (cnf.clauses.map { it.toClause() }).toMutableList()
+    return CDCL(clauses, cnf.vars).solve()
 }
 
 fun variable(lit: Lit): Int = lit shr 1
@@ -107,14 +107,12 @@ class CDCL {
 
     constructor() : this(mutableListOf<Clause>())
 
-    private fun MutableList<Clause>.renumber() = this.map { it.renumber() }
-
     constructor(
-        initialClauses: MutableList<Clause>,
+        initialClauses: Iterable<Clause>,
         initialVarsNumber: Int = 0,
     ) {
         reserveVars(initialVarsNumber)
-        initialClauses.renumber().forEach { newClause(it) }
+        initialClauses.forEach { newClause(it) }
         polarity = MutableList(numberOfVariables + 1) { VarValue.UNDEFINED }
     }
 
@@ -202,10 +200,10 @@ class CDCL {
     /** Solve with assumptions **/
 
     // assumptions for incremental sat-solver
-    private var assumptions: List<Int> = emptyList()
+    private var assumptions: List<Lit> = emptyList()
 
-    fun solve(currentAssumptions: List<Int>): List<Int>? {
-        assumptions = Clause(currentAssumptions.toMutableList()).renumber()
+    fun solve(currentAssumptions: List<Lit>): List<VarValue>? {
+        assumptions = currentAssumptions
         variableSelector.initAssumptions(assumptions)
         val result = solve()
         if (result == null) {
@@ -213,7 +211,7 @@ class CDCL {
             return null
         }
         currentAssumptions.forEach { lit ->
-            if (result.find { it == -lit } != null) {
+            if (result[variable(lit)] != if (lit and 1 == 1) VarValue.FALSE else VarValue.TRUE) {
                 assumptions = emptyList()
                 return null
             }
@@ -241,7 +239,7 @@ class CDCL {
 
     /** Solve **/
 
-    fun solve(): List<Int>? {
+    fun solve(): List<VarValue>? {
 
         var numberOfConflicts = 0
         var numberOfDecisions = 0
@@ -339,15 +337,10 @@ class CDCL {
     }
 
     // return current assignment of variables
-    private fun getModel(): List<Int> = vars.mapIndexed { index, v ->
-        when (v.value) {
-            VarValue.TRUE, VarValue.UNDEFINED -> index + 1
-            VarValue.FALSE -> -index - 1
-//            VarValue.UNDEFINED -> {
-//                println(vars)
-//                println(trail)
-//                throw Exception("Unexpected unassigned variable")
-//            }
+    private fun getModel(): List<VarValue> = vars.map {
+        when (it.value) {
+            VarValue.TRUE, VarValue.UNDEFINED -> VarValue.TRUE
+            VarValue.FALSE -> VarValue.FALSE
         }
     }
 

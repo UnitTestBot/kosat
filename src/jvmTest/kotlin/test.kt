@@ -3,11 +3,7 @@ import com.soywiz.klock.measureTimeWithResult
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import org.kosat.CDCL
-import org.kosat.Clause
-import org.kosat.readCnfRequests
-import org.kosat.round
-import org.kosat.solveCnf
+import org.kosat.*
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -20,7 +16,6 @@ import kotlin.test.assertEquals
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
     private val format = ".cnf"
-    private val headerNames = listOf("Name:", "KoSAT time:", "MiniSAT time:", "Result:", "Solvable:")
 
     private fun getAllFilenames(): List<String> {
         val resourcesPath = Paths.get(projectDirAbsolutePath, testsPath)
@@ -55,7 +50,7 @@ internal class DiamondTests {
         with(MiniSatSolver()) {
             val lit = List(data.vars) { newLiteral() }
             for (clause in data.clauses)
-                addClause(clause.lits.map { it.sign * lit[abs(it) - 1] })
+                addClause(clause.dimacsLiterals.map { it.value.sign * lit[abs(it.value) - 1] })
             val result = solve()
             println("MiniSat conflicts: ${backend.numberOfConflicts}")
             println("Minisat decisions: ${backend.numberOfDecisions}")
@@ -64,14 +59,22 @@ internal class DiamondTests {
         }
     }
 
-    private fun checkKoSatSolution(ans: List<Int>?, input: String, isSolution: Boolean): Boolean {
+    private fun checkKoSatSolution(ans: List<VarValue>?, input: String, isSolution: Boolean): Boolean {
 
         if (ans == null) return !isSolution // null ~ UNSAT
 
         val cnfRequest = readCnfRequests(input).first()
         if (ans.size != cnfRequest.vars) return false
 
-        return cnfRequest.clauses.all { clause -> clause.lits.any { it == ans[abs(it) - 1] } }
+        return cnfRequest.clauses.all { clause ->
+            clause.toClause().any {
+                if (it and 1 == 0) {
+                    ans[variable(it)] == VarValue.TRUE
+                } else {
+                    ans[variable(it)] == VarValue.FALSE
+                }
+            }
+        }
     }
 
     private fun runTest(filepath: String): Boolean {
@@ -96,10 +99,8 @@ internal class DiamondTests {
                 )
             )
         )
-        if (checkRes == "WA") {
-            return false
-        }
-        return true
+
+        return checkRes != "WA"
     }
 
     private fun runAssumptionTest(filepath: String): Boolean {
@@ -115,28 +116,29 @@ internal class DiamondTests {
 
         val first = readCnfRequests(fileInput).first()
 
-        val solver = CDCL(first.clauses as MutableList<Clause>, first.vars)
+        val solver = CDCL(first.clauses.map { it.toClause() }, first.vars)
 
         var res = "OK"
 
         repeat(5) { ind ->
             val random = Random(ind)
-            val assumptions = if (first.vars == 0) listOf() else List(ind)
-            { random.nextInt(1, first.vars + 1) }.map {
-                if (Random.nextBoolean()) it else -it
+            val assumptions = if (first.vars == 0) listOf() else List(ind) {
+                random.nextInt(1, first.vars + 1)
+            }.map {
+                DimacsLiteral(if (Random.nextBoolean()) it else -it)
             }
+
+            println(assumptions.map { it.value })
 
             val input = fileFirstLine.dropLast(2).joinToString(" ") + " " +
                     (variables.toInt()).toString() + " " +
                     (clauses.toInt() + assumptions.size).toString() + "\n" +
                     lines.drop(1).joinToString(separator = "\n") +
-                    assumptions.joinToString(prefix = "\n", separator = " 0\n", postfix = " 0")
-
-            println(assumptions)
+                    assumptions.map { it.value }.joinToString(prefix = "\n", separator = " 0\n", postfix = " 0")
 
             val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
 
-            val (solution, timeKoSat) = measureTimeWithResult { solver.solve(assumptions) }
+            val (solution, timeKoSat) = measureTimeWithResult { solver.solve(assumptions.map { it.toLiteral() }) }
 
             val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
 
@@ -154,10 +156,7 @@ internal class DiamondTests {
                 )
             )
         }
-        if (res == "WA") {
-            return false
-        }
-        return true
+        return res != "WA"
     }
 
     private val testsPath = "src/jvmTest/resources"
