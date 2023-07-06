@@ -508,11 +508,6 @@ class CDCL {
     private val seen = MutableList(numberOfVariables) { false }
 
     private fun analyzeConflict(conflict: Clause): Clause {
-        // TODO: inline
-        fun updateLemma(lemma: MutableSet<Lit>, lit: Lit) {
-            lemma.add(lit)
-        }
-
         var numberOfActiveVariables = 0
         val lemma = mutableSetOf<Lit>()
 
@@ -521,25 +516,35 @@ class CDCL {
                 seen[lit.variable] = true
                 numberOfActiveVariables++
             } else {
-                updateLemma(lemma, lit)
+                lemma.add(lit)
             }
         }
 
-        var ind = trail.lastIndex
+        var lastLevelWalkIndex = trail.lastIndex
 
+        // The UIP is the only literal in the current decision level
+        // of the conflict clause. To build it, we walk back on the
+        // last level of the trail and replace all but one literal
+        // in the conflict clause by their reason.
         while (numberOfActiveVariables > 1) {
-            val v = trail[ind--].variable
+            val v = trail[lastLevelWalkIndex--].variable
             if (!seen[v]) continue
 
-            vars[v].reason?.forEach { u ->
+            // The null assertion is safe because we only traverse
+            // the last level, and every variable on this level
+            // has a reason except for the decision variable,
+            // which will not be visited because even if it is seen,
+            // it is the last seen variable in order of the trail.
+            vars[v].reason!!.forEach { u ->
                 val current = u.variable
                 if (vars[current].level != level) {
-                    updateLemma(lemma, u)
+                    lemma.add(u)
                 } else if (current != v && !seen[current]) {
                     seen[current] = true
                     numberOfActiveVariables++
                 }
             }
+
             seen[v] = false
             numberOfActiveVariables--
         }
@@ -548,7 +553,7 @@ class CDCL {
 
         trail.last { seen[it.variable] }.let { lit ->
             val v = lit.variable
-            updateLemma(lemma, if (getValue(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
+            lemma.add(if (getValue(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
 
             // Simplify clause by removing redundant literals which follow from their reasons
             currentMinimizationMark++
