@@ -55,7 +55,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // minimization lemma in analyze conflicts
     private val minimizeMarks = MutableList(numberOfVariables * 2) { 0 }
-    private var mark = 0
+    private var currentMinimizationMark = 0
 
     /** Heuristics **/
 
@@ -427,17 +427,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         clearTrail(level)
     }
 
-    // deleting lits that have ancestor in implication graph in reason
-    private fun minimize(clause: Clause): Clause {
-        mark++
-        clause.forEach { minimizeMarks[it] = mark }
-        return Clause(clause.filterNot { lit ->
-            vars[variable(lit)].reason?.all {
-                minimizeMarks[it] == mark
-            } ?: false
-        }.toMutableList())
-    }
-
     // analyze conflict and return new clause
     /** Post-conditions:
      *      - first element in clause has max (current) propagate level
@@ -489,7 +478,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         trail.last { seen[variable(it)] }.let { lit ->
             val v = variable(lit)
             updateLemma(lemma, if (getValue(positive(v)) == VarValue.TRUE) negative(v) else positive(v))
-            newClause = minimize(Clause(lemma.toMutableList()))
+
+            // Simplify clause by removing redundant literals which follow from their reasons
+            currentMinimizationMark++
+            lemma.forEach { minimizeMarks[it] = currentMinimizationMark }
+            newClause = Clause(lemma.filter { possiblyImpliedLit ->
+                vars[variable(possiblyImpliedLit)].reason?.any {
+                    minimizeMarks[it] != currentMinimizationMark
+                } ?: true
+            }.toMutableList())
+
             val uipIndex = newClause.indexOfFirst { variable(it) == v }
             // move UIP vertex to 0 position
             newClause.swap(uipIndex, 0)
