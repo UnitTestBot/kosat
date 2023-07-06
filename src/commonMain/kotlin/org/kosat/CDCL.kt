@@ -41,33 +41,51 @@ class CDCL {
      */
     val vars: MutableList<VarState> = MutableList(numberOfVariables) { VarState(LBool.UNDEFINED, null, -1) }
 
-    /** Trail of assignments, contains literals in the order they were assigned */
+    /**
+     * Trail of assignments, contains literals in the order they were assigned
+     */
     private val trail: MutableList<Lit> = mutableListOf()
 
-    /** index of first element in the trail which has not been propagated yet */
+    /**
+     * index of first element in the trail which has not been propagated yet
+     */
     private var qhead = 0
 
-    /** two watched literals heuristic; in `watchers[i]` set of clauses watched by variable i */
+    /**
+     * two watched literals heuristic; in `watchers[i]` set of clauses watched by variable i
+     */
     private val watchers = MutableList(numberOfLiterals) { mutableListOf<Clause>() }
 
     // controls the learned clause database reduction, should be replaced and moved in the future
     private var reduceNumber = 6000.0
     private var reduceIncrement = 500.0
 
-    /** current decision level */
+    /**
+     * current decision level
+     */
     private var level: Int = 0
 
-    /** Used in analyzeConflict() to simplify clauses by removing literals implied by their reasons */
+    /**
+     * Used in analyzeConflict() to simplify clauses by removing literals implied by their reasons
+     */
     private val minimizeMarks = MutableList(numberOfLiterals) { 0 }
-    /** @see [minimizeMarks] */
+
+    /**
+     * @see [minimizeMarks]
+     */
     private var currentMinimizationMark = 0
 
-    // ---- Heuristics ----
+    // ---- Heuristics ---- //
 
-    /** The branching heuristic, used to choose the next decision variable */
+    /**
+     * The branching heuristic, used to choose the next decision variable
+     */
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables, this)
 
-    /** restart search from time to time */
+    // TODO: rewrite this
+    /**
+     * restart search from time to time
+     */
     private val restarter = Restarter(this)
 
     /**
@@ -83,13 +101,14 @@ class CDCL {
         trail.add(lit)
     }
 
-    // ---- Variable states ----
+    // ---- Variable states ---- //
 
     fun getValue(lit: Lit): LBool {
-        return if (lit.isNeg)
+        return if (lit.isNeg) {
             !vars[lit.variable].value
-        else
+        } else {
             vars[lit.variable].value
+        }
     }
 
     private fun setValue(lit: Lit, value: LBool) {
@@ -100,7 +119,7 @@ class CDCL {
         }
     }
 
-    // ---- Public Interface ----
+    // ---- Public Interface ---- //
 
     constructor() : this(mutableListOf<Clause>())
 
@@ -171,7 +190,7 @@ class CDCL {
         }
     }
 
-    /** Trail: **/
+    // ---- Trail ---- //
 
     // delete last variable from the trail
     private fun trailRemoveLast() {
@@ -194,7 +213,7 @@ class CDCL {
     // phase saving heuristic
     private var polarity: MutableList<LBool> = mutableListOf()
 
-    /** Solve with assumptions **/
+    // --- Solve with assumptions ---- //
 
     // assumptions for incremental sat-solver
     private var assumptions: List<Lit> = emptyList()
@@ -234,10 +253,9 @@ class CDCL {
         learnts.removeAll { it.deleted }
     }
 
-    /** Solve **/
+    // ---- Solve ---- //
 
     fun solve(): List<LBool>? {
-
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
@@ -305,7 +323,6 @@ class CDCL {
                     return model
                 }
 
-
                 // try to guess variable
                 level++
                 var nextDecisionLiteral = variableSelector.nextDecision(vars, level)
@@ -341,7 +358,7 @@ class CDCL {
         }
     }
 
-    /** Two watchers **/
+    // ---- Two watchers ---- //
 
     // add watchers to new clause. Run in addConstraint in addLearnt
     private fun addWatchers(clause: Clause) {
@@ -350,7 +367,7 @@ class CDCL {
         watchers[clause[1]].add(clause)
     }
 
-    /** CDCL functions **/
+    // ---- CDCL functions ---- //
 
     // add new constraint and watchers to it, executes only in newClause
     private fun addClause(clause: Clause) {
@@ -443,12 +460,12 @@ class CDCL {
         clearTrail(level)
     }
 
-    // analyze conflict and return new clause
-    /** Post-conditions:
+    /**
+     * Analyze conflict and return new clause
+     * Post-conditions:
      *      - first element in clause has max (current) propagate level
      *      - second element in clause has second max propagate level
      */
-
     private val seen = MutableList(numberOfVariables) { false }
 
     private fun analyzeConflict(conflict: Clause): Clause {
@@ -468,8 +485,8 @@ class CDCL {
                 updateLemma(lemma, lit)
             }
         }
-        var ind = trail.lastIndex
 
+        var ind = trail.lastIndex
 
         while (numberOfActiveVariables > 1) {
             val v = trail[ind--].variable
@@ -497,11 +514,13 @@ class CDCL {
             // Simplify clause by removing redundant literals which follow from their reasons
             currentMinimizationMark++
             lemma.forEach { minimizeMarks[it] = currentMinimizationMark }
-            newClause = Clause(lemma.filter { possiblyImpliedLit ->
-                vars[possiblyImpliedLit.variable].reason?.any {
-                    minimizeMarks[it] != currentMinimizationMark
-                } ?: true
-            }.toMutableList())
+            newClause = Clause(
+                lemma.filter { possiblyImpliedLit ->
+                    vars[possiblyImpliedLit.variable].reason?.any {
+                        minimizeMarks[it] != currentMinimizationMark
+                    } ?: true
+                }.toMutableList(),
+            )
 
             val uipIndex = newClause.indexOfFirst { it.variable == v }
             // move UIP vertex to 0 position
