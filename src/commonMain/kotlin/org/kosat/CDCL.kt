@@ -4,7 +4,6 @@ import org.kosat.heuristics.Restarter
 import org.kosat.heuristics.VSIDS
 import org.kosat.heuristics.VariableSelector
 
-// CDCL
 /**
  * Solves [cnf] and returns
  * `null` if request unsatisfiable
@@ -16,56 +15,68 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
     return CDCL(clauses.map { Clause(it) }.toMutableList(), cnf.vars).solve()
 }
 
-enum class SolverType {
-    INCREMENTAL, NON_INCREMENTAL;
-}
+fun variable(lit: Lit): Int = lit shr 1
 
-fun variable(lit: Lit): Int = lit / 2
+class CDCL {
 
-class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
-
-    // we never store clauses of size 1
-    // they are located at 0 decision level on trail
-
-    // initial constraints + externally added clauses by newClause
+    /**
+     * Initial constraints and externally added clauses by [newClause]
+     * Clauses of size 1 are never stored and instead are located at level 0
+     * on the trail
+     */
     val constraints = mutableListOf<Clause>()
 
-    // learnt from conflicts clauses, once in a while their number halved
+    /**
+     * The clauses learnt by the solver during the conflict analysis
+     * This should be replaced by a more efficient data structure
+     * with a proper reduction mechanism. Learned clauses of size 1
+     * are being [uncheckedEnqueue]'d to the level 0 of the trail.
+     */
     val learnts = mutableListOf<Clause>()
 
     var numberOfVariables: Int = 0
+    private val numberOfLiterals get() = numberOfVariables shl 1
 
-    // for each variable contains current assignment, clause it came from and decision level when it happened
+    /**
+     * for each variable contains current assignment,
+     * clause it came from ([VarState.reason]) and decision level when it happened
+     */
     val vars: MutableList<VarState> = MutableList(numberOfVariables) { VarState(VarValue.UNDEFINED, null, -1) }
 
-    // all decisions and consequences, contains literals
+    /** Trail of assignments, contains literals in the order they were assigned */
     private val trail: MutableList<Lit> = mutableListOf()
 
-    // index of first don't propagated element in trail
+    /** index of first element in the trail which has not been propagated yet */
     private var qhead = 0
 
-    // two watched literals heuristic; in watchers[i] set of clauses watched by variable i
-    private val watchers = MutableList(numberOfVariables * 2) { mutableListOf<Clause>() }
+    /** two watched literals heuristic; in `watchers[i]` set of clauses watched by variable i */
+    private val watchers = MutableList(numberOfLiterals) { mutableListOf<Clause>() }
 
+    // controls the learned clause database reduction, should be replaced and moved in the future
     private var reduceNumber = 6000.0
     private var reduceIncrement = 500.0
 
-    // current decision level
+    /** current decision level */
     private var level: Int = 0
 
-    // Used in analyzeConflict() to simplify clauses by removing literals implied by their reasons
-    private val minimizeMarks = MutableList(numberOfVariables * 2) { 0 }
+    /** Used in analyzeConflict() to simplify clauses by removing literals implied by their reasons */
+    private val minimizeMarks = MutableList(numberOfLiterals) { 0 }
+    /** @see [minimizeMarks] */
     private var currentMinimizationMark = 0
 
-    /** Heuristics **/
+    // ---- Heuristics ----
 
-    // branching heuristic
+    /** The branching heuristic, used to choose the next decision variable */
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables, this)
 
-    // restart search from time to time
+    /** restart search from time to time */
     private val restarter = Restarter(this)
 
-    // add literal to the end of the trail (but don't propagate)
+    /**
+     * Adds a literal to the end of the [trail],
+     * assigns [VarValue.TRUE] to it and [VarValue.FALSE] to the negation,
+     * but does not propagate it yet
+     */
     private fun uncheckedEnqueue(lit: Lit, reason: Clause? = null) {
         setValue(lit, VarValue.TRUE)
         val v = variable(lit)
@@ -74,19 +85,16 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         trail.add(lit)
     }
 
-    /** Variable states **/
-    // odd literals for negative value, even for positive
+    // ---- Variable states ----
 
-    // get value of literal
     fun getValue(lit: Lit): VarValue {
         if (vars[variable(lit)].value == VarValue.UNDEFINED) return VarValue.UNDEFINED
         return if (lit % 2 == 1)
-                !vars[variable(lit)].value
-            else
-                vars[variable(lit)].value
+            !vars[variable(lit)].value
+        else
+            vars[variable(lit)].value
     }
 
-    // set value for literal
     private fun setValue(lit: Lit, value: VarValue) {
         if (lit % 2 == 1) {
             vars[variable(lit)].value = !value
@@ -95,7 +103,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
         }
     }
 
-    /** Interface **/
+    // ---- Public Interface ----
 
     constructor() : this(mutableListOf<Clause>())
 
@@ -104,8 +112,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     constructor(
         initialClauses: MutableList<Clause>,
         initialVarsNumber: Int = 0,
-        solverType: SolverType = SolverType.INCREMENTAL
-    ) : this(solverType) {
+    ) {
         reserveVars(initialVarsNumber)
         initialClauses.renumber().forEach { newClause(it) }
         polarity = MutableList(numberOfVariables + 1) { VarValue.UNDEFINED }
@@ -198,8 +205,6 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     private var assumptions: List<Int> = emptyList()
 
     fun solve(currentAssumptions: List<Int>): List<Int>? {
-        require(solverType == SolverType.INCREMENTAL)
-
         assumptions = Clause(currentAssumptions.toMutableList()).renumber()
         variableSelector.initAssumptions(assumptions)
         val result = solve()

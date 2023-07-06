@@ -5,7 +5,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.kosat.CDCL
 import org.kosat.Clause
-import org.kosat.SolverType
 import org.kosat.readCnfRequests
 import org.kosat.round
 import org.kosat.solveCnf
@@ -15,7 +14,6 @@ import java.nio.file.Paths
 import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
-import kotlin.streams.toList
 import kotlin.test.assertEquals
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -117,7 +115,7 @@ internal class DiamondTests {
 
         val first = readCnfRequests(fileInput).first()
 
-        val solver = CDCL(first.clauses as MutableList<Clause>, first.vars, SolverType.INCREMENTAL)
+        val solver = CDCL(first.clauses as MutableList<Clause>, first.vars)
 
         var res = "OK"
 
