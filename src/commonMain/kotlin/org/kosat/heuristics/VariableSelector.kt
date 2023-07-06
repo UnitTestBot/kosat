@@ -71,7 +71,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
         }
         // if there is undefined assumption pick it, other way pick best choice
         return assumptions.firstOrNull { solver.getValue(it) == LBool.UNDEFINED }
-                ?: getMaxActivityVariable(vars).positiveLit
+                ?: getMaxActivityVariable(vars).posLit
     }
 
     override fun backTrack(variable: Var) {
@@ -172,7 +172,7 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
             return Lit.UNDEF
         }
         // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { solver.getValue(it) == LBool.UNDEFINED } ?: getMaxActivityVariable(vars).positiveLit
+        return assumptions.firstOrNull { solver.getValue(it) == LBool.UNDEFINED } ?: getMaxActivityVariable(vars).posLit
     }
 
     override fun backTrack(variable: Var) {

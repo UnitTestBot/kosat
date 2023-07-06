@@ -52,7 +52,7 @@ value class Lit(val ord: Int) {
     /** Is this a negative literal (Negation of a variable)? */
     val isNeg get() = (ord and 1) == 1
 
-    /** Is the literal [Lit.UNDEF] or [Var.positiveLit]/[Var.negativeLit] of [Var.UNDEF] */
+    /** Is the literal [Lit.UNDEF] or [Var.posLit]/[Var.negLit] of [Var.UNDEF] */
     val isUndef get() = ord < 0
 }
 
@@ -75,9 +75,9 @@ value class Var(val ord: Int) {
     }
 
     /** A literal of that variable */
-    val positiveLit get() = Lit(ord shl 1)
+    val posLit get() = Lit(ord shl 1)
     /** A literal of negation of that variable */
-    val negativeLit get() = Lit((ord shl 1) or 1)
+    val negLit get() = Lit((ord shl 1) or 1)
 
     /** Is the variable [Var.UNDEF]? */
     val isUndef get() = ord < 0

@@ -177,8 +177,8 @@ class CDCL {
     private fun trailRemoveLast() {
         val lit = trail.removeLast()
         val v = lit.variable
-        polarity[v] = getValue(v.positiveLit)
-        setValue(v.positiveLit, LBool.UNDEFINED)
+        polarity[v] = getValue(v.posLit)
+        setValue(v.posLit, LBool.UNDEFINED)
         vars[v].reason = null
         vars[v].level = -1
         variableSelector.backTrack(v)
@@ -492,7 +492,7 @@ class CDCL {
 
         trail.last { seen[it.variable] }.let { lit ->
             val v = lit.variable
-            updateLemma(lemma, if (getValue(v.positiveLit) == LBool.TRUE) v.negativeLit else v.positiveLit)
+            updateLemma(lemma, if (getValue(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
 
             // Simplify clause by removing redundant literals which follow from their reasons
             currentMinimizationMark++
