@@ -242,6 +242,12 @@ class CDCL {
     }
 
     /**
+     * @return true, if all variables are assigned to
+     * a value, so the formula is satisfied.
+     */
+    private fun allAssignedAndSat() = vars.all { it.value != LBool.UNDEFINED }
+
+    /**
      * Used for phase saving heuristic. Memorizes the polarity of
      * the given variable when it was last assigned, but reset during backtracking.
      */
@@ -312,6 +318,8 @@ class CDCL {
 
         variableSelector.build(constraints)
 
+        preprocess()?.let { return it }
+
         // main loop
         while (true) {
             val conflictClause = propagate()
@@ -361,7 +369,7 @@ class CDCL {
                 require(qhead == trail.size)
 
                 // If (the problem is already) SAT, return the current assignment
-                if (trail.size == numberOfVariables) {
+                if (allAssignedAndSat()) {
                     val model = getModel()
                     reset()
                     // println("KoSat conflicts:   $numberOfConflicts")
@@ -405,6 +413,135 @@ class CDCL {
             }
         },
     )
+
+    // ---- Preprocessing ---- //
+
+    /**
+     * Preprocessing is ran before the main loop of the solver,
+     * allowing to spend some time simplifying the problem
+     * in exchange for a possibly faster solving time.
+     *
+     * @return if the solution is conclusive after preprocessing,
+     * return the model, otherwise return null
+     */
+    fun preprocess(): Model? {
+        require(level == 0)
+
+        // Don't bother with anything if there is already
+        // a level 0 conflict
+        propagate()?.let { return Model.UNSAT }
+
+        failedLiteralProbing()?.let { return it }
+
+        // Without this, we might let the solver propagate nothing
+        // and make a decision after all values are set.
+        if (allAssignedAndSat()) {
+            return getModel()
+        }
+
+        return null
+    }
+
+    /**
+     * Literal probing is only useful if the probe can lead
+     * lead to derivation of something by itself. We can
+     * generate list of possibly useful probes ahead of time.
+     *
+     * TODO: Right now, this implementation is very naive. To
+     *       If there is a cycle in binary implication graph,
+     *       we will generate a lot of useless probes that will
+     *       propagate in exactly the same way and possibly
+     *       produce a lot of duplicate/implied binary clauses.
+     *       This will be fixed with the implementation of
+     *       Equivalent Literal Substitution (ELS).
+     *
+     *  @return list of literals to try probing with
+     */
+    private fun generateProbes(): List<Lit> {
+        val probes = mutableSetOf<Lit>()
+
+        for (clause in constraints) {
+            // (A | B) <==> (-A -> B) <==> (-B -> A)
+            // Both -A and -B can be used as probes
+            if (clause.size == 2) {
+                val (a, b) = clause
+                if (getValue(a) == LBool.UNDEFINED) probes.add(a.neg)
+                if (getValue(b) == LBool.UNDEFINED) probes.add(b.neg)
+            }
+        }
+
+        println(probes.size)
+        return probes.toMutableList()
+    }
+
+    /**
+     * Try to propagate each probe and see if it leads to
+     * deduction of new binary clauses, or maybe even a
+     * conflict.
+     *
+     * Consider clauses (-1, 2), (-1, -2, 3), and a probe 1.
+     * By propagating 1, we can derive 2, which in turn
+     * allows us to derive 3. This means that we can add
+     * a new binary clause (-1, 3) to the problem. There are
+     * other mechanisms that can derive this clause, but
+     * probing is one of them.
+     */
+    private fun failedLiteralProbing(): Model? {
+        val probesToTry = generateProbes()
+
+        for (probe in probesToTry) {
+            // If we know that the probe is already true, just skip it.
+            if (getValue(probe) == LBool.TRUE) {
+                continue
+            }
+
+            level++
+            uncheckedEnqueue(probe)
+            val startOfProbeTrail = trail.size
+            val conflictClause = propagate()
+
+            if (conflictClause != null) {
+                // Assigning a value to a probe lead to a conflict
+                // immediately means that the probe must be false.
+                clearTrail(0)
+                level = 0
+                qhead = trail.size
+
+                if (getValue(probe) == LBool.TRUE) {
+                    return Model.UNSAT
+                }
+
+                uncheckedEnqueue(probe.neg)
+
+                // Can we learn more while we are at level 0?
+                propagate()?.let { return Model.UNSAT }
+            } else {
+                // Going through the trail and checking if there
+                // are any literals with non-binary reason clauses.
+                for (lit in trail.drop(startOfProbeTrail)) {
+                    val reason = vars[lit.variable].reason!!
+                    if (reason.size > 2) {
+                        // (probe -> lit) <==> (-probe | lit)
+                        val newBinaryClause = Clause(mutableListOf(probe.neg, lit))
+                        addClause(newBinaryClause)
+
+                        if (probe.neg in reason) {
+                            // the clause is subsumed by the discovered binary clause
+                            reason.deleted = true
+                        }
+                    }
+                }
+
+                clearTrail(0)
+                level = 0
+                qhead = trail.size
+            }
+        }
+
+        constraints.retainAll { !it.deleted }
+
+        return null
+    }
 
     // ---- Two watchers ---- //
 
