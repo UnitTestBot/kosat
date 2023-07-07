@@ -298,14 +298,17 @@ class CDCL {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
-        if (constraints.isEmpty())
+        if (constraints.isEmpty()) {
             return getModel()
+        }
 
-        if (constraints.any { it.isEmpty() })
+        if (constraints.any { it.isEmpty() }) {
             return Model.UNSAT
+        }
 
-        if (constraints.any { it.all { lit -> getValue(lit) == LBool.FALSE } })
+        if (constraints.any { it.all { lit -> getValue(lit) == LBool.FALSE } }) {
             return Model.UNSAT
+        }
 
         variableSelector.build(constraints)
 
@@ -394,12 +397,14 @@ class CDCL {
     }
 
     // return current assignment of variables
-    private fun getModel(): Model = Model(vars.map {
-        when (it.value) {
-            LBool.TRUE, LBool.UNDEFINED -> LBool.TRUE
-            LBool.FALSE -> LBool.FALSE
-        }
-    })
+    private fun getModel(): Model = Model(
+        vars.map {
+            when (it.value) {
+                LBool.TRUE, LBool.UNDEFINED -> LBool.TRUE
+                LBool.FALSE -> LBool.FALSE
+            }
+        },
+    )
 
     // ---- Two watchers ---- //
 
