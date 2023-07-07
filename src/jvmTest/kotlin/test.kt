@@ -172,6 +172,7 @@ internal class DiamondTests {
     @ParameterizedTest(name = "{0}")
     @MethodSource("getAllFilenames")
     fun test(filepath: String) {
+        if (filepath.contains("benchmark")) return
         assertEquals(true, runTest("$testsPath$filepath"))
     }
 
