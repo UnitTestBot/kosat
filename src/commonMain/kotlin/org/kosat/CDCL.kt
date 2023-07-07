@@ -299,7 +299,7 @@ class CDCL {
         var numberOfDecisions = 0
 
         if (constraints.isEmpty())
-            return Model(emptyList())
+            return getModel()
 
         if (constraints.any { it.isEmpty() })
             return Model.UNSAT
