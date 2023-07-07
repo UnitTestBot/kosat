@@ -6,6 +6,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.kosat.CDCL
 import org.kosat.DimacsLiteral
 import org.kosat.LBool
+import org.kosat.Model
 import org.kosat.get
 import org.kosat.readCnfRequests
 import org.kosat.round
@@ -65,18 +66,18 @@ internal class DiamondTests {
         }
     }
 
-    private fun checkKoSatSolution(ans: List<LBool>?, input: String, isSolution: Boolean): Boolean {
-        if (ans == null) return !isSolution // null ~ UNSAT
+    private fun checkKoSatSolution(ans: Model, input: String, isSolution: Boolean): Boolean {
+        val values = ans.values ?: return !isSolution
 
         val cnfRequest = readCnfRequests(input).first()
-        if (ans.size != cnfRequest.vars) return false
+        if (values.size != cnfRequest.vars) return false
 
         return cnfRequest.clauses.all { clause ->
             clause.toClause().any {
                 if (it.isPos) {
-                    ans[it.variable] == LBool.TRUE
+                    values[it.variable] == LBool.TRUE
                 } else {
-                    ans[it.variable] == LBool.FALSE
+                    values[it.variable] == LBool.FALSE
                 }
             }
         }

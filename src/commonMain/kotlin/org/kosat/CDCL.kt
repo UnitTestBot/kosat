@@ -10,7 +10,7 @@ import org.kosat.heuristics.VariableSelector
  * [emptyList] is request is tautology
  * assignments of literals otherwise
  */
-fun solveCnf(cnf: CnfRequest): List<LBool>? {
+fun solveCnf(cnf: CnfRequest): Model {
     val clauses = (cnf.clauses.map { it.toClause() }).toMutableList()
     return CDCL(clauses, cnf.vars).solve()
 }
@@ -257,18 +257,18 @@ class CDCL {
     /**
      * Solve the problem with the given assumptions.
      */
-    fun solve(currentAssumptions: List<Lit>): List<LBool>? {
+    fun solve(currentAssumptions: List<Lit>): Model {
         assumptions = currentAssumptions
         variableSelector.initAssumptions(assumptions)
         val result = solve()
-        if (result == null) {
+        if (result == Model.UNSAT) {
             assumptions = emptyList()
-            return null
+            return result
         }
         currentAssumptions.forEach { lit ->
-            if (result[lit.variable] != if (lit.isPos) LBool.TRUE else LBool.FALSE) {
+            if (result.values!![lit.variable] != if (lit.isPos) LBool.TRUE else LBool.FALSE) {
                 assumptions = emptyList()
-                return null
+                return Model.UNSAT
             }
         }
         assumptions = emptyList()
@@ -294,14 +294,18 @@ class CDCL {
 
     // ---- Solve ---- //
 
-    fun solve(): List<LBool>? {
+    fun solve(): Model {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
-        // extreme cases
-        if (constraints.isEmpty()) return getModel()
-        if (constraints.any { it.isEmpty() }) return null
-        if (constraints.any { it.all { lit -> getValue(lit) == LBool.FALSE } }) return null
+        if (constraints.isEmpty())
+            return Model(emptyList())
+
+        if (constraints.any { it.isEmpty() })
+            return Model.UNSAT
+
+        if (constraints.any { it.all { lit -> getValue(lit) == LBool.FALSE } })
+            return Model.UNSAT
 
         variableSelector.build(constraints)
 
@@ -316,7 +320,7 @@ class CDCL {
                 if (level == 0) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    return null
+                    return Model.UNSAT
                 }
 
                 // build new clause by conflict clause
@@ -370,7 +374,7 @@ class CDCL {
                 // in case there is assumption propagated to false
                 if (nextDecisionLiteral.isUndef) {
                     reset()
-                    return null
+                    return Model.UNSAT
                 }
 
                 // phase saving heuristic
@@ -390,12 +394,12 @@ class CDCL {
     }
 
     // return current assignment of variables
-    private fun getModel(): List<LBool> = vars.map {
+    private fun getModel(): Model = Model(vars.map {
         when (it.value) {
             LBool.TRUE, LBool.UNDEFINED -> LBool.TRUE
             LBool.FALSE -> LBool.FALSE
         }
-    }
+    })
 
     // ---- Two watchers ---- //
 
