@@ -9,13 +9,3 @@ fun Double.round(decimals: Int): Double {
     repeat(decimals) { multiplier *= 10 }
     return kotlin.math.round(this * multiplier) / multiplier
 }
-
-fun <T : Comparable<T>> MutableList<T>.sortAndFilterUnique() {
-    this.sort()
-    var uniquePrefixSize = 0
-    for (i in 1 until this.size) {
-        if (this[i] != this[uniquePrefixSize]) {
-            this[uniquePrefixSize++] = this[i]
-        }
-    }
-}
