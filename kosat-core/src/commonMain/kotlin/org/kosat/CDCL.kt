@@ -19,7 +19,7 @@ class CDCL {
     /**
      * Initial constraints and externally added clauses by [newClause].
      * Clauses of size 1 are never stored and instead are located at level 0
-     * on the trail.
+     * on the [trail].
      */
     val constraints = mutableListOf<Clause>()
 
@@ -44,18 +44,18 @@ class CDCL {
     val vars: MutableList<VarState> = mutableListOf()
 
     /**
-     * Trail of assignments, contains literals in the order they were assigned
+     * Trail of assignments, contains literals in the order they were assigned.
      */
     private val trail: MutableList<Lit> = mutableListOf()
 
     /**
-     * Index of first element in the trail which has not been propagated yet
+     * Index of first element in the [trail] which has not been propagated yet.
      */
     private var qhead = 0
 
     /**
      * Two-watched literals heuristic.
-     * `i`-th element of this list is set of clauses watched by variable `i`
+     * `i`-th element of this list is the set of clauses watched by variable `i`.
      */
     private val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
@@ -82,12 +82,12 @@ class CDCL {
     // ---- Heuristics ---- //
 
     /**
-     * The branching heuristic, used to choose the next decision variable
+     * The branching heuristic, used to choose the next decision variable.
      */
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables, this)
 
     /**
-     * The restart strategy, used to decide when to restart the search
+     * The restart strategy, used to decide when to restart the search.
      * @see [solve]
      */
     private val restarter = Restarter(this)
@@ -389,13 +389,18 @@ class CDCL {
         }
     }
 
+    /**
+     * Reset the solver to the state before the last [solve].
+     */
     fun reset() {
         level = 0
         clearTrail(0)
         qhead = trail.size
     }
 
-    // return current assignment of variables
+    /**
+     * Return the current assignment of variables.
+     */
     private fun getModel(): Model = Model(
         vars.map {
             when (it.value) {
@@ -407,7 +412,10 @@ class CDCL {
 
     // ---- Two watchers ---- //
 
-    // add watchers to new clause. Run in addConstraint in addLearnt
+    /**
+     * Add watchers to new clause. Expected to be run
+     * in [addClause] and in [addLearnt]
+     */
     private fun addWatchers(clause: Clause) {
         require(clause.size > 1)
         watchers[clause[0]].add(clause)
@@ -416,7 +424,14 @@ class CDCL {
 
     // ---- CDCL functions ---- //
 
-    // add new constraint and watchers to it, executes only in newClause
+    /**
+     * Add new constraint and watchers to it.
+     *
+     * This function assumes that the clause size is at least 2,
+     * and it is expected to be run by the solver internally to
+     * add constraints to the solver. This will be moved to the
+     * proper clause database in the future.
+     */
     private fun addClause(clause: Clause) {
         require(clause.size != 1)
         constraints.add(clause)
@@ -425,7 +440,9 @@ class CDCL {
         }
     }
 
-    // add clause and add watchers to it
+    /**
+     * Add new learnt constraint and watchers to it.
+     */
     private fun addLearnt(clause: Clause) {
         require(clause.size != 1)
         learnts.add(clause)
@@ -434,7 +451,20 @@ class CDCL {
         }
     }
 
-    // return conflict clause, or null if there is no conflict clause
+    /**
+     * Propagate all the literals in the [trail] that are
+     * not yet propagated. If a conflict is found, return
+     * the clause that caused it.
+     *
+     * This function takes every literal on the trail that
+     * has not been propagated (that is, all literals for
+     * which [qhead] <= index < [trail].size) and applies
+     * the unit propagation rule to it, possibly leading
+     * to deducing new literals. The new literals are added
+     * to the trail, and the process is repeated until no
+     * more literals can be propagated, or a conflict
+     * is found.
+     */
     private fun propagate(): Clause? {
         var conflict: Clause? = null
         while (qhead < trail.size) {
@@ -500,8 +530,11 @@ class CDCL {
         return conflict
     }
 
-    // change level, undefine variables, clear units (if clause.size == 1 we backjump to 0 level)
-    // Pre-conditions: second element in clause should have first max level except current one
+    /**
+     * Given a clause, goes back to the decision level
+     * of the second literal in the clause, and clears
+     * the [trail] starting from that level.
+     */
     private fun backjump(clause: Clause) {
         level = if (clause.size > 1) vars[clause[1].variable].level else 0
         clearTrail(level)
@@ -515,6 +548,10 @@ class CDCL {
      */
     private val seen = MutableList(numberOfVariables) { false }
 
+    /**
+     * Analyzes the conflict clause returned by [propagate]
+     * and returns a new clause that can be learnt.
+     */
     private fun analyzeConflict(conflict: Clause): Clause {
         var numberOfActiveVariables = 0
         val lemma = mutableSetOf<Lit>()
