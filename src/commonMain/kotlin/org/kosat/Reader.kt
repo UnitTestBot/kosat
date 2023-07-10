@@ -1,6 +1,6 @@
 package org.kosat
 
-class CnfRequest(val vars: Int, val clauses: List<Clause>)
+class CnfRequest(val vars: Int, val clauses: List<DimacsClause>)
 
 /**
  * Reads [CnfRequest]'s assuming [s] is formatted according [Simplified DIMACS](http://www.satcompetition.org/2004/format-solvers2004.html)
@@ -66,7 +66,7 @@ fun readCnfRequests(dimacs: String) = sequence {
             }
         }
 
-        yield(CnfRequest(vars, clauses.map { Clause(it) }))
+        yield(CnfRequest(vars, clauses.map { DimacsClause(it.map(::DimacsLiteral)) }))
     }
 }
 
@@ -75,7 +75,7 @@ fun processCnfRequests(requests: Sequence<CnfRequest>) = buildString {
     for (cnf in requests) {
         appendLine("v Start processing CNF request with ${cnf.vars} variables and ${cnf.clauses.size} clauses")
 
-        val model: List<Int>? = solveCnf(cnf)
+        val model = solveCnf(cnf).values
 
         if (model == null) {
             appendLine("s UNSATISFIABLE")
@@ -86,7 +86,9 @@ fun processCnfRequests(requests: Sequence<CnfRequest>) = buildString {
         if (model.isEmpty())
             appendLine("c Done: formula is tautology. Any solution satisfies it.")
         else {
-            appendLine("v " + model.joinToString(" "))
+            appendLine("v " + model.mapIndexed { index, value ->
+                if (value == LBool.TRUE) index + 1 else -(index + 1)
+            }.joinToString(" "))
             appendLine("c Done")
         }
     }
