@@ -1,11 +1,10 @@
 package org.kosat.heuristics
 
-import org.kosat.CDCL
+import org.kosat.Assignment
 import org.kosat.Clause
 import org.kosat.LBool
 import org.kosat.Lit
 import org.kosat.Var
-import org.kosat.VarState
 import org.kosat.get
 import org.kosat.set
 
@@ -17,13 +16,13 @@ abstract class VariableSelector {
     }
 
     abstract fun build(clauses: List<Clause>)
-    abstract fun nextDecision(vars: List<VarState>, level: Int): Lit
+    abstract fun nextDecision(assignment: Assignment): Lit
     abstract fun addVariable()
     abstract fun update(lemma: Clause)
     abstract fun backTrack(variable: Var)
 }
 
-class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : VariableSelector() {
+class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
     private val multiplier = 1.1
     private var numberOfConflicts = 0
     private var activityInc = 1.0
@@ -36,7 +35,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
     private var activityPQ = PriorityQueue(activity)
 
     override fun update(lemma: Clause) {
-        lemma.forEach { lit ->
+        lemma.lits.forEach { lit ->
             val v = lit.variable
             activity[v] += activityInc
             if (activityPQ.index[v] != -1) {
@@ -64,7 +63,7 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
             activity.add(0.0)
         }
         clauses.forEach { clause ->
-            clause.forEach { lit ->
+            clause.lits.forEach { lit ->
                 activity[lit.variable] += activityInc
             }
         }
@@ -72,42 +71,44 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
     }
 
     // returns the literal as the assumptions give information about the value of the variable
-    override fun nextDecision(vars: List<VarState>, level: Int): Lit {
-        if (assumptions.any { solver.getValue(it) == LBool.FALSE }) {
+    override fun nextDecision(assignment: Assignment): Lit {
+        if (assumptions.any { assignment.value(it) == LBool.FALSE }) {
             return Lit.UNDEF
         }
         // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { solver.getValue(it) == LBool.UNDEFINED }
-            ?: getMaxActivityVariable(vars).posLit
+        return assumptions.firstOrNull { assignment.value(it) == LBool.UNDEF }
+            ?: getMaxActivityVariable(assignment).posLit
     }
 
     override fun backTrack(variable: Var) {
         if (activityPQ.index[variable] == -1) {
-            activityPQ.insert(variable.ord)
+            activityPQ.insert(variable.index)
         }
     }
 
     // Looks for index of undefined variable with max activity
-    private fun getMaxActivityVariable(vars: List<VarState>): Var {
+    private fun getMaxActivityVariable(assignment: Assignment): Var {
         while (true) {
             require(activityPQ.size > 0)
-            val v = activityPQ.pop()
-            if (vars[v].value == LBool.UNDEFINED) {
-                return Var(v)
+            val v = Var(activityPQ.pop())
+            if (assignment.value(v) == LBool.UNDEF) {
+                return v
             }
         }
     }
 }
 
-class FixedOrder(val solver: CDCL) : VariableSelector() {
+class FixedOrder : VariableSelector() {
     override fun build(clauses: List<Clause>) {
     }
 
-    override fun nextDecision(vars: List<VarState>, level: Int): Lit {
-        for (i in 1..vars.lastIndex) {
-            if (vars[i].value == LBool.UNDEFINED) return Lit(i)
+    override fun nextDecision(assignment: Assignment): Lit {
+        val i = assignment.value.indexOfFirst { it == LBool.UNDEF }
+        return if (i == -1) {
+            Lit.UNDEF
+        } else {
+            Lit(i shl 1)
         }
-        return Lit.UNDEF
     }
 
     override fun addVariable() {
@@ -120,7 +121,7 @@ class FixedOrder(val solver: CDCL) : VariableSelector() {
     }
 }
 
-class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solver: CDCL) : VariableSelector() {
+class VsidsWithoutQueue(private var numberOfVariables: Int = 0) : VariableSelector() {
     private val decay = 50
     private val multiplier = 2.0
     private val activityLimit = 1e100
@@ -132,7 +133,7 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
     private val activity = mutableListOf<Double>()
 
     override fun update(lemma: Clause) {
-        lemma.forEach { lit ->
+        lemma.lits.forEach { lit ->
             val v = lit.variable
             activity[v] += activityInc
         }
@@ -161,29 +162,30 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0, private val solv
             activity.add(0.0)
         }
         clauses.forEach { clause ->
-            clause.forEach { lit ->
+            clause.lits.forEach { lit ->
                 activity[lit.variable] += activityInc
             }
         }
     }
 
-    override fun nextDecision(vars: List<VarState>, level: Int): Lit {
-        if (assumptions.any { solver.getValue(it) == LBool.FALSE }) {
+    override fun nextDecision(assignment: Assignment): Lit {
+        if (assumptions.any { assignment.value(it) == LBool.FALSE }) {
             return Lit.UNDEF
         }
         // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { solver.getValue(it) == LBool.UNDEFINED } ?: getMaxActivityVariable(vars).posLit
+        return assumptions.firstOrNull { assignment.value(it) == LBool.UNDEF }
+            ?: getMaxActivityVariable(assignment).posLit
     }
 
     override fun backTrack(variable: Var) {
     }
 
     // Looks for index of undefined variable with max activity
-    private fun getMaxActivityVariable(vars: List<VarState>): Var {
+    private fun getMaxActivityVariable(assignment: Assignment): Var {
         var v = Var.UNDEF
         var max = -1.0
         for (i in 0 until numberOfVariables) {
-            if (vars[i].value == LBool.UNDEFINED && max < activity[i]) {
+            if (assignment.value(Var(i)) == LBool.UNDEF && max < activity[i]) {
                 v = Var(i)
                 max = activity[i]
             }

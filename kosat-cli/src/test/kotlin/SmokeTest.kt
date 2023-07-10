@@ -9,7 +9,7 @@ internal class SmokeTest {
     @Test
     fun `test one variable`() {
         val solver = CDCL()
-        solver.addVariable()
+        solver.newVariable()
         val model = solver.solve()
         assertNotNull(model.values)
         assertTrue(model.values!!.isNotEmpty())

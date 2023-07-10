@@ -5,7 +5,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.kosat.CDCL
 import org.kosat.DimacsLiteral
-import org.kosat.LBool
 import org.kosat.Model
 import org.kosat.get
 import org.kosat.readCnfRequests
@@ -76,12 +75,8 @@ internal class DiamondTests {
         if (values.size != cnfRequest.vars) return false
 
         return cnfRequest.clauses.all { clause ->
-            clause.toClause().any {
-                if (it.isPos) {
-                    values[it.variable] == LBool.TRUE
-                } else {
-                    values[it.variable] == LBool.FALSE
-                }
+            clause.toClause().lits.any {
+                values[it.variable] xor it.isNeg
             }
         }
     }
