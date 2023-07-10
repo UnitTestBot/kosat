@@ -217,27 +217,24 @@ class CDCL {
     // ---- Trail ---- //
 
     /**
-     * Delete last variable from the trail, reset its value to
-     * [LBool.UNDEFINED], memorize its polarity
+     * Remove variables from the trail until the given layer is reached,
+     * and reset the decision level to that layer.
+     *
+     * @param untilLevel the layer to stop at. Variables on this layer will **not** be removed.
      */
-    private fun trailRemoveLast() {
-        val lit = trail.removeLast()
-        val v = lit.variable
-        polarity[v] = getValue(v.posLit)
-        setValue(v.posLit, LBool.UNDEFINED)
-        vars[v].reason = null
-        vars[v].level = -1
-        variableSelector.backTrack(v)
-    }
-
-    /**
-     * Remove variables from the trail until the given layer is reached.
-     * @param until the layer to stop at. Variables on this layer will **not** be removed.
-     */
-    private fun clearTrail(until: Int) {
-        while (trail.isNotEmpty() && vars[trail.last().variable].level > until) {
-            trailRemoveLast()
+    private fun cancelUntil(untilLevel: Int) {
+        while (trail.isNotEmpty() && vars[trail.last().variable].level > untilLevel) {
+            val lit = trail.removeLast()
+            val v = lit.variable
+            polarity[v] = getValue(v.posLit)
+            setValue(v.posLit, LBool.UNDEFINED)
+            vars[v].reason = null
+            vars[v].level = -1
+            variableSelector.backTrack(v)
         }
+
+        qhead = trail.size
+        level = untilLevel
     }
 
     /**
@@ -332,10 +329,7 @@ class CDCL {
                 lemma.lbd = lemma.distinctBy { vars[it.variable].level }.size
 
                 // return to decision level where lemma would be propagated
-                backjump(lemma)
-
-                // after backjump there is only one clause to propagate
-                qhead = trail.size
+                cancelUntil(if (lemma.size > 1) vars[lemma[1].variable].level else 0)
 
                 // if lemma.size == 1 we just add it to 0 decision level of trail
                 if (lemma.size == 1) {
@@ -393,9 +387,7 @@ class CDCL {
      * Reset the solver to the state before the last [solve].
      */
     fun reset() {
-        level = 0
-        clearTrail(0)
-        qhead = trail.size
+        cancelUntil(0)
     }
 
     /**
@@ -528,16 +520,6 @@ class CDCL {
             if (conflict != null) break
         }
         return conflict
-    }
-
-    /**
-     * Given a clause, goes back to the decision level
-     * of the second literal in the clause, and clears
-     * the [trail] starting from that level.
-     */
-    private fun backjump(clause: Clause) {
-        level = if (clause.size > 1) vars[clause[1].variable].level else 0
-        clearTrail(level)
     }
 
     /**
