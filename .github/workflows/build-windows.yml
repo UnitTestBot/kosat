@@ -32,7 +32,7 @@ jobs:
 
       - name: Setup dependent native libraries
         run: |
-          ./gradlew downloadLibs
+          ./gradlew :downloadLibs
           cp libs/*.dll C:/Windows/
           ldd kosat-cli/src/test/resources/lib/win64/*.dll
 
