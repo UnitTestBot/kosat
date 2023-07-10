@@ -30,15 +30,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Check dependencies
+      - name: Setup dependent native libraries
         run: |
-          ldd src/jvmMain/resources/lib/win64/*.dll
+          ./gradlew :downloadLibs
+          cp libs/*.dll C:/Windows/
+          ldd kosat-cli/src/test/resources/lib/win64/*.dll
 
       - name: Build project using Gradle
-        run: ./gradlew build -x jvmTest -x jsBrowserTest --stacktrace --scan
+        run: ./gradlew build -x test -x jsBrowserTest --stacktrace --scan
 
       - name: Run tests
-        run: ./gradlew cleanTest jvmTest --no-build-cache --stacktrace
+        run: ./gradlew cleanTest test --no-build-cache --stacktrace
 
       # Note: on Windows, you must stop the Gradle daemon at the end of CI process in order to release the lock on Gradle caches. Otherwise, cache-upload post-action step will fail, and your build cache won't be updated.
       - name: Stop Gradle daemon

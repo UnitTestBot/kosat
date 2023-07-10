@@ -1,5 +1,12 @@
-/.gradle/
-/.idea/
-/build/
+build/
+.gradle/
+.idea/
 /kotlin-js-store/
-/libs/*
+/libs/
+
+# Personal trashbox:
+/_stuff/
+
+*.dll
+*.so
+*.cnf
