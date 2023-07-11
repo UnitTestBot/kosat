@@ -5,7 +5,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.kosat.CDCL
 import org.kosat.DimacsLiteral
-import org.kosat.LBool
 import org.kosat.SolveResult
 import org.kosat.get
 import org.kosat.readCnfRequests
