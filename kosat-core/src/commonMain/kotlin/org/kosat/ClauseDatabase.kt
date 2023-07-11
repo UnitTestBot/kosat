@@ -3,8 +3,9 @@ package org.kosat
 class ClauseDatabase {
     val clauses: MutableList<Clause> = mutableListOf()
     val learnts: MutableList<Clause> = mutableListOf()
-    private val clause_decay: Double = 0.999
-    private var clause_inc: Double = 1.0
+
+    private val clauseDecay: Double = 0.999
+    private var clauseInc: Double = 1.0
 
     fun addClause(clause: Clause) {
         if (clause.learnt) {
@@ -15,19 +16,19 @@ class ClauseDatabase {
     }
 
     fun clauseDecayActivity() {
-        clause_inc *= 1.0 / clause_decay
+        clauseInc *= 1.0 / clauseDecay
     }
 
     fun clauseBumpActivity(clause: Clause) {
         if (!clause.learnt) return
 
         // Bump clause activity:
-        clause.activity += clause_inc
+        clause.activity += clauseInc
 
         // Rescale:
         if (clause.activity > 1e20) {
             // Decrease the increment value:
-            clause_inc *= 1e-20
+            clauseInc *= 1e-20
 
             // Decrease all activities:
             for (learnt in learnts) {
