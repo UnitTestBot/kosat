@@ -101,17 +101,8 @@ operator fun <T> MutableList<T>.set(variable: Var, value: T) {
 }
 
 /**
- * Solution to the SAT problem, returned by the solver.
- *
- * @param values - list of values of variables in the
- * solution, `null` if the problem is unsatisfiable,
- * empty list if the problem is a tautology.
- *
- * TODO: the tautology case should probably be reworked.
+ * The result of a solver run.
  */
-data class Model(val values: List<LBool>?) {
-    companion object {
-        val UNSAT = Model(null)
-        val TAUTOLOGY = Model(emptyList())
-    }
+enum class SolveResult {
+    UNKNOWN, SAT, UNSAT
 }
