@@ -235,7 +235,7 @@ class CDCL {
      *
      * @param untilLevel the layer to stop at. Variables on this layer will **not** be removed.
      */
-    private fun cancelUntil(untilLevel: Int) {
+    fun cancelUntil(untilLevel: Int) {
         while (trail.isNotEmpty() && vars[trail.last().variable].level > untilLevel) {
             val lit = trail.removeLast()
             val v = lit.variable

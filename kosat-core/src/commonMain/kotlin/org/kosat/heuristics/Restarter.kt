@@ -30,7 +30,7 @@ class Restarter(private val solver: CDCL) {
 
     fun restart() {
         restartNumber = lubyMultiplierConstant * luby(lubyPosition++)
-        solver.reset()
+        solver.cancelUntil(0)
     }
 
     fun update() {
