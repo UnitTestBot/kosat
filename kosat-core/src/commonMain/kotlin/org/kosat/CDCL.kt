@@ -103,7 +103,7 @@ class CDCL {
     /**
      * Allocate a new variable in the solver.
      *
-     * The [addClause] technically adds variables automatically,
+     * The [newClause] technically adds variables automatically,
      * but sometimes not all variables have to be mentioned in the clauses.
      */
     fun newVariable(): Int {
@@ -410,13 +410,13 @@ class CDCL {
     }
 
     /**
-     * Propagate all the literals in the [trail] that are
+     * Propagate all the literals in the trail that are
      * not yet propagated. If a conflict is found, return
      * the clause that caused it.
      *
      * This function takes every literal on the trail that
      * has not been propagated (that is, all literals for
-     * which [qhead] <= index < [trail].size) and applies
+     * which `qhead <= index < trail.size`) and applies
      * the unit propagation rule to it, possibly leading
      * to deducing new literals. The new literals are added
      * to the trail, and the process is repeated until no
