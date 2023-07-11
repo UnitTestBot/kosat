@@ -1,6 +1,7 @@
 package org.kosat
 
 import kotlin.jvm.JvmInline
+import kotlin.math.absoluteValue
 
 /**
  * A boolean value in the solver
@@ -39,7 +40,11 @@ enum class LBool {
 @JvmInline
 value class Lit(val inner: Int) {
     companion object {
-        val UNDEF: Lit = Lit(-1)
+        val UNDEF = Lit(-1)
+
+        fun fromExternal(lit: Int): Lit {
+            return Lit((lit.absoluteValue - 1 shl 1) + if (lit < 0) 1 else 0)
+        }
     }
 
     /** A negation of this literal */
@@ -95,17 +100,8 @@ operator fun <T> MutableList<T>.set(variable: Var, value: T) {
 }
 
 /**
- * Solution to the SAT problem, returned by the solver.
- *
- * @param values - list of values of variables in the
- * solution, `null` if the problem is unsatisfiable,
- * empty list if the problem is a tautology.
- *
- * TODO: the tautology case should probably be reworked.
+ * The result of a solver run.
  */
-data class Model(val values: List<Boolean>?) {
-    companion object {
-        val UNSAT = Model(null)
-        val TAUTOLOGY = Model(emptyList())
-    }
+enum class SolveResult {
+    UNKNOWN, SAT, UNSAT
 }

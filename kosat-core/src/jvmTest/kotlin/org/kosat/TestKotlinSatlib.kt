@@ -1,3 +1,5 @@
+package org.kosat
+
 import com.github.lipen.satlib.op.exactlyOne
 import com.github.lipen.satlib.solver.MiniSatSolver
 import com.github.lipen.satlib.solver.solve

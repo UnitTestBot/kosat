@@ -1,6 +1,7 @@
 import org.kosat.CDCL
+import org.kosat.SolveResult
 import kotlin.test.Test
-import kotlin.test.assertNotNull
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 internal class SmokeTest {
@@ -8,8 +9,8 @@ internal class SmokeTest {
     fun testOneVariable() {
         val solver = CDCL()
         solver.newVariable()
-        val model = solver.solve()
-        assertNotNull(model.values)
-        assertTrue(model.values!!.isNotEmpty())
+        val result = solver.solve()
+        assertEquals(SolveResult.SAT, result)
+        assertTrue(solver.getModel().isNotEmpty())
     }
 }

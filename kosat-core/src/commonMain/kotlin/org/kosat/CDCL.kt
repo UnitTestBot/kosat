@@ -1,18 +1,20 @@
 package org.kosat
 
-import org.kosat.heuristics.Restarter
-import org.kosat.heuristics.VSIDS
-import org.kosat.heuristics.VariableSelector
-
 /**
  * Solves [cnf] and returns
  * `null` if request unsatisfiable
  * [emptyList] is request is tautology
  * assignments of literals otherwise
  */
-fun solveCnf(cnf: CnfRequest): Model {
+fun solveCnf(cnf: CnfRequest): List<Boolean>? {
     val clauses = (cnf.clauses.map { it.toClause() }).toMutableList()
-    return CDCL(clauses, cnf.vars).solve()
+    val solver = CDCL(clauses, cnf.vars)
+    val result = solver.solve()
+    return if (result == SolveResult.SAT) {
+        solver.getModel()
+    } else {
+        null
+    }
 }
 
 class CDCL {
@@ -27,8 +29,15 @@ class CDCL {
     private val assignment: Assignment = Assignment()
 
     /**
+     * Can solver perform the search? This becomes false if given constraints
+     * cause unsatisfiability in a trivial way (e.g. empty clause, conflicting
+     * unit clauses) and whether the solver can continue the search.
+     */
+    private var ok = true
+
+    /**
      * Two-watched literals heuristic.
-     * `i`-th element of this list is set of clauses watched by variable `i`
+     * `i`-th element of this list is the set of clauses watched by variable `i`.
      */
     private val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
@@ -56,12 +65,12 @@ class CDCL {
     // ---- Heuristics ---- //
 
     /**
-     * The branching heuristic, used to choose the next decision variable
+     * The branching heuristic, used to choose the next decision variable.
      */
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
 
     /**
-     * The restart strategy, used to decide when to restart the search
+     * The restart strategy, used to decide when to restart the search.
      * @see [solve]
      */
     private val restarter = Restarter(this)
@@ -195,18 +204,23 @@ class CDCL {
     /**
      * Solve the problem with the given assumptions.
      */
-    fun solve(currentAssumptions: List<Lit>): Model {
+    fun solve(currentAssumptions: List<Lit>): SolveResult {
         assumptions = currentAssumptions
         variableSelector.initAssumptions(assumptions)
+
         val result = solve()
-        if (result == Model.UNSAT) {
+
+        if (result == SolveResult.UNSAT) {
             assumptions = emptyList()
             return result
         }
+
+        val model = getModel()
+
         currentAssumptions.forEach { lit ->
-            if (result.values!![lit.variable] != lit.isPos) {
+            if (model[lit.variable] != lit.isPos) {
                 assumptions = emptyList()
-                return Model.UNSAT
+                return SolveResult.UNSAT
             }
         }
         assumptions = emptyList()
@@ -232,21 +246,28 @@ class CDCL {
 
     // ---- Solve ---- //
 
-    fun solve(): Model {
+    fun solve(): SolveResult {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
+        if (!ok) {
+            return SolveResult.UNSAT
+        }
+
         if (db.clauses.isEmpty()) {
-            return getModel()
+            return SolveResult.SAT
         }
 
         if (db.clauses.any { clause -> clause.lits.isEmpty() }) {
-            return Model.UNSAT
+            return SolveResult.UNSAT
         }
 
         if (db.clauses.any { clause -> clause.lits.all { value(it) == LBool.FALSE } }) {
-            return Model.UNSAT
+            return SolveResult.UNSAT
         }
+
+        backtrack(0)
+        cachedModel = null
 
         variableSelector.build(db.clauses)
 
@@ -261,7 +282,7 @@ class CDCL {
                 if (assignment.decisionLevel == 0) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    return Model.UNSAT
+                    return SolveResult.UNSAT
                 }
 
                 // build new clause by conflict clause
@@ -273,10 +294,6 @@ class CDCL {
                 // return to decision level where lemma would be propagated
                 val level = if (lemma.size > 1) assignment.level(lemma[1].variable) else 0
                 backtrack(level)
-
-                // after backjump there is only one clause to propagate
-                // assignment.qhead = assignment. trail.size
-
                 // if lemma.size == 1 we just add it to 0 decision level of trail
                 if (lemma.size == 1) {
                     uncheckedEnqueue(lemma[0], null)
@@ -301,11 +318,9 @@ class CDCL {
 
                 // If (the problem is already) SAT, return the current assignment
                 if (assignment.trail.size == numberOfVariables) {
-                    val model = getModel()
-                    reset()
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    return model
+                    return SolveResult.SAT
                 }
 
                 // try to guess variable
@@ -315,8 +330,7 @@ class CDCL {
 
                 // in case there is assumption propagated to false
                 if (nextDecisionLiteral.isUndef) {
-                    reset()
-                    return Model.UNSAT
+                    return SolveResult.UNSAT
                 }
 
                 // phase saving heuristic
@@ -329,23 +343,36 @@ class CDCL {
         }
     }
 
-    fun reset() {
-        backtrack(0)
-    }
+    /**
+     * Since returning the model is a potentially expensive operation, we cache
+     * the result of the first call to [getModel] and return the cached value
+     * on subsequent calls. This is reset in [solve].
+     */
+    private var cachedModel: List<Boolean>? = null
 
-    // return current assignment of variables
-    private fun getModel(): Model = Model(
-        assignment.value.map {
+    /**
+     * Return the assignment of variables. This function is meant to be used
+     * when the solver returns [SolveResult.SAT] after a call to [solve].
+     */
+    fun getModel(): List<Boolean> {
+        if (cachedModel != null) return cachedModel!!
+
+        cachedModel = assignment.value.map {
             when (it) {
                 LBool.TRUE, LBool.UNDEF -> true
                 LBool.FALSE -> false
             }
-        },
-    )
+        }
+
+        return cachedModel!!
+    }
 
     // ---- Two watchers ---- //
 
-    // add watchers to new clause. Run in addConstraint in addLearnt
+    /**
+     * Add watchers to new clause. Expected to be run
+     * in [addClause] and in [addLearnt]
+     */
     private fun addWatchers(clause: Clause) {
         require(clause.size > 1)
         watchers[clause[0]].add(clause)
@@ -354,16 +381,26 @@ class CDCL {
 
     // ---- CDCL functions ---- //
 
-    // add new constraint and watchers to it, executes only in newClause
+    /**
+     * Add new clause and watchers to it.
+     *
+     * This function assumes that the clause size is at least 2,
+     * and it is expected to be run by the solver internally to
+     * add clauses to the solver. This will be moved to the
+     * proper clause database in the future.
+     */
     private fun addClause(clause: Clause) {
-        require(clause.size != 1)
+        if (clause.lits.isEmpty()) ok = false
+        if (!ok) return
+
+        require(clause.size > 1)
         db.clauses.add(clause)
-        if (clause.lits.isNotEmpty()) {
-            addWatchers(clause)
-        }
+        addWatchers(clause)
     }
 
-    // add clause and add watchers to it
+    /**
+     * Add new learnt clause and watchers to it.
+     */
     private fun addLearnt(clause: Clause) {
         require(clause.size != 1)
         db.learnts.add(clause)
@@ -372,11 +409,26 @@ class CDCL {
         }
     }
 
-    // return conflict clause, or null if there is no conflict clause
+    /**
+     * Propagate all the literals in the [trail] that are
+     * not yet propagated. If a conflict is found, return
+     * the clause that caused it.
+     *
+     * This function takes every literal on the trail that
+     * has not been propagated (that is, all literals for
+     * which [qhead] <= index < [trail].size) and applies
+     * the unit propagation rule to it, possibly leading
+     * to deducing new literals. The new literals are added
+     * to the trail, and the process is repeated until no
+     * more literals can be propagated, or a conflict
+     * is found.
+     */
     private fun propagate(): Clause? {
         var conflict: Clause? = null
         while (assignment.qhead < assignment.trail.size) {
             val lit = assignment.dequeue()!!
+
+            check(value(lit) == LBool.TRUE)
 
             if (value(lit) == LBool.FALSE) {
                 return assignment.reason(lit.variable)
@@ -438,14 +490,15 @@ class CDCL {
         return conflict
     }
 
+    private val seen = MutableList(numberOfVariables) { false }
+
     /**
-     * Analyze conflict and return new clause
+     * Analyzes the conflict clause returned by [propagate]
+     * and returns a new clause that can be learnt.
      * Post-conditions:
      *      - first element in clause has max (current) propagate level
      *      - second element in clause has second max propagate level
      */
-    private val seen = MutableList(numberOfVariables) { false }
-
     private fun analyzeConflict(conflict: Clause): Clause {
         var numberOfActiveVariables = 0
         val lemma = mutableSetOf<Lit>()
