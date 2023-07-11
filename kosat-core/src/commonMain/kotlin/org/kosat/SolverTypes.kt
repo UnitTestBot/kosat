@@ -1,6 +1,7 @@
 package org.kosat
 
 import kotlin.jvm.JvmInline
+import kotlin.math.absoluteValue
 
 /**
  * A boolean value in the solver
@@ -41,6 +42,10 @@ data class VarState(
 value class Lit(val ord: Int) {
     companion object {
         val UNDEF = Lit(-1)
+
+        fun fromExternal(lit: Int): Lit {
+            return Lit((lit.absoluteValue - 1 shl 1) + if (lit < 0) 1 else 0)
+        }
     }
 
     /** A negation of this literal */

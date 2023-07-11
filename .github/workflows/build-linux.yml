@@ -31,7 +31,7 @@ jobs:
 
       - name: Check dependencies
         run: |
-          ldd kosat-cli/src/test/resources/lib/linux64/*.so
+          ldd kosat-core/src/jvmTest/resources/lib/linux64/*.so
 
       - name: Build project using Gradle
         run: ./gradlew build -x test -x jsBrowserTest --stacktrace --scan

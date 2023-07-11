@@ -1,15 +1,10 @@
+package org.kosat
+
 import com.github.lipen.satlib.solver.MiniSatSolver
 import korlibs.time.measureTimeWithResult
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import org.kosat.CDCL
-import org.kosat.DimacsLiteral
-import org.kosat.SolveResult
-import org.kosat.get
-import org.kosat.readCnfRequests
-import org.kosat.round
-import org.kosat.solveCnf
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -179,7 +174,7 @@ internal class DiamondTests {
         return res != "WA"
     }
 
-    private val testsPath = "src/test/resources"
+    private val testsPath = "src/jvmTest/resources"
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("getAllFilenames")

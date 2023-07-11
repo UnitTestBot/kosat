@@ -34,7 +34,7 @@ jobs:
         run: |
           ./gradlew :downloadLibs
           cp libs/*.dll C:/Windows/
-          ldd kosat-cli/src/test/resources/lib/win64/*.dll
+          ldd kosat-core/src/jvmTest/resources/lib/win64/*.dll
 
       - name: Build project using Gradle
         run: ./gradlew build -x test -x jsBrowserTest --stacktrace --scan

@@ -52,7 +52,7 @@ val osArch: String = run {
 tasks.register("downloadLibs") {
     doLast {
         val urlTemplate = "https://github.com/Lipen/kotlin-satlib/releases/download/${Versions.kotlin_satlib}/%s"
-        val libResDir = projectDir.resolve("kosat-cli/src/test/resources/lib/$osArch")
+        val libResDir = projectDir.resolve("kosat-core/src/jvmTest/resources/lib/$osArch")
 
         fun ensureDirExists(dir: File) {
             if (!dir.exists()) {
