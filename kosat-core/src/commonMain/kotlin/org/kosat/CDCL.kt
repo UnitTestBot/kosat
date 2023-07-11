@@ -325,6 +325,9 @@ class CDCL {
             return SolveResult.UNSAT
         }
 
+        cancelUntil(0)
+        cachedModel = null
+
         variableSelector.build(clauses)
 
         // main loop
@@ -401,19 +404,9 @@ class CDCL {
     }
 
     /**
-     * Undo all the decisions made until the last call to [solve]. Calling this
-     * function before every subsequent solve is a user responsibility.
-     */
-    fun reset() {
-        cancelUntil(0)
-        cachedModel = null
-    }
-
-    /**
      * Since returning the model is a potentially expensive operation, we cache
      * the result of the first call to [getModel] and return the cached value
-     * on subsequent calls. This must be reset by calling [reset] before every
-     * subsequent call to [solve].
+     * on subsequent calls. This is reset in [solve].
      */
     private var cachedModel: List<Boolean>? = null
 
