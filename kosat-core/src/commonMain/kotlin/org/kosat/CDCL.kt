@@ -38,6 +38,13 @@ class CDCL {
     val learnts = mutableListOf<Clause>()
 
     /**
+     * Can solver perform the search? This becomes false if given constraints
+     * cause unsatisfiability in a trivial way (e.g. empty clause, conflicting
+     * unit clauses) and whether the solver can continue the search.
+     */
+    private var ok = true
+
+    /**
      * The count of variables in the problem.
      */
     var numberOfVariables: Int = 0
@@ -312,12 +319,10 @@ class CDCL {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
+        if (!ok) { return SolveResult.UNSAT }
+
         if (clauses.isEmpty()) {
             return SolveResult.SAT
-        }
-
-        if (clauses.any { it.isEmpty() }) {
-            return SolveResult.UNSAT
         }
 
         if (clauses.any { it.all { lit -> getValue(lit) == LBool.FALSE } }) {
@@ -456,11 +461,12 @@ class CDCL {
      * proper clause database in the future.
      */
     private fun addClause(clause: Clause) {
-        require(clause.size != 1)
+        if (clause.isEmpty()) ok = false
+        if (!ok) return
+
+        require(clause.size > 1)
         clauses.add(clause)
-        if (clause.isNotEmpty()) {
-            addWatchers(clause)
-        }
+        addWatchers(clause)
     }
 
     /**
