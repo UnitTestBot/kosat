@@ -499,6 +499,8 @@ class CDCL {
         while (qhead < trail.size) {
             val lit = trail[qhead++]
 
+            check(getValue(lit) == LBool.TRUE)
+
             if (getValue(lit) == LBool.FALSE) {
                 return vars[lit.variable].reason
             }
