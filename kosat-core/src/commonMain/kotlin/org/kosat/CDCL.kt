@@ -405,19 +405,32 @@ class CDCL {
      */
     fun reset() {
         cancelUntil(0)
+        cachedModel = null
     }
+
+    /**
+     * Since returning the model is a potentially expensive operation, we cache
+     * the result of the first call to [getModel] and return the cached value
+     * on subsequent calls. This must be reset by calling [reset] before every
+     * subsequent call to [solve].
+     */
+    private var cachedModel: List<Boolean>? = null
 
     /**
      * Return the assignment of variables. This function is meant to be used
      * when the solver returns [SolveResult.SAT] after a call to [solve].
      */
     fun getModel(): List<Boolean> {
-        return vars.map {
+        if (cachedModel != null) return cachedModel!!
+
+        cachedModel = vars.map {
             when (it.value) {
                 LBool.TRUE, LBool.UNDEFINED -> true
                 LBool.FALSE -> false
             }
         }
+
+        return cachedModel!!
     }
 
     // ---- Two watchers ---- //
