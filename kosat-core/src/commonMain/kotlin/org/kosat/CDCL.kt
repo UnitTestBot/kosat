@@ -23,11 +23,11 @@ fun solveCnf(cnf: CnfRequest): List<Boolean>? {
 
 class CDCL {
     /**
-     * Initial constraints and externally added clauses by [newClause].
+     * Initial externally added clauses by [newClause].
      * Clauses of size 1 are never stored and instead are located at level 0
      * on the [trail].
      */
-    val constraints = mutableListOf<Clause>()
+    val clauses = mutableListOf<Clause>()
 
     /**
      * The clauses learnt by the solver during the conflict analysis.
@@ -312,19 +312,19 @@ class CDCL {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
-        if (constraints.isEmpty()) {
+        if (clauses.isEmpty()) {
             return SolveResult.SAT
         }
 
-        if (constraints.any { it.isEmpty() }) {
+        if (clauses.any { it.isEmpty() }) {
             return SolveResult.UNSAT
         }
 
-        if (constraints.any { it.all { lit -> getValue(lit) == LBool.FALSE } }) {
+        if (clauses.any { it.all { lit -> getValue(lit) == LBool.FALSE } }) {
             return SolveResult.UNSAT
         }
 
-        variableSelector.build(constraints)
+        variableSelector.build(clauses)
 
         // main loop
         while (true) {
@@ -347,7 +347,8 @@ class CDCL {
                 lemma.lbd = lemma.distinctBy { vars[it.variable].level }.size
 
                 // return to decision level where lemma would be propagated
-                cancelUntil(if (lemma.size > 1) vars[lemma[1].variable].level else 0)
+                val level = if (lemma.size > 1) vars[lemma[1].variable].level else 0
+                cancelUntil(level)
 
                 // if lemma.size == 1 we just add it to 0 decision level of trail
                 if (lemma.size == 1) {
@@ -434,23 +435,23 @@ class CDCL {
     // ---- CDCL functions ---- //
 
     /**
-     * Add new constraint and watchers to it.
+     * Add new clause and watchers to it.
      *
      * This function assumes that the clause size is at least 2,
      * and it is expected to be run by the solver internally to
-     * add constraints to the solver. This will be moved to the
+     * add clauses to the solver. This will be moved to the
      * proper clause database in the future.
      */
     private fun addClause(clause: Clause) {
         require(clause.size != 1)
-        constraints.add(clause)
+        clauses.add(clause)
         if (clause.isNotEmpty()) {
             addWatchers(clause)
         }
     }
 
     /**
-     * Add new learnt constraint and watchers to it.
+     * Add new learnt clause and watchers to it.
      */
     private fun addLearnt(clause: Clause) {
         require(clause.size != 1)
