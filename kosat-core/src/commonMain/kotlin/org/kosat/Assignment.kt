@@ -18,31 +18,31 @@ class Assignment {
     var decisionLevel: Int = 0
 
     fun value(v: Var): LBool {
-        return this.value[v]
+        return value[v]
     }
 
     fun value(lit: Lit): LBool {
-        return this.value[lit.variable] xor lit.isNeg
+        return value[lit.variable] xor lit.isNeg
     }
 
     // fun assign(v: Var, value: LBool) {
-    //     this.value[v] = value
+    //     value[v] = value
     // }
 
     fun unassign(v: Var) {
-        this.value[v] = LBool.UNDEF
+        value[v] = LBool.UNDEF
     }
 
     // fun varData(v: Var): VarState {
-    //     return this.varData[v]
+    //     return varData[v]
     // }
 
     fun reason(v: Var): Clause? {
-        return this.varData[v].reason
+        return varData[v].reason
     }
 
     fun level(v: Var): Int {
-        return this.varData[v].level
+        return varData[v].level
     }
 
     fun fixed(v: Var): LBool {
