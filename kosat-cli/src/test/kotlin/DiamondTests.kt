@@ -69,7 +69,7 @@ internal class DiamondTests {
         }
     }
 
-    private fun checkKoSatSolution(ans: List<LBool>?, input: String, isSolution: Boolean): Boolean {
+    private fun checkKoSatSolution(ans: List<Boolean>?, input: String, isSolution: Boolean): Boolean {
         if (ans == null) return !isSolution
 
         val cnfRequest = readCnfRequests(input).first()
@@ -77,11 +77,7 @@ internal class DiamondTests {
 
         return cnfRequest.clauses.all { clause ->
             clause.toClause().any {
-                if (it.isPos) {
-                    ans[it.variable] == LBool.TRUE
-                } else {
-                    ans[it.variable] == LBool.FALSE
-                }
+                it.isPos == ans[it.variable]
             }
         }
     }

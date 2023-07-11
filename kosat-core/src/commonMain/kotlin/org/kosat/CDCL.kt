@@ -10,7 +10,7 @@ import org.kosat.heuristics.VariableSelector
  * [emptyList] is request is tautology
  * assignments of literals otherwise
  */
-fun solveCnf(cnf: CnfRequest): List<LBool>? {
+fun solveCnf(cnf: CnfRequest): List<Boolean>? {
     val clauses = (cnf.clauses.map { it.toClause() }).toMutableList()
     val solver = CDCL(clauses, cnf.vars)
     val result = solver.solve()
@@ -280,7 +280,7 @@ class CDCL {
         val model = getModel()
 
         currentAssumptions.forEach { lit ->
-            if (model[lit.variable] != if (lit.isPos) LBool.TRUE else LBool.FALSE) {
+            if (model[lit.variable] != lit.isPos) {
                 assumptions = emptyList()
                 return SolveResult.UNSAT
             }
@@ -409,11 +409,11 @@ class CDCL {
      * Return the current assignment of variables.
      * TODO: cache and rewrite
      */
-    fun getModel(): List<LBool> {
+    fun getModel(): List<Boolean> {
         return vars.map {
             when (it.value) {
-                LBool.TRUE, LBool.UNDEFINED -> LBool.TRUE
-                LBool.FALSE -> LBool.FALSE
+                LBool.TRUE, LBool.UNDEFINED -> true
+                LBool.FALSE -> false
             }
         }
     }
