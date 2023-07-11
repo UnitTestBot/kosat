@@ -6,7 +6,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.kosat.CDCL
 import org.kosat.DimacsLiteral
 import org.kosat.LBool
-import org.kosat.Model
+import org.kosat.SolveResult
 import org.kosat.get
 import org.kosat.readCnfRequests
 import org.kosat.round
@@ -69,18 +69,18 @@ internal class DiamondTests {
         }
     }
 
-    private fun checkKoSatSolution(ans: Model, input: String, isSolution: Boolean): Boolean {
-        val values = ans.values ?: return !isSolution
+    private fun checkKoSatSolution(ans: List<LBool>?, input: String, isSolution: Boolean): Boolean {
+        if (ans == null) return !isSolution
 
         val cnfRequest = readCnfRequests(input).first()
-        if (values.size != cnfRequest.vars) return false
+        if (ans.size != cnfRequest.vars) return false
 
         return cnfRequest.clauses.all { clause ->
             clause.toClause().any {
                 if (it.isPos) {
-                    values[it.variable] == LBool.TRUE
+                    ans[it.variable] == LBool.TRUE
                 } else {
-                    values[it.variable] == LBool.FALSE
+                    ans[it.variable] == LBool.FALSE
                 }
             }
         }
@@ -156,6 +156,13 @@ internal class DiamondTests {
             val (solution, timeKoSat) = measureTimeWithResult {
                 solver.reset()
                 solver.solve(assumptions.map { it.toLiteral() })
+                val result = solver.solve(assumptions.map { it.toLiteral() })
+                if (result == SolveResult.SAT) {
+                    println(solver.getModel())
+                    solver.getModel()
+                } else {
+                    null
+                }
             }
 
             val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"

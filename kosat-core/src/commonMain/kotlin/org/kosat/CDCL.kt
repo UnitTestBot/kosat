@@ -10,9 +10,15 @@ import org.kosat.heuristics.VariableSelector
  * [emptyList] is request is tautology
  * assignments of literals otherwise
  */
-fun solveCnf(cnf: CnfRequest): Model {
+fun solveCnf(cnf: CnfRequest): List<LBool>? {
     val clauses = (cnf.clauses.map { it.toClause() }).toMutableList()
-    return CDCL(clauses, cnf.vars).solve()
+    val solver = CDCL(clauses, cnf.vars)
+    val result = solver.solve()
+    return if (result == SolveResult.SAT) {
+        solver.getModel()
+    } else {
+        null
+    }
 }
 
 class CDCL {
@@ -260,18 +266,23 @@ class CDCL {
     /**
      * Solve the problem with the given assumptions.
      */
-    fun solve(currentAssumptions: List<Lit>): Model {
+    fun solve(currentAssumptions: List<Lit>): SolveResult {
         assumptions = currentAssumptions
         variableSelector.initAssumptions(assumptions)
+
         val result = solve()
-        if (result == Model.UNSAT) {
+
+        if (result == SolveResult.UNSAT) {
             assumptions = emptyList()
             return result
         }
+
+        val model = getModel()
+
         currentAssumptions.forEach { lit ->
-            if (result.values!![lit.variable] != if (lit.isPos) LBool.TRUE else LBool.FALSE) {
+            if (model[lit.variable] != if (lit.isPos) LBool.TRUE else LBool.FALSE) {
                 assumptions = emptyList()
-                return Model.UNSAT
+                return SolveResult.UNSAT
             }
         }
         assumptions = emptyList()
@@ -297,20 +308,20 @@ class CDCL {
 
     // ---- Solve ---- //
 
-    fun solve(): Model {
+    fun solve(): SolveResult {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
         if (constraints.isEmpty()) {
-            return getModel()
+            return SolveResult.SAT
         }
 
         if (constraints.any { it.isEmpty() }) {
-            return Model.UNSAT
+            return SolveResult.UNSAT
         }
 
         if (constraints.any { it.all { lit -> getValue(lit) == LBool.FALSE } }) {
-            return Model.UNSAT
+            return SolveResult.UNSAT
         }
 
         variableSelector.build(constraints)
@@ -326,7 +337,7 @@ class CDCL {
                 if (level == 0) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    return Model.UNSAT
+                    return SolveResult.UNSAT
                 }
 
                 // build new clause by conflict clause
@@ -362,10 +373,9 @@ class CDCL {
 
                 // If (the problem is already) SAT, return the current assignment
                 if (trail.size == numberOfVariables) {
-                    val model = getModel()
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    return model
+                    return SolveResult.SAT
                 }
 
                 // try to guess variable
@@ -375,7 +385,7 @@ class CDCL {
 
                 // in case there is assumption propagated to false
                 if (nextDecisionLiteral.isUndef) {
-                    return Model.UNSAT
+                    return SolveResult.UNSAT
                 }
 
                 // phase saving heuristic
@@ -397,15 +407,16 @@ class CDCL {
 
     /**
      * Return the current assignment of variables.
+     * TODO: cache and rewrite
      */
-    private fun getModel(): Model = Model(
-        vars.map {
+    fun getModel(): List<LBool> {
+        return vars.map {
             when (it.value) {
                 LBool.TRUE, LBool.UNDEFINED -> LBool.TRUE
                 LBool.FALSE -> LBool.FALSE
             }
-        },
-    )
+        }
+    }
 
     // ---- Two watchers ---- //
 

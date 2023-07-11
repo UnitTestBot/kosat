@@ -1,7 +1,8 @@
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.kosat.CDCL
-import kotlin.test.assertNotNull
+import org.kosat.SolveResult
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -10,8 +11,8 @@ internal class SmokeTest {
     fun `test one variable`() {
         val solver = CDCL()
         solver.addVariable()
-        val model = solver.solve()
-        assertNotNull(model.values)
-        assertTrue(model.values!!.isNotEmpty())
+        val result = solver.solve()
+        assertEquals(SolveResult.SAT, result)
+        assertTrue(solver.getModel().isNotEmpty())
     }
 }
