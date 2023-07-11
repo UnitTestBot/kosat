@@ -399,15 +399,16 @@ class CDCL {
     }
 
     /**
-     * Reset the solver to the state before the last [solve].
+     * Undo all the decisions made until the last call to [solve]. Calling this
+     * function before every subsequent solve is a user responsibility.
      */
     fun reset() {
         cancelUntil(0)
     }
 
     /**
-     * Return the current assignment of variables.
-     * TODO: cache and rewrite
+     * Return the assignment of variables. This function is meant to be used
+     * when the solver returns [SolveResult.SAT] after a call to [solve].
      */
     fun getModel(): List<Boolean> {
         return vars.map {
