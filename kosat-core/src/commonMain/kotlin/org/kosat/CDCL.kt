@@ -315,7 +315,9 @@ class CDCL {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
-        if (!ok) { return SolveResult.UNSAT }
+        if (!ok) {
+            return SolveResult.UNSAT
+        }
 
         if (clauses.isEmpty()) {
             return SolveResult.SAT
