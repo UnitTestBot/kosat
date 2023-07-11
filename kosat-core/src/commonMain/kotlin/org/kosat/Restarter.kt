@@ -1,6 +1,4 @@
-package org.kosat.heuristics
-
-import org.kosat.CDCL
+package org.kosat
 
 // used for restarts between searches (luby restarts are used now)
 class Restarter(private val solver: CDCL) {

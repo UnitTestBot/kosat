@@ -1,9 +1,5 @@
 package org.kosat
 
-import org.kosat.heuristics.Restarter
-import org.kosat.heuristics.VSIDS
-import org.kosat.heuristics.VariableSelector
-
 /**
  * Solves [cnf] and returns
  * `null` if request unsatisfiable

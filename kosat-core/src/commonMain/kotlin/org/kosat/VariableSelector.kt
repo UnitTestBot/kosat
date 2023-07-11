@@ -1,14 +1,4 @@
-package org.kosat.heuristics
-
-import org.kosat.CDCL
-import org.kosat.Clause
-import org.kosat.LBool
-import org.kosat.Lit
-import org.kosat.Var
-import org.kosat.VarState
-import org.kosat.get
-import org.kosat.set
-import org.kosat.swap
+package org.kosat
 
 abstract class VariableSelector {
     protected var assumptions: List<Lit> = emptyList()
