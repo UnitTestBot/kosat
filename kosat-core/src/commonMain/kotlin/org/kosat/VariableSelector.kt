@@ -23,7 +23,10 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
     // list of activity for variables
     private val activity = mutableListOf<Double>()
 
-    class PriorityQueue(val activity: MutableList<Double>) {
+    // priority queue of activity of undefined variables
+    private var activityPQ = PriorityQueue(activity)
+
+    class PriorityQueue(private val activity: List<Double>) {
         // stores max-heap built on variable activities (contains variables)
         val heap: MutableList<Int> = mutableListOf()
 
@@ -168,9 +171,6 @@ class VSIDS(private var numberOfVariables: Int = 0, private val solver: CDCL) : 
             capacity = size
         }
     }
-
-    // priority queue of activity of undefined variables
-    private var activityPQ = PriorityQueue(activity)
 
     override fun update(lemma: Clause) {
         lemma.forEach { lit ->
