@@ -363,7 +363,6 @@ class CDCL {
                 // If (the problem is already) SAT, return the current assignment
                 if (trail.size == numberOfVariables) {
                     val model = getModel()
-                    reset()
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
                     return model
@@ -376,7 +375,6 @@ class CDCL {
 
                 // in case there is assumption propagated to false
                 if (nextDecisionLiteral.isUndef) {
-                    reset()
                     return Model.UNSAT
                 }
 

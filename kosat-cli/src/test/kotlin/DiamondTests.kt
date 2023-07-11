@@ -154,6 +154,7 @@ internal class DiamondTests {
             val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
 
             val (solution, timeKoSat) = measureTimeWithResult {
+                solver.reset()
                 solver.solve(assumptions.map { it.toLiteral() })
             }
 
