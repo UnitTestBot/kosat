@@ -73,7 +73,7 @@ fun processCnfRequests(requests: Sequence<CnfRequest>) = buildString {
     for (cnf in requests) {
         appendLine("v Start processing CNF request with ${cnf.vars} variables and ${cnf.clauses.size} clauses")
 
-        val model = solveCnf(cnf).values
+        val model = solveCnf(cnf)
 
         if (model == null) {
             appendLine("s UNSATISFIABLE")
@@ -85,7 +85,7 @@ fun processCnfRequests(requests: Sequence<CnfRequest>) = buildString {
             appendLine("c Done: formula is tautology. Any solution satisfies it.")
         else {
             appendLine("v " + model.mapIndexed { index, value ->
-                if (value == LBool.TRUE) index + 1 else -(index + 1)
+                if (value) index + 1 else -(index + 1)
             }.joinToString(" "))
             appendLine("c Done")
         }

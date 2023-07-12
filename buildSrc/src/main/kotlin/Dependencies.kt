@@ -11,6 +11,7 @@ object Versions {
     const val kotlinx_collections = "0.3.5"
     const val kotlinx_coroutines = "1.7.2"
     const val log4j = "2.20.0"
+    const val okio = "3.4.0"
     const val shadow = "8.1.1"
 }
 
@@ -27,6 +28,12 @@ object Libs {
     object Klock {
         const val version = Versions.klock
         const val klock_jvm = "com.soywiz.korlibs.klock:klock-jvm:$version"
+    }
+
+    // https://github.com/square/okio
+    object Okio {
+        const val version = Versions.okio
+        const val okio = "com.squareup.okio:okio:$version"
     }
 
     // https://github.com/Lipen/kotlin-satlib

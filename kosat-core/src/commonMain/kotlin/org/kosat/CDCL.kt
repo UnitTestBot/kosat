@@ -1,28 +1,29 @@
 package org.kosat
 
-import org.kosat.heuristics.Restarter
-import org.kosat.heuristics.VSIDS
-import org.kosat.heuristics.VariableSelector
-
 /**
  * Solves [cnf] and returns
  * `null` if request unsatisfiable
  * [emptyList] is request is tautology
  * assignments of literals otherwise
  */
-fun solveCnf(cnf: CnfRequest): Model {
+fun solveCnf(cnf: CnfRequest): List<Boolean>? {
     val clauses = (cnf.clauses.map { it.toClause() }).toMutableList()
-    return CDCL(clauses, cnf.vars).solve()
+    val solver = CDCL(clauses, cnf.vars)
+    val result = solver.solve()
+    return if (result == SolveResult.SAT) {
+        solver.getModel()
+    } else {
+        null
+    }
 }
 
 class CDCL {
-
     /**
-     * Initial constraints and externally added clauses by [newClause].
+     * Initial externally added clauses by [newClause].
      * Clauses of size 1 are never stored and instead are located at level 0
-     * on the trail.
+     * on the [trail].
      */
-    val constraints = mutableListOf<Clause>()
+    val clauses = mutableListOf<Clause>()
 
     /**
      * The clauses learnt by the solver during the conflict analysis.
@@ -31,6 +32,13 @@ class CDCL {
      * are being [uncheckedEnqueue]'d to the level 0 of the trail.
      */
     val learnts = mutableListOf<Clause>()
+
+    /**
+     * Can solver perform the search? This becomes false if given constraints
+     * cause unsatisfiability in a trivial way (e.g. empty clause, conflicting
+     * unit clauses) and whether the solver can continue the search.
+     */
+    private var ok = true
 
     /**
      * The count of variables in the problem.
@@ -45,18 +53,18 @@ class CDCL {
     val vars: MutableList<VarState> = mutableListOf()
 
     /**
-     * Trail of assignments, contains literals in the order they were assigned
+     * Trail of assignments, contains literals in the order they were assigned.
      */
     private val trail: MutableList<Lit> = mutableListOf()
 
     /**
-     * Index of first element in the trail which has not been propagated yet
+     * Index of first element in the [trail] which has not been propagated yet.
      */
     private var qhead = 0
 
     /**
      * Two-watched literals heuristic.
-     * `i`-th element of this list is set of clauses watched by variable `i`
+     * `i`-th element of this list is the set of clauses watched by variable `i`.
      */
     private val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
@@ -91,15 +99,22 @@ class CDCL {
     // ---- Heuristics ---- //
 
     /**
-     * The branching heuristic, used to choose the next decision variable
+     * The branching heuristic, used to choose the next decision variable.
      */
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables, this)
 
     /**
-     * The restart strategy, used to decide when to restart the search
+     * The restart strategy, used to decide when to restart the search.
      * @see [solve]
      */
     private val restarter = Restarter(this)
+
+    /**
+     * Whether a variable from the conflict clause is from the last
+     * [level]. Used exclusively in [analyzeConflict] to avoid
+     * re-allocations.
+     */
+    private val seenInAnalyzeConflict = MutableList(numberOfVariables) { false }
 
     /**
      * Adds a literal to the end of the [trail],
@@ -185,7 +200,7 @@ class CDCL {
         minimizeMarks.add(0)
         minimizeMarks.add(0)
 
-        seen.add(false)
+        seenInAnalyzeConflict.add(false)
 
         return numberOfVariables
     }
@@ -226,34 +241,25 @@ class CDCL {
     // ---- Trail ---- //
 
     /**
-     * Delete last variable from the trail, reset its value to
-     * [LBool.UNDEFINED], memorize its polarity
+     * Remove variables from the trail until the given layer is reached,
+     * and reset the decision level to that layer.
+     *
+     * @param untilLevel the layer to stop at. Variables on this layer will **not** be removed.
      */
-    private fun trailRemoveLast() {
-        val lit = trail.removeLast()
-        val v = lit.variable
-        polarity[v] = getValue(v.posLit)
-        setValue(v.posLit, LBool.UNDEFINED)
-        vars[v].reason = null
-        vars[v].level = -1
-        variableSelector.backTrack(v)
-    }
-
-    /**
-     * Remove variables from the trail until the given layer is reached.
-     * @param until the layer to stop at. Variables on this layer will **not** be removed.
-     */
-    private fun clearTrail(until: Int) {
-        while (trail.isNotEmpty() && vars[trail.last().variable].level > until) {
-            trailRemoveLast()
+    fun cancelUntil(untilLevel: Int) {
+        while (trail.isNotEmpty() && vars[trail.last().variable].level > untilLevel) {
+            val lit = trail.removeLast()
+            val v = lit.variable
+            polarity[v] = getValue(v.posLit)
+            setValue(v.posLit, LBool.UNDEFINED)
+            vars[v].reason = null
+            vars[v].level = -1
+            variableSelector.backTrack(v)
         }
-    }
 
-    /**
-     * @return true, if all variables are assigned to
-     * a value, so the formula is satisfied.
-     */
-    private fun allAssigned() = vars.all { it.value != LBool.UNDEFINED }
+        qhead = trail.size
+        level = untilLevel
+    }
 
     /**
      * Used for phase saving heuristic. Memorizes the polarity of
@@ -271,18 +277,23 @@ class CDCL {
     /**
      * Solve the problem with the given assumptions.
      */
-    fun solve(currentAssumptions: List<Lit>): Model {
+    fun solve(currentAssumptions: List<Lit>): SolveResult {
         assumptions = currentAssumptions
         variableSelector.initAssumptions(assumptions)
+
         val result = solve()
-        if (result == Model.UNSAT) {
+
+        if (result == SolveResult.UNSAT) {
             assumptions = emptyList()
             return result
         }
+
+        val model = getModel()
+
         currentAssumptions.forEach { lit ->
-            if (result.values!![lit.variable] != if (lit.isPos) LBool.TRUE else LBool.FALSE) {
+            if (model[lit.variable] != lit.isPos) {
                 assumptions = emptyList()
-                return Model.UNSAT
+                return SolveResult.UNSAT
             }
         }
         assumptions = emptyList()
@@ -308,23 +319,26 @@ class CDCL {
 
     // ---- Solve ---- //
 
-    fun solve(): Model {
+    fun solve(): SolveResult {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
-        if (constraints.isEmpty()) {
-            return getModel()
+        if (!ok) {
+            return SolveResult.UNSAT
         }
 
-        if (constraints.any { it.isEmpty() }) {
-            return Model.UNSAT
+        if (clauses.isEmpty()) {
+            return SolveResult.SAT
         }
 
-        if (constraints.any { it.all { lit -> getValue(lit) == LBool.FALSE } }) {
-            return Model.UNSAT
+        if (clauses.any { it.all { lit -> getValue(lit) == LBool.FALSE } }) {
+            return SolveResult.UNSAT
         }
 
-        variableSelector.build(constraints)
+        cancelUntil(0)
+        cachedModel = null
+
+        variableSelector.build(clauses)
 
         preprocess()?.let { return it }
 
@@ -339,7 +353,7 @@ class CDCL {
                 if (level == 0) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    return Model.UNSAT
+                    return SolveResult.UNSAT
                 }
 
                 // build new clause by conflict clause
@@ -349,10 +363,8 @@ class CDCL {
                 lemma.lbd = lemma.distinctBy { vars[it.variable].level }.size
 
                 // return to decision level where lemma would be propagated
-                backjump(lemma)
-
-                // after backjump there is only one clause to propagate
-                qhead = trail.size
+                val level = if (lemma.size > 1) vars[lemma[1].variable].level else 0
+                cancelUntil(level)
 
                 // if lemma.size == 1 we just add it to 0 decision level of trail
                 if (lemma.size == 1) {
@@ -377,12 +389,10 @@ class CDCL {
                 require(qhead == trail.size)
 
                 // If (the problem is already) SAT, return the current assignment
-                if (allAssigned()) {
-                    val model = getModel()
-                    reset()
+                if (trail.size == numberOfVariables) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    return model
+                    return SolveResult.SAT
                 }
 
                 // try to guess variable
@@ -392,8 +402,7 @@ class CDCL {
 
                 // in case there is assumption propagated to false
                 if (nextDecisionLiteral.isUndef) {
-                    reset()
-                    return Model.UNSAT
+                    return SolveResult.UNSAT
                 }
 
                 // phase saving heuristic
@@ -406,21 +415,29 @@ class CDCL {
         }
     }
 
-    fun reset() {
-        level = 0
-        clearTrail(0)
-        qhead = trail.size
-    }
+    /**
+     * Since returning the model is a potentially expensive operation, we cache
+     * the result of the first call to [getModel] and return the cached value
+     * on subsequent calls. This is reset in [solve].
+     */
+    private var cachedModel: List<Boolean>? = null
 
-    // return current assignment of variables
-    private fun getModel(): Model = Model(
-        vars.map {
+    /**
+     * Return the assignment of variables. This function is meant to be used
+     * when the solver returns [SolveResult.SAT] after a call to [solve].
+     */
+    fun getModel(): List<Boolean> {
+        if (cachedModel != null) return cachedModel!!
+
+        cachedModel = vars.map {
             when (it.value) {
-                LBool.TRUE, LBool.UNDEFINED -> LBool.TRUE
-                LBool.FALSE -> LBool.FALSE
+                LBool.TRUE, LBool.UNDEFINED -> true
+                LBool.FALSE -> false
             }
-        },
-    )
+        }
+
+        return cachedModel!!
+    }
 
     // ---- Preprocessing ---- //
 
@@ -432,19 +449,19 @@ class CDCL {
      * @return if the solution is conclusive after preprocessing,
      * return the model, otherwise return null
      */
-    fun preprocess(): Model? {
+    fun preprocess(): SolveResult? {
         require(level == 0)
 
         // Don't bother with anything if there is already
         // a level 0 conflict
-        propagate()?.let { return Model.UNSAT }
+        propagate()?.let { return SolveResult.UNSAT }
 
         failedLiteralProbing()?.let { return it }
 
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
-        if (allAssigned()) {
-            return getModel()
+        if (trail.size == numberOfVariables) {
+            return SolveResult.SAT
         }
 
         return null
@@ -468,7 +485,7 @@ class CDCL {
     private fun generateProbes(): List<Lit> {
         val probes = mutableSetOf<Lit>()
 
-        for (clause in constraints) {
+        for (clause in clauses) {
             // (A | B) <==> (-A -> B) <==> (-B -> A)
             // Both -A and -B can be used as probes
             if (clause.size == 2) {
@@ -495,7 +512,7 @@ class CDCL {
      * other mechanisms that can derive this clause, but
      * probing is one of them.
      */
-    private fun failedLiteralProbing(): Model? {
+    private fun failedLiteralProbing(): SolveResult? {
         val probesToTry = generateProbes()
 
         for (probe in probesToTry) {
@@ -512,18 +529,16 @@ class CDCL {
             if (conflictClause != null) {
                 // Assigning a value to a probe lead to a conflict
                 // immediately means that the probe must be false.
-                clearTrail(0)
-                level = 0
-                qhead = trail.size
+                cancelUntil(0)
 
                 if (getValue(probe) == LBool.TRUE) {
-                    return Model.UNSAT
+                    return SolveResult.UNSAT
                 }
 
                 uncheckedEnqueue(probe.neg)
 
                 // Can we learn more while we are at level 0?
-                propagate()?.let { return Model.UNSAT }
+                propagate()?.let { return SolveResult.UNSAT }
             } else {
                 // Going through the trail and checking if there
                 // are any literals with non-binary reason clauses.
@@ -541,20 +556,21 @@ class CDCL {
                     }
                 }
 
-                clearTrail(0)
-                level = 0
-                qhead = trail.size
+                cancelUntil(0)
             }
         }
 
-        constraints.retainAll { !it.deleted }
+        clauses.retainAll { !it.deleted }
 
         return null
     }
 
     // ---- Two watchers ---- //
 
-    // add watchers to new clause. Run in addConstraint in addLearnt
+    /**
+     * Add watchers to new clause. Expected to be run
+     * in [addClause] and in [addLearnt]
+     */
     private fun addWatchers(clause: Clause) {
         require(clause.size > 1)
         watchers[clause[0]].add(clause)
@@ -563,16 +579,26 @@ class CDCL {
 
     // ---- CDCL functions ---- //
 
-    // add new constraint and watchers to it, executes only in newClause
+    /**
+     * Add new clause and watchers to it.
+     *
+     * This function assumes that the clause size is at least 2,
+     * and it is expected to be run by the solver internally to
+     * add clauses to the solver. This will be moved to the
+     * proper clause database in the future.
+     */
     private fun addClause(clause: Clause) {
-        require(clause.size != 1)
-        constraints.add(clause)
-        if (clause.isNotEmpty()) {
-            addWatchers(clause)
-        }
+        if (clause.isEmpty()) ok = false
+        if (!ok) return
+
+        require(clause.size > 1)
+        clauses.add(clause)
+        addWatchers(clause)
     }
 
-    // add clause and add watchers to it
+    /**
+     * Add new learnt clause and watchers to it.
+     */
     private fun addLearnt(clause: Clause) {
         require(clause.size != 1)
         learnts.add(clause)
@@ -581,11 +607,26 @@ class CDCL {
         }
     }
 
-    // return conflict clause, or null if there is no conflict clause
+    /**
+     * Propagate all the literals in the [trail] that are
+     * not yet propagated. If a conflict is found, return
+     * the clause that caused it.
+     *
+     * This function takes every literal on the trail that
+     * has not been propagated (that is, all literals for
+     * which [qhead] <= index < [trail].size) and applies
+     * the unit propagation rule to it, possibly leading
+     * to deducing new literals. The new literals are added
+     * to the trail, and the process is repeated until no
+     * more literals can be propagated, or a conflict
+     * is found.
+     */
     private fun propagate(): Clause? {
         var conflict: Clause? = null
         while (qhead < trail.size) {
             val lit = trail[qhead++]
+
+            check(getValue(lit) == LBool.TRUE)
 
             if (getValue(lit) == LBool.FALSE) {
                 return vars[lit.variable].reason
@@ -647,28 +688,20 @@ class CDCL {
         return conflict
     }
 
-    // change level, undefine variables, clear units (if clause.size == 1 we backjump to 0 level)
-    // Pre-conditions: second element in clause should have first max level except current one
-    private fun backjump(clause: Clause) {
-        level = if (clause.size > 1) vars[clause[1].variable].level else 0
-        clearTrail(level)
-    }
-
     /**
-     * Analyze conflict and return new clause
+     * Analyzes the conflict clause returned by [propagate]
+     * and returns a new clause that can be learnt.
      * Post-conditions:
      *      - first element in clause has max (current) propagate level
      *      - second element in clause has second max propagate level
      */
-    private val seen = MutableList(numberOfVariables) { false }
-
     private fun analyzeConflict(conflict: Clause): Clause {
         var numberOfActiveVariables = 0
         val lemma = mutableSetOf<Lit>()
 
         conflict.forEach { lit ->
             if (vars[lit.variable].level == level) {
-                seen[lit.variable] = true
+                seenInAnalyzeConflict[lit.variable] = true
                 numberOfActiveVariables++
             } else {
                 lemma.add(lit)
@@ -683,7 +716,7 @@ class CDCL {
         // in the conflict clause by their reason.
         while (numberOfActiveVariables > 1) {
             val v = trail[lastLevelWalkIndex--].variable
-            if (!seen[v]) continue
+            if (!seenInAnalyzeConflict[v]) continue
 
             // The null assertion is safe because we only traverse
             // the last level, and every variable on this level
@@ -694,19 +727,19 @@ class CDCL {
                 val current = u.variable
                 if (vars[current].level != level) {
                     lemma.add(u)
-                } else if (current != v && !seen[current]) {
-                    seen[current] = true
+                } else if (current != v && !seenInAnalyzeConflict[current]) {
+                    seenInAnalyzeConflict[current] = true
                     numberOfActiveVariables++
                 }
             }
 
-            seen[v] = false
+            seenInAnalyzeConflict[v] = false
             numberOfActiveVariables--
         }
 
         var newClause: Clause
 
-        trail.last { seen[it.variable] }.let { lit ->
+        trail.last { seenInAnalyzeConflict[it.variable] }.let { lit ->
             val v = lit.variable
             lemma.add(if (getValue(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
 
@@ -724,7 +757,7 @@ class CDCL {
             val uipIndex = newClause.indexOfFirst { it.variable == v }
             // move UIP vertex to 0 position
             newClause.swap(uipIndex, 0)
-            seen[v] = false
+            seenInAnalyzeConflict[v] = false
         }
         // move last defined literal to 1 position
         if (newClause.size > 1) {
