@@ -129,6 +129,24 @@ class CDCL {
         trail.add(lit)
     }
 
+    /**
+     * Tries to add assign [LBool.TRUE] to a literal, and add it to the end of the [trail].
+     * Returns `false` if the literal is already assigned to [LBool.FALSE]. Like
+     * [uncheckedEnqueue], does not propagate the literal.
+     *
+     * @see [uncheckedEnqueue]
+     */
+    private fun enqueue(lit: Lit, reason: Clause? = null): Boolean {
+        return when (getValue(lit)) {
+            LBool.TRUE -> true
+            LBool.FALSE -> false
+            LBool.UNDEFINED -> {
+                uncheckedEnqueue(lit, reason)
+                true
+            }
+        }
+    }
+
     // ---- Variable states ---- //
 
     /**
@@ -340,6 +358,10 @@ class CDCL {
 
         variableSelector.build(clauses)
 
+        // Don't bother with anything if there is already
+        // a level 0 conflict
+        propagate()?.let { return SolveResult.UNSAT }
+
         preprocess()?.let { return it }
 
         // main loop
@@ -451,10 +473,7 @@ class CDCL {
      */
     fun preprocess(): SolveResult? {
         require(level == 0)
-
-        // Don't bother with anything if there is already
-        // a level 0 conflict
-        propagate()?.let { return SolveResult.UNSAT }
+        require(qhead == trail.size)
 
         failedLiteralProbing()?.let { return it }
 
@@ -516,51 +535,152 @@ class CDCL {
         val probesToTry = generateProbes()
 
         for (probe in probesToTry) {
-            // If we know that the probe is already true, just skip it.
-            if (getValue(probe) == LBool.TRUE) {
+            // If we know that the probe is already assigned, skip it
+            if (getValue(probe) != LBool.UNDEFINED) {
                 continue
             }
 
+            check(trail.size == qhead)
+
             level++
             uncheckedEnqueue(probe)
-            val startOfProbeTrail = trail.size
-            val conflictClause = propagate()
+            val conflictClause = propagateProbeAndLearnBinary(probe)
+            cancelUntil(0)
 
             if (conflictClause != null) {
-                // Assigning a value to a probe lead to a conflict
-                // immediately means that the probe must be false.
-                cancelUntil(0)
-
-                if (getValue(probe) == LBool.TRUE) {
+                if (!enqueue(probe.neg)) {
                     return SolveResult.UNSAT
                 }
-
-                uncheckedEnqueue(probe.neg)
 
                 // Can we learn more while we are at level 0?
                 propagate()?.let { return SolveResult.UNSAT }
             } else {
-                // Going through the trail and checking if there
-                // are any literals with non-binary reason clauses.
-                for (lit in trail.drop(startOfProbeTrail)) {
-                    val reason = vars[lit.variable].reason!!
-                    if (reason.size > 2) {
-                        // (probe -> lit) <==> (-probe | lit)
-                        val newBinaryClause = Clause(mutableListOf(probe.neg, lit))
-                        addClause(newBinaryClause)
-
-                        if (probe.neg in reason) {
-                            // the clause is subsumed by the discovered binary clause
-                            reason.deleted = true
-                        }
-                    }
-                }
-
                 cancelUntil(0)
             }
         }
 
         clauses.retainAll { !it.deleted }
+
+        return null
+    }
+
+    private var qheadBinaryOnly = 0
+
+    /**
+     * A specialized version of [propagate] for [failedLiteralProbing].
+     *
+     * It tries to learn new binary clauses while propagating implied by
+     * the probe. During the propagation, this function aggressively prioritizes
+     * binary clauses, so that we don't learn too many redundant ones.
+     */
+    private fun propagateProbeAndLearnBinary(probe: Lit): Clause? {
+        require(level == 1)
+        qheadBinaryOnly = qhead
+
+        var conflict: Clause? = null
+
+        // First, only try binary clauses
+        propagateOnlyBinary()?.let { return it }
+        val learnedBinaryClauses = mutableListOf<Clause>()
+
+        while (qhead < trail.size) {
+            val lit = trail[qhead++]
+            val clausesToKeep = mutableListOf<Clause>()
+            val possiblyBrokenClauses = watchers[lit.neg]
+
+            for (clause in possiblyBrokenClauses) {
+                if (clause.deleted) continue
+
+                clausesToKeep.add(clause)
+
+                // already used
+                if (clause.size == 2) continue
+                if (conflict != null) continue
+
+                if (clause[0].variable == lit.variable) {
+                    clause.swap(0, 1)
+                }
+
+                if (getValue(clause[0]) == LBool.TRUE) continue
+
+                var firstNotFalse = -1
+                for (ind in 2 until clause.size) {
+                    if (getValue(clause[ind]) != LBool.FALSE) {
+                        firstNotFalse = ind
+                        break
+                    }
+                }
+
+                if (firstNotFalse == -1 && getValue(clause[0]) == LBool.FALSE) {
+                    conflict = clause
+                } else if (firstNotFalse == -1) {
+                    // we deduced this literal from a non-binary clause,
+                    // so we can learn a new clause
+                    // TODO: replace with HBR
+                    learnedBinaryClauses.add(Clause(mutableListOf(probe.neg, clause[0])))
+                    uncheckedEnqueue(clause[0], clause)
+                    // again, we try to only use binary clauses first
+                    propagateOnlyBinary()?.let { conflict = it }
+                } else {
+                    watchers[clause[firstNotFalse]].add(clause)
+                    clause.swap(firstNotFalse, 1)
+                    clausesToKeep.removeLast()
+                }
+            }
+
+            watchers[lit.neg] = clausesToKeep
+
+            if (conflict != null) break
+        }
+
+        if (conflict == null) {
+            // we can learn the binary clauses we discovered
+            for (clause in learnedBinaryClauses) {
+                addClause(clause)
+            }
+        }
+
+        return conflict
+    }
+
+    /**
+     * Used in [propagateProbeAndLearnBinary] to only propagate using
+     * binary clauses.
+     */
+    private fun propagateOnlyBinary(): Clause? {
+        while (qheadBinaryOnly < trail.size) {
+            val lit = trail[qheadBinaryOnly++]
+
+            check(getValue(lit) == LBool.TRUE)
+
+            for (clause in watchers[lit.neg]) {
+                if (clause.deleted) continue
+                if (clause.size != 2) continue
+
+                val other = if (clause[0].variable == lit.variable) {
+                    clause[1]
+                } else {
+                    clause[0]
+                }
+
+                when (getValue(other)) {
+                    // if the other literal is true, the
+                    // clause is already satisfied
+                    LBool.TRUE -> continue
+                    // both literals are false, there is a conflict
+                    LBool.FALSE -> {
+                        // at this point, it does not matter how the conflict
+                        // was discovered, the caller won't do anything after
+                        // this anyway, but we still need to backtrack somehow,
+                        // starting from this literal:
+                        qhead = qheadBinaryOnly
+                        return clause
+                    }
+                    // the other literal is unassigned
+                    LBool.UNDEFINED -> uncheckedEnqueue(other, clause)
+                }
+            }
+        }
 
         return null
     }
