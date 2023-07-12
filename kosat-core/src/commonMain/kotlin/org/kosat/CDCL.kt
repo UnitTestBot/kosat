@@ -126,6 +126,7 @@ class CDCL {
         val v = lit.variable
         vars[v].reason = reason
         vars[v].level = level
+        vars[v].trailIndex = trail.size
         trail.add(lit)
     }
 
@@ -272,6 +273,7 @@ class CDCL {
             setValue(v.posLit, LBool.UNDEFINED)
             vars[v].reason = null
             vars[v].level = -1
+            vars[v].trailIndex = -1
             variableSelector.backTrack(v)
         }
 
@@ -544,7 +546,7 @@ class CDCL {
 
             level++
             uncheckedEnqueue(probe)
-            val conflictClause = propagateProbeAndLearnBinary(probe)
+            val conflictClause = propagateProbeAndLearnBinary()
             cancelUntil(0)
 
             if (conflictClause != null) {
@@ -573,7 +575,7 @@ class CDCL {
      * the probe. During the propagation, this function aggressively prioritizes
      * binary clauses, so that we don't learn too many redundant ones.
      */
-    private fun propagateProbeAndLearnBinary(probe: Lit): Clause? {
+    private fun propagateProbeAndLearnBinary(): Clause? {
         require(level == 1)
         qheadBinaryOnly = qhead
 
@@ -581,14 +583,17 @@ class CDCL {
 
         // First, only try binary clauses
         propagateOnlyBinary()?.let { return it }
-        val learnedBinaryClauses = mutableListOf<Clause>()
 
         while (qhead < trail.size) {
             val lit = trail[qhead++]
             val clausesToKeep = mutableListOf<Clause>()
-            val possiblyBrokenClauses = watchers[lit.neg]
 
-            for (clause in possiblyBrokenClauses) {
+            // Iterating with indexes to prevent ConcurrentModificationException
+            // when adding new binary clauses. This is ok because any new clause
+            // follows from other watched clause anyway.
+            val initialWatchesSize = watchers[lit.neg].size
+            for (watchedClauseIndex in 0 until initialWatchesSize) {
+                val clause = watchers[lit.neg][watchedClauseIndex]
                 if (clause.deleted) continue
 
                 clausesToKeep.add(clause)
@@ -616,9 +621,9 @@ class CDCL {
                 } else if (firstNotFalse == -1) {
                     // we deduced this literal from a non-binary clause,
                     // so we can learn a new clause
-                    // TODO: replace with HBR
-                    learnedBinaryClauses.add(Clause(mutableListOf(probe.neg, clause[0])))
-                    uncheckedEnqueue(clause[0], clause)
+                    val newBinary = hyperBinaryResolve(clause)
+                    addClause(newBinary)
+                    uncheckedEnqueue(clause[0], newBinary)
                     // again, we try to only use binary clauses first
                     propagateOnlyBinary()?.let { conflict = it }
                 } else {
@@ -631,13 +636,6 @@ class CDCL {
             watchers[lit.neg] = clausesToKeep
 
             if (conflict != null) break
-        }
-
-        if (conflict == null) {
-            // we can learn the binary clauses we discovered
-            for (clause in learnedBinaryClauses) {
-                addClause(clause)
-            }
         }
 
         return conflict
@@ -683,6 +681,50 @@ class CDCL {
         }
 
         return null
+    }
+
+    /**
+     * Hyper binary resolution for failed literal probing. This is used to
+     * produce new binary clauses in the FLP.
+     */
+    private fun hyperBinaryResolve(clause: Clause): Clause {
+        require(level == 1)
+        require(clause.size > 2)
+        require(getValue(clause[0]) == LBool.UNDEFINED)
+
+        var dominator: Lit? = null
+
+        root@for (otherLitIndex in 1 until clause.size) {
+            var lit = clause[otherLitIndex].neg
+            if (vars[lit.variable].level == 0) continue
+
+            if (dominator == null) dominator = lit
+
+            while (dominator != lit) {
+                val domVar = dominator!!.variable
+                val litVar = lit.variable
+
+                if (vars[domVar].reason == null) {
+                    break@root
+                }
+
+                if (vars[litVar].reason == null) {
+                    dominator = lit
+                    break@root
+                }
+
+                if (vars[domVar].trailIndex > vars[litVar].trailIndex) {
+                    val (a, b) = vars[domVar].reason!!
+                    dominator = if (a == dominator) b.neg else a.neg
+                } else {
+                    val (a, b) = vars[litVar].reason!!
+                    lit = if (a == lit) b.neg else a.neg
+                }
+            }
+        }
+
+        require(dominator != null)
+        return Clause(mutableListOf(dominator.neg, clause[0]))
     }
 
     // ---- Two watchers ---- //

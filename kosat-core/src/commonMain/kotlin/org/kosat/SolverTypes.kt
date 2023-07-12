@@ -31,6 +31,9 @@ data class VarState(
 
     /** Level of decision on which the variable was assigned a value */
     var level: Int,
+
+    /** Index of the variable in the trail */
+    var trailIndex: Int = -1,
 )
 
 /**
