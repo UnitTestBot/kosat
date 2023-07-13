@@ -543,6 +543,8 @@ class CDCL {
      * and reasons of literals on the trail.
      */
     private fun failedLiteralProbing(): SolveResult? {
+        require(level == 0)
+
         val probesToTry = generateProbes()
 
         for (probe in probesToTry) {
