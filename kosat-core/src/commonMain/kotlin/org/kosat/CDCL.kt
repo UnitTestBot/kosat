@@ -316,7 +316,6 @@ class CDCL {
                 // remove half of learnts
                 if (db.learnts.size > reduceNumber) {
                     reduceNumber += reduceIncrement
-                    restarter.restart()
                     reduceDB()
                 }
                 variableSelector.update(lemma)
