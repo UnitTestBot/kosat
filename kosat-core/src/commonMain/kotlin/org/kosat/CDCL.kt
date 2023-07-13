@@ -21,12 +21,12 @@ class CDCL {
     /**
      * Clause database.
      */
-    private val db: ClauseDatabase = ClauseDatabase()
+    private val db: ClauseDatabase = ClauseDatabase(this)
 
     /**
      * Assignment.
      */
-    private val assignment: Assignment = Assignment()
+    val assignment: Assignment = Assignment()
 
     /**
      * Can solver perform the search? This becomes false if given constraints
@@ -250,8 +250,10 @@ class CDCL {
             return SolveResult.UNSAT
         }
 
-        backtrack(0)
-        cachedModel = null
+        if (assignment.decisionLevel > 0) {
+            backtrack(0)
+            cachedModel = null
+        }
 
         variableSelector.build(db.clauses)
 
@@ -272,6 +274,7 @@ class CDCL {
                 if (assignment.decisionLevel == 0) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
+                    ok = false
                     return SolveResult.UNSAT
                 }
 
@@ -308,6 +311,8 @@ class CDCL {
                     // println("KoSat decisions:   $numberOfDecisions")
                     return SolveResult.SAT
                 }
+
+                db.reduceIfNeeded()
 
                 // try to guess variable
                 assignment.newDecisionLevel()

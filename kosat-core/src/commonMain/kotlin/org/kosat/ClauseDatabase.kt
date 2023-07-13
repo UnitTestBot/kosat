@@ -1,6 +1,6 @@
 package org.kosat
 
-class ClauseDatabase {
+class ClauseDatabase(private val solver: CDCL) {
     val clauses: MutableList<Clause> = mutableListOf()
     val learnts: MutableList<Clause> = mutableListOf()
 
@@ -34,6 +34,70 @@ class ClauseDatabase {
             for (learnt in learnts) {
                 learnt.activity *= 1e-20
             }
+        }
+    }
+
+    fun removeDeleted() {
+        clauses.removeAll { it.deleted }
+        learnts.removeAll { it.deleted }
+    }
+
+    private fun simplifyClause(clause: Clause) {
+        for (lit in clause.lits) {
+            if (solver.assignment.fixed(lit) == LBool.TRUE) {
+                clause.deleted = true
+                return
+            }
+        }
+
+        clause.lits.removeAll {
+            solver.assignment.fixed(it) == LBool.FALSE
+        }
+
+        check(clause.lits.size >= 2)
+    }
+
+    fun simplify() {
+        for (clause in clauses) {
+            if (clause.deleted) continue
+            simplifyClause(clause)
+        }
+
+        for (clause in learnts) {
+            if (clause.deleted) continue
+            simplifyClause(clause)
+        }
+    }
+
+    private fun reduce() {
+        simplify()
+        removeDeleted()
+
+        learnts.sortedByDescending { if (it.lits.size == 2) Double.POSITIVE_INFINITY else it.activity }
+
+        val countLimit = learnts.size / 2
+        val activityLimit = clauseInc / learnts.size.toDouble()
+
+        for (i in countLimit until learnts.size) {
+            val learnt = learnts[i]
+
+            if (learnt.lits.size == 2) continue
+            if (learnt.activity >= activityLimit) continue
+            if (solver.assignment.reason(learnt[0].variable) === learnt) continue
+
+            learnt.deleted = true
+        }
+
+        removeDeleted()
+    }
+
+    private var reduceMaxLearnts = 6000
+    private val reduceMaxLearntsIncrement = 500
+
+    fun reduceIfNeeded() {
+        if (learnts.size > reduceMaxLearnts + solver.assignment.trail.size) {
+            reduceMaxLearnts += reduceMaxLearntsIncrement
+            reduce()
         }
     }
 }
