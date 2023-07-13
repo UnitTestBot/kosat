@@ -290,9 +290,11 @@ class CDCL {
                 } else {
                     assignment.uncheckedEnqueue(lemma[0], lemma)
                     addLearnt(lemma)
+                    db.clauseBumpActivity(lemma)
                 }
 
                 variableSelector.update(lemma)
+                db.clauseDecayActivity()
 
                 // restart search after some number of conflicts
                 restarter.update()
@@ -718,7 +720,7 @@ class CDCL {
         if (!ok) return
 
         require(clause.size > 1)
-        db.clauses.add(clause)
+        db.addClause(clause)
         addWatchers(clause)
     }
 
@@ -727,7 +729,8 @@ class CDCL {
      */
     private fun addLearnt(clause: Clause) {
         require(clause.size != 1)
-        db.learnts.add(clause)
+        require(clause.learnt)
+        db.addClause(clause)
         if (clause.lits.isNotEmpty()) {
             addWatchers(clause)
         }
@@ -851,7 +854,11 @@ class CDCL {
             // has a reason except for the decision variable,
             // which will not be visited because even if it is seen,
             // it is the last seen variable in order of the trail.
-            assignment.reason(v)!!.lits.forEach { u ->
+            val reason = assignment.reason(v)!!
+
+            db.clauseBumpActivity(reason)
+
+            reason.lits.forEach { u ->
                 val current = u.variable
                 if (assignment.level(current) != assignment.decisionLevel) {
                     lemma.add(u)
@@ -880,6 +887,7 @@ class CDCL {
                         minimizeMarks[it] != currentMinimizationMark
                     } ?: true
                 }.toMutableList(),
+                true,
             )
 
             val uipIndex = newClause.lits.indexOfFirst { it.variable == v }
