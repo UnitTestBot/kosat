@@ -485,6 +485,8 @@ class CDCL {
             return SolveResult.SAT
         }
 
+        clauses.retainAll { !it.deleted }
+
         return null
     }
 
@@ -560,8 +562,6 @@ class CDCL {
                 cancelUntil(0)
             }
         }
-
-        clauses.retainAll { !it.deleted }
 
         return null
     }
