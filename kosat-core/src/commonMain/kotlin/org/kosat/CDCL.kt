@@ -84,12 +84,6 @@ class CDCL {
      */
     private val restarter = Restarter(this)
 
-    /**
-     * Whether a variable from the conflict clause is from the last decision level.
-     * Used exclusively in [analyzeConflict] to avoid re-allocations.
-     */
-    private val seen = MutableList(numberOfVariables) { false }
-
     // ---- Public Interface ---- //
 
     /**
@@ -137,12 +131,12 @@ class CDCL {
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
 
-        // ???
+        // Used for lemma minimization in analyzeConflict()
         minimizeMarks.add(0)
         minimizeMarks.add(0)
 
-        // ???
-        seen.add(false)
+        // Used in analyzeConflict() for marking variables from clause
+        seenInAnalyzeConflict.add(false)
 
         return numberOfVariables
     }
@@ -851,6 +845,8 @@ class CDCL {
         return conflict
     }
 
+    private val seenInAnalyzeConflict = MutableList(numberOfVariables) { false }
+
     /**
      * Analyzes the conflict clause returned by [propagate]
      * and returns a new clause that can be learnt.
@@ -864,7 +860,7 @@ class CDCL {
 
         conflict.lits.forEach { lit ->
             if (assignment.level(lit.variable) == assignment.decisionLevel) {
-                seen[lit.variable] = true
+                seenInAnalyzeConflict[lit.variable] = true
                 numberOfActiveVariables++
             } else {
                 lemma.add(lit)
@@ -879,7 +875,7 @@ class CDCL {
         // in the conflict clause by their reason.
         while (numberOfActiveVariables > 1) {
             val v = assignment.trail[lastLevelWalkIndex--].variable
-            if (!seen[v]) continue
+            if (!seenInAnalyzeConflict[v]) continue
 
             // The null assertion is safe because we only traverse
             // the last level, and every variable on this level
@@ -890,19 +886,19 @@ class CDCL {
                 val current = u.variable
                 if (assignment.level(current) != assignment.decisionLevel) {
                     lemma.add(u)
-                } else if (current != v && !seen[current]) {
-                    seen[current] = true
+                } else if (current != v && !seenInAnalyzeConflict[current]) {
+                    seenInAnalyzeConflict[current] = true
                     numberOfActiveVariables++
                 }
             }
 
-            seen[v] = false
+            seenInAnalyzeConflict[v] = false
             numberOfActiveVariables--
         }
 
         var newClause: Clause
 
-        assignment.trail.last { seen[it.variable] }.let { lit ->
+        assignment.trail.last { seenInAnalyzeConflict[it.variable] }.let { lit ->
             val v = lit.variable
             lemma.add(if (value(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
 
@@ -920,7 +916,7 @@ class CDCL {
             val uipIndex = newClause.lits.indexOfFirst { it.variable == v }
             // move UIP vertex to 0 position
             newClause.lits.swap(uipIndex, 0)
-            seen[v] = false
+            seenInAnalyzeConflict[v] = false
         }
         // move last defined literal to 1 position
         if (newClause.size > 1) {
