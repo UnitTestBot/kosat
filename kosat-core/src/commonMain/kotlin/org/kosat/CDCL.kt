@@ -534,6 +534,13 @@ class CDCL {
      * a new binary clause (-1, 3) to the problem. There are
      * other mechanisms that can derive this clause, but
      * probing is one of them.
+     *
+     * Now, this new added clause can be set as [VarState.reason]
+     * of variable 3. In fact, every time we enqueue a literal,
+     * we can guarantee that its reason is binary. That binary
+     * clause, if new, is the result of Hyper-binary Resolution
+     * (see `[hyperBinaryResolve]`) of the old non-binary clause
+     * and reasons of literals on the trail.
      */
     private fun failedLiteralProbing(): SolveResult? {
         val probesToTry = generateProbes()
@@ -566,14 +573,22 @@ class CDCL {
         return null
     }
 
+    /**
+     * The last non-propagated literal in the trail in [propagateOnlyBinary].
+     */
     private var qheadBinaryOnly = 0
 
     /**
      * A specialized version of [propagate] for [failedLiteralProbing].
      *
-     * It tries to learn new binary clauses while propagating implied by
-     * the probe. During the propagation, this function aggressively prioritizes
-     * binary clauses, so that we don't learn too many redundant ones.
+     * It tries to learn new binary clauses while propagating literals implied
+     * by the probe. During the propagation, this function aggressively
+     * prioritizes binary clauses, so that we don't learn too many redundant
+     * ones. Other than that, it is the copy-paste of [propagate].
+     *
+     * Every time we have to propagate a non-binary clause, we perform a
+     * [hyperBinaryResolve] and generate a new binary clause from it, which we
+     * then assign as a reason for the deduced literal.
      */
     private fun propagateProbeAndLearnBinary(): Clause? {
         require(level == 1)
@@ -622,7 +637,19 @@ class CDCL {
                     // we deduced this literal from a non-binary clause,
                     // so we can learn a new clause
                     val newBinary = hyperBinaryResolve(clause)
-                    addClause(newBinary)
+
+                    // The new clause may subsume the old one, rendering it useless
+                    // TODO: However, we don't know if this clause is learned or given,
+                    //   so we can't let it be deleted. On the other hand, we can't
+                    //   allow just adding it to the list of clauses to keep, because
+                    //   this may result in too many clauses being kept.
+                    //   This should be reworked with the new clause storage mechanism,
+                    //   and new flags for clauses. Won't fix for now.
+                    // if (newBinary[0] in clause) {
+                    //     clause.deleted = true
+                    // }
+
+                    addLearnt(newBinary)
                     uncheckedEnqueue(clause[0], newBinary)
                     // again, we try to only use binary clauses first
                     propagateOnlyBinary()?.let { conflict = it }
@@ -643,9 +670,12 @@ class CDCL {
 
     /**
      * Used in [propagateProbeAndLearnBinary] to only propagate using
-     * binary clauses.
+     * binary clauses. It uses a separate queue pointer
+     * ([qheadBinaryOnly]).
      */
     private fun propagateOnlyBinary(): Clause? {
+        require(qheadBinaryOnly >= qhead)
+
         while (qheadBinaryOnly < trail.size) {
             val lit = trail[qheadBinaryOnly++]
 
@@ -684,47 +714,97 @@ class CDCL {
     }
 
     /**
-     * Hyper binary resolution for failed literal probing. This is used to
-     * produce new binary clauses in the FLP.
+     * Hyper binary resolution for [failedLiteralProbing]. This is used to
+     * produce new, most efficient binary clauses in the FLP.
+     *
+     * The problem it is trying to solve is the following: during the
+     * [failedLiteralProbing], we deduced a literal from a non-binary clause.
+     * However, since the only decision literal on the trail is the probe,
+     * we know that this clause can be simplified to a binary clause:
+     * it is the implication from the probe to the deduced literal.
+     *
+     * This may not be the most "efficient" binary clause, however.
+     * For example, consider clauses (-1, 2), (-2, 3), (-2, -3, 4).
+     * ```
+     * 1 --> 2 --> 3 --> 4
+     *       |___________^
+     * ```
+     * We can add clause (-1, 4), but it is not the most "efficient" one.
+     * Instead, we can add (-2, 4). That way (-1, 4) follows from (-1, 2)
+     * and (-2, 4) through resolution anyway, potentially saving us some
+     * search tree space, since, having 2, we can now deduce 4 faster.
+     *
+     * The antecedent of the implication is the *lowest common ancestor*
+     * of the negation of all false literals in the clause in the
+     * implication tree (reminder: during probing, the reason for every
+     * literal in binary). This function finds this LCA, and produces
+     * a binary clause of the form (-LCA, deduced literal).
+     *
+     * This clause is called a "Hyper-binary Resolvent", because it is
+     * the resolution of the non-binary clause with the implications from
+     * LCA to the negation of a literal in the clause. Only running HBR
+     * during probing is introduced by PrecoSAT, and based on the fact
+     * that most of the hyper-binary resolvents were generated during
+     * probing on decision level 1 anyhow. (according to CaDiCaL docs)
+     *
+     * This function assumes that the first literal in the clause is the
+     * only unassigned literal yet.
+     *
+     * @see failedLiteralProbing
      */
     private fun hyperBinaryResolve(clause: Clause): Clause {
         require(level == 1)
         require(clause.size > 2)
         require(getValue(clause[0]) == LBool.UNDEFINED)
 
-        var dominator: Lit? = null
+        // On level 1, the literals on the trail form binary implication tree.
+        // Therefore, the negation of all literal (on level > 0) in the clause
+        // has a unique **lowest common ancestor**, commonly denoted as LCA.
+        var lca: Lit? = null
 
+        // Iteration of this look finds the LCA of
+        // (ancestor, clause[otherLitIndex].neg)
         root@for (otherLitIndex in 1 until clause.size) {
             var lit = clause[otherLitIndex].neg
             if (vars[lit.variable].level == 0) continue
 
-            if (dominator == null) dominator = lit
+            if (lca == null) lca = lit
 
-            while (dominator != lit) {
-                val domVar = dominator!!.variable
+            while (lca != lit) {
+                val lcaVar = lca!!.variable
                 val litVar = lit.variable
 
-                if (vars[domVar].reason == null) {
+                // If any of the reasons is null, it means that the literal
+                // is the probe itself, in the root of the implication tree.
+                // In this case, we reached the root of the tree.
+                if (vars[lcaVar].reason == null) {
                     break@root
                 }
 
                 if (vars[litVar].reason == null) {
-                    dominator = lit
+                    lca = lit
                     break@root
                 }
 
-                if (vars[domVar].trailIndex > vars[litVar].trailIndex) {
-                    val (a, b) = vars[domVar].reason!!
-                    dominator = if (a == dominator) b.neg else a.neg
+                // To find the LCA, we repeatedly (in this while)
+                // go up the tree from the literal with the larger
+                // index on the trail (this literal is deeper)
+                if (vars[lcaVar].trailIndex > vars[litVar].trailIndex) {
+                    check(vars[lcaVar].reason!!.size == 2)
+                    val (a, b) = vars[lcaVar].reason!!
+                    // TODO: this can be done with xor,
+                    //   will fix after merging feature/assignment
+                    lca = if (a == lca) b.neg else a.neg
                 } else {
+                    check(vars[lcaVar].reason!!.size == 2)
                     val (a, b) = vars[litVar].reason!!
                     lit = if (a == lit) b.neg else a.neg
                 }
             }
         }
 
-        require(dominator != null)
-        return Clause(mutableListOf(dominator.neg, clause[0]))
+        require(lca != null)
+        return Clause(mutableListOf(lca.neg, clause[0]))
     }
 
     // ---- Two watchers ---- //
