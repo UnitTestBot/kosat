@@ -145,10 +145,6 @@ class CDCL {
         return assignment.value(lit)
     }
 
-    fun uncheckedEnqueue(lit: Lit, reason: Clause?) {
-        assignment.uncheckedEnqueue(lit, reason)
-    }
-
     /**
      * Add a new clause to the solver.
      */
@@ -176,7 +172,7 @@ class CDCL {
 
         // handling case for clauses of size 1
         if (clause.size == 1) {
-            uncheckedEnqueue(clause[0], null)
+            assignment.uncheckedEnqueue(clause[0], null)
         } else {
             addClause(clause)
         }
@@ -311,9 +307,9 @@ class CDCL {
                 backtrack(level)
                 // if lemma.size == 1 we just add it to 0 decision level of trail
                 if (lemma.size == 1) {
-                    uncheckedEnqueue(lemma[0], null)
+                    assignment.uncheckedEnqueue(lemma[0], null)
                 } else {
-                    uncheckedEnqueue(lemma[0], lemma)
+                    assignment.uncheckedEnqueue(lemma[0], lemma)
                     addLearnt(lemma)
                 }
 
@@ -353,7 +349,7 @@ class CDCL {
                     nextDecisionLiteral = nextDecisionLiteral.neg
                 }
 
-                uncheckedEnqueue(nextDecisionLiteral, null)
+                assignment.uncheckedEnqueue(nextDecisionLiteral, null)
             }
         }
     }
@@ -475,7 +471,7 @@ class CDCL {
             check(assignment.trail.size == assignment.qhead)
 
             assignment.decisionLevel++
-            uncheckedEnqueue(probe, null)
+            assignment.uncheckedEnqueue(probe, null)
             val conflict = propagateProbeAndLearnBinary()
             backtrack(0)
 
@@ -566,7 +562,7 @@ class CDCL {
                     // }
 
                     addLearnt(newBinary)
-                    uncheckedEnqueue(clause[0], newBinary)
+                    assignment.uncheckedEnqueue(clause[0], newBinary)
                     // again, we try to only use binary clauses first
                     propagateOnlyBinary()?.let { conflict = it }
                 } else {
@@ -620,7 +616,7 @@ class CDCL {
                         return clause
                     }
                     // the other literal is unassigned
-                    LBool.UNDEF -> uncheckedEnqueue(other, clause)
+                    LBool.UNDEF -> assignment.uncheckedEnqueue(other, clause)
                 }
             }
         }
@@ -828,7 +824,7 @@ class CDCL {
                     conflict = clause
                 } else if (firstNotFalse == -1) { // getValue(brokenClause[0]) == VarValue.UNDEFINED
                     // the only unassigned literal (which is the second watcher) in the clause must be true
-                    uncheckedEnqueue(clause[0], clause)
+                    assignment.uncheckedEnqueue(clause[0], clause)
                 } else {
                     // there is at least one literal in the clause not assigned to false,
                     // so we can use it as a new first watcher instead
