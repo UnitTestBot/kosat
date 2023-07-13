@@ -48,10 +48,6 @@ class CDCL {
     var numberOfVariables: Int = 0
         private set
 
-    // controls the learned clause database reduction, should be replaced and moved in the future
-    private var reduceNumber = 6000.0
-    private var reduceIncrement = 500.0
-
     /**
      * The maximum amount of probes expected to be returned
      * by [generateProbes].
@@ -232,23 +228,6 @@ class CDCL {
         return result
     }
 
-    // half of learnt get reduced
-    fun reduceDB() {
-        db.learnts.sortByDescending { it.lbd }
-        val deletionLimit = db.learnts.size / 2
-        var cnt = 0
-        for (clause in db.learnts) {
-            if (cnt == deletionLimit) {
-                break
-            }
-            if (!clause.deleted) {
-                cnt++
-                clause.deleted = true
-            }
-        }
-        db.learnts.removeAll { it.deleted }
-    }
-
     // ---- Solve ---- //
 
     fun solve(): SolveResult {
@@ -313,11 +292,6 @@ class CDCL {
                     addLearnt(lemma)
                 }
 
-                // remove half of learnts
-                if (db.learnts.size > reduceNumber) {
-                    reduceNumber += reduceIncrement
-                    reduceDB()
-                }
                 variableSelector.update(lemma)
 
                 // restart search after some number of conflicts
