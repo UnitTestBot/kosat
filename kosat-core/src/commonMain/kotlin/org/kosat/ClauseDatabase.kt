@@ -7,7 +7,7 @@ class ClauseDatabase {
     private val clauseDecay: Double = 0.999
     private var clauseInc: Double = 1.0
 
-    fun addClause(clause: Clause) {
+    fun add(clause: Clause) {
         if (clause.learnt) {
             learnts.add(clause)
         } else {

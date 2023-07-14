@@ -1,6 +1,6 @@
 package org.kosat
 
-class Clause(
+data class Clause(
     val lits: MutableList<Lit>,
     val learnt: Boolean = false,
 ) {

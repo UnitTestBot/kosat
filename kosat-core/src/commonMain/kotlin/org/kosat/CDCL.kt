@@ -135,9 +135,6 @@ class CDCL {
         minimizeMarks.add(0)
         minimizeMarks.add(0)
 
-        // Used in analyzeConflict() for marking variables from clause
-        seenInAnalyzeConflict.add(false)
-
         return numberOfVariables
     }
 
@@ -151,6 +148,9 @@ class CDCL {
     fun newClause(clause: Clause) {
         check(assignment.decisionLevel == 0)
 
+        // early return when already UNSAT
+        if (!ok) return
+
         // add not mentioned variables from new clause
         val maxVar = clause.lits.maxOfOrNull { it.variable.index } ?: 0
         while (numberOfVariables < maxVar) {
@@ -162,7 +162,7 @@ class CDCL {
             return
         }
 
-        // delete every false literal from new clause
+        // delete all falsified literals from new clause
         clause.lits.removeAll { value(it) == LBool.FALSE }
 
         // if the clause contains x and -x then it is useless
@@ -170,11 +170,18 @@ class CDCL {
             return
         }
 
-        // handling case for clauses of size 1
-        if (clause.size == 1) {
-            assignment.uncheckedEnqueue(clause[0], null)
-        } else {
-            addClause(clause)
+        when (clause.size) {
+            0 -> {
+                ok = false
+            }
+
+            1 -> {
+                assignment.uncheckedEnqueue(clause[0], null)
+            }
+
+            else -> {
+                attachClause(clause)
+            }
         }
     }
 
@@ -309,8 +316,8 @@ class CDCL {
                 if (lemma.size == 1) {
                     assignment.uncheckedEnqueue(lemma[0], null)
                 } else {
+                    attachClause(lemma)
                     assignment.uncheckedEnqueue(lemma[0], lemma)
-                    addLearnt(lemma)
                 }
 
                 // remove half of learnts
@@ -560,7 +567,7 @@ class CDCL {
                     //     clause.deleted = true
                     // }
 
-                    addLearnt(newBinary)
+                    attachClause(newBinary)
                     assignment.uncheckedEnqueue(clause[0], newBinary)
                     // again, we try to only use binary clauses first
                     propagateOnlyBinary()?.let { conflict = it }
@@ -664,7 +671,7 @@ class CDCL {
      */
     private fun hyperBinaryResolve(clause: Clause): Clause {
         require(assignment.decisionLevel == 1)
-        require(clause.size > 2)
+        require(clause.size > 2) { clause }
         require(value(clause[0]) == LBool.UNDEF)
 
         // On level 1, the literals on the trail form a binary implication tree.
@@ -713,50 +720,21 @@ class CDCL {
             }
         }
 
-        require(lca != null)
+        requireNotNull(lca)
         return Clause(mutableListOf(lca.neg, clause[0]))
-    }
-
-    // ---- Two watchers ---- //
-
-    /**
-     * Add watchers to new clause. Expected to be run
-     * in [addClause] and in [addLearnt]
-     */
-    private fun addWatchers(clause: Clause) {
-        require(clause.size > 1)
-        watchers[clause[0]].add(clause)
-        watchers[clause[1]].add(clause)
     }
 
     // ---- CDCL functions ---- //
 
     /**
-     * Add new clause and watchers to it.
-     *
-     * This function assumes that the clause size is at least 2,
-     * and it is expected to be run by the solver internally to
-     * add clauses to the solver. This will be moved to the
-     * proper clause database in the future.
+     * Add [clause] into the database and attach watchers for it.
      */
-    private fun addClause(clause: Clause) {
-        if (clause.lits.isEmpty()) ok = false
-        if (!ok) return
-
-        require(clause.size > 1)
-        db.clauses.add(clause)
-        addWatchers(clause)
-    }
-
-    /**
-     * Add new learnt clause and watchers to it.
-     */
-    private fun addLearnt(clause: Clause) {
-        require(clause.size != 1)
-        db.learnts.add(clause)
-        if (clause.lits.isNotEmpty()) {
-            addWatchers(clause)
-        }
+    private fun attachClause(clause: Clause) {
+        require(clause.size >= 2) { clause }
+        check(ok)
+        db.add(clause)
+        watchers[clause[0]].add(clause)
+        watchers[clause[1]].add(clause)
     }
 
     /**
@@ -774,7 +752,10 @@ class CDCL {
      * is found.
      */
     private fun propagate(): Clause? {
+        check(ok)
+
         var conflict: Clause? = null
+
         while (assignment.qhead < assignment.trail.size) {
             val lit = assignment.dequeue()!!
 
@@ -837,10 +818,9 @@ class CDCL {
 
             if (conflict != null) break
         }
+
         return conflict
     }
-
-    private val seenInAnalyzeConflict = MutableList(numberOfVariables) { false }
 
     /**
      * Analyzes the conflict clause returned by [propagate]
@@ -852,10 +832,11 @@ class CDCL {
     private fun analyzeConflict(conflict: Clause): Clause {
         var numberOfActiveVariables = 0
         val lemma = mutableSetOf<Lit>()
+        val seen = MutableList(numberOfVariables) { false } // TODO: array
 
         conflict.lits.forEach { lit ->
             if (assignment.level(lit.variable) == assignment.decisionLevel) {
-                seenInAnalyzeConflict[lit.variable] = true
+                seen[lit.variable] = true
                 numberOfActiveVariables++
             } else {
                 lemma.add(lit)
@@ -870,7 +851,7 @@ class CDCL {
         // in the conflict clause by their reason.
         while (numberOfActiveVariables > 1) {
             val v = assignment.trail[lastLevelWalkIndex--].variable
-            if (!seenInAnalyzeConflict[v]) continue
+            if (!seen[v]) continue
 
             // The null assertion is safe because we only traverse
             // the last level, and every variable on this level
@@ -881,19 +862,19 @@ class CDCL {
                 val current = u.variable
                 if (assignment.level(current) != assignment.decisionLevel) {
                     lemma.add(u)
-                } else if (current != v && !seenInAnalyzeConflict[current]) {
-                    seenInAnalyzeConflict[current] = true
+                } else if (current != v && !seen[current]) {
+                    seen[current] = true
                     numberOfActiveVariables++
                 }
             }
 
-            seenInAnalyzeConflict[v] = false
+            seen[v] = false
             numberOfActiveVariables--
         }
 
         var newClause: Clause
 
-        assignment.trail.last { seenInAnalyzeConflict[it.variable] }.let { lit ->
+        assignment.trail.last { seen[it.variable] }.let { lit ->
             val v = lit.variable
             lemma.add(if (value(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
 
@@ -911,12 +892,13 @@ class CDCL {
             val uipIndex = newClause.lits.indexOfFirst { it.variable == v }
             // move UIP vertex to 0 position
             newClause.lits.swap(uipIndex, 0)
-            seenInAnalyzeConflict[v] = false
+            seen[v] = false
         }
         // move last defined literal to 1 position
         if (newClause.size > 1) {
-            val secondMax =
-                newClause.lits.drop(1).indices.maxByOrNull { assignment.level(newClause[it + 1].variable) } ?: 0
+            val secondMax = newClause.lits.drop(1).indices.maxByOrNull {
+                assignment.level(newClause[it + 1].variable)
+            } ?: 0
             newClause.lits.swap(1, secondMax + 1)
         }
         return newClause
