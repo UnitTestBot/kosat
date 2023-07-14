@@ -6,6 +6,9 @@ data class VarState(
 
     /** Level of decision on which the variable was assigned a value */
     var level: Int,
+
+    /** Index of the variable in the trail */
+    var trailIndex: Int = -1,
 )
 
 class Assignment {
@@ -13,9 +16,9 @@ class Assignment {
     val varData: MutableList<VarState> = mutableListOf()
     val trail: MutableList<Lit> = mutableListOf()
 
-    // val trailLim: MutableList<Int> = mutableListOf()
-    var qhead: Int = 0
     var decisionLevel: Int = 0
+    var qhead: Int = 0
+    var qheadBinaryOnly: Int = 0
 
     fun value(v: Var): LBool {
         return value[v]
@@ -43,6 +46,10 @@ class Assignment {
 
     fun level(v: Var): Int {
         return varData[v].level
+    }
+
+    fun trailIndex(v: Var): Int {
+        return varData[v].trailIndex
     }
 
     fun fixed(v: Var): LBool {
