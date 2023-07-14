@@ -1,11 +1,17 @@
 package org.kosat
 
+enum class ReduceStrategy {
+    ACTIVITY, LBD
+}
+
 class ClauseDatabase(private val solver: CDCL) {
     val clauses: MutableList<Clause> = mutableListOf()
     val learnts: MutableList<Clause> = mutableListOf()
 
     private val clauseDecay: Double = 0.999
     private var clauseInc: Double = 1.0
+
+    private val reduceStrategy = ReduceStrategy.LBD
 
     fun addClause(clause: Clause) {
         if (clause.learnt) {
@@ -79,10 +85,7 @@ class ClauseDatabase(private val solver: CDCL) {
     /**
      * Remove the least active learned clauses.
      */
-    private fun reduce() {
-        simplify()
-        removeDeleted()
-
+    private fun reduceBasedOnActivity() {
         learnts.sortedBy { if (it.lits.size == 2) Double.POSITIVE_INFINITY else it.activity }
 
         val countLimit = learnts.size / 2
@@ -99,8 +102,19 @@ class ClauseDatabase(private val solver: CDCL) {
 
             learnt.deleted = true
         }
+    }
 
-        removeDeleted()
+    /**
+     * Remove learned clauses with the highest LBD.
+     */
+    private fun reduceBasedOnLBD() {
+        learnts.sortByDescending { it.lbd }
+
+        val countLimit = learnts.size / 2
+
+        for (i in 0 until countLimit) {
+            learnts[i].deleted = true
+        }
     }
 
     // TODO: Move to solver parameters
@@ -108,12 +122,21 @@ class ClauseDatabase(private val solver: CDCL) {
     private val reduceMaxLearntsIncrement = 500
 
     /**
-     * Run [reduce] if the number of learnt clauses is too high.
+     * Run the configured reduce if the number of learnt clauses is too high.
      */
     fun reduceIfNeeded() {
         if (learnts.size > reduceMaxLearnts + solver.assignment.trail.size) {
             reduceMaxLearnts += reduceMaxLearntsIncrement
-            reduce()
+
+            simplify()
+            removeDeleted()
+
+            when (reduceStrategy) {
+                ReduceStrategy.ACTIVITY -> reduceBasedOnActivity()
+                ReduceStrategy.LBD -> reduceBasedOnLBD()
+            }
+
+            removeDeleted()
         }
     }
 }
