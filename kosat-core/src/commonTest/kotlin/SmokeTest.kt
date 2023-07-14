@@ -8,7 +8,7 @@ internal class SmokeTest {
     @Test
     fun testOneVariable() {
         val solver = CDCL()
-        solver.addVariable()
+        solver.newVariable()
         val result = solver.solve()
         assertEquals(SolveResult.SAT, result)
         assertTrue(solver.getModel().isNotEmpty())

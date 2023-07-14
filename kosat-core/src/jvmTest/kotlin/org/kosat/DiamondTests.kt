@@ -70,7 +70,7 @@ internal class DiamondTests {
         if (ans.size != cnfRequest.vars) return false
 
         return cnfRequest.clauses.all { clause ->
-            clause.toClause().any {
+            clause.toClause().lits.any {
                 it.isPos == ans[it.variable]
             }
         }
@@ -147,7 +147,6 @@ internal class DiamondTests {
                 solver.solve(assumptions.map { it.toLiteral() })
                 val result = solver.solve(assumptions.map { it.toLiteral() })
                 if (result == SolveResult.SAT) {
-                    println(solver.getModel())
                     solver.getModel()
                 } else {
                     null
