@@ -47,23 +47,24 @@ class CDCL {
         private set
 
     /**
-     * For each variable contains current assignment,
-     * clause it came from ([VarState.reason]) and decision level when it happened.
+     * For each variable, contains the clause it was derived from ([VarState.reason])
+     * and the decision level ([VarState.level]) when it happened.
      */
     val vars: MutableList<VarState> = mutableListOf()
 
     /**
-     * Trail of assignments, contains literals in the order they were assigned.
+     * Trail of assignments, contains the literals in the order they were assigned.
      */
     private val trail: MutableList<Lit> = mutableListOf()
 
     /**
-     * Index of first element in the [trail] which has not been propagated yet.
+     * Index of the first element in [trail] that has not been propagated yet.
      */
     private var qhead = 0
 
     /**
      * Two-watched literals heuristic.
+     *
      * `i`-th element of this list is the set of clauses watched by variable `i`.
      */
     private val watchers: MutableList<MutableList<Clause>> = mutableListOf()
@@ -110,9 +111,8 @@ class CDCL {
     private val restarter = Restarter(this)
 
     /**
-     * Whether a variable from the conflict clause is from the last
-     * [level]. Used exclusively in [analyzeConflict] to avoid
-     * re-allocations.
+     * Whether a variable from the conflict clause is from the last [level].
+     * Used exclusively in [analyzeConflict] to avoid re-allocations.
      */
     private val seenInAnalyzeConflict = MutableList(numberOfVariables) { false }
 
@@ -131,9 +131,9 @@ class CDCL {
     }
 
     /**
-     * Tries to add assign [LBool.TRUE] to a literal, and add it to the end of the [trail].
-     * Returns `false` if the literal is already assigned to [LBool.FALSE]. Like
-     * [uncheckedEnqueue], does not propagate the literal.
+     * Tries to assign [LBool.TRUE] to a literal and append it to the end of [trail].
+     * Returns `false` if the literal is already assigned [LBool.FALSE].
+     * Like [uncheckedEnqueue], does not propagate the literal.
      *
      * @see [uncheckedEnqueue]
      */
@@ -759,7 +759,7 @@ class CDCL {
         require(clause.size > 2)
         require(getValue(clause[0]) == LBool.UNDEFINED)
 
-        // On level 1, the literals on the trail form binary implication tree.
+        // On level 1, the literals on the trail form a binary implication tree.
         // Therefore, the negation of all literal (on level > 0) in the clause
         // has a unique **lowest common ancestor**, commonly denoted as LCA.
         var lca: Lit? = null
