@@ -83,16 +83,18 @@ class ClauseDatabase(private val solver: CDCL) {
         simplify()
         removeDeleted()
 
-        learnts.sortedByDescending { if (it.lits.size == 2) Double.POSITIVE_INFINITY else it.activity }
+        learnts.sortedBy { if (it.lits.size == 2) Double.POSITIVE_INFINITY else it.activity }
 
         val countLimit = learnts.size / 2
         val activityLimit = clauseInc / learnts.size.toDouble()
 
-        for (i in countLimit until learnts.size) {
+        for (i in 0 until countLimit) {
             val learnt = learnts[i]
 
-            if (learnt.lits.size == 2) continue
-            if (learnt.activity >= activityLimit) continue
+            if (learnt.lits.size == 2) break
+            if (learnt.activity >= activityLimit) break
+
+            // Do not delete clauses if they are used in the trail
             if (solver.assignment.reason(learnt[0].variable) === learnt) continue
 
             learnt.deleted = true
