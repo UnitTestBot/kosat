@@ -13,7 +13,7 @@ internal class ManualTest {
         val clauses = cnf.clauses.map { lits ->
             Clause(lits.map { Lit.fromExternal(it) }.toMutableList())
         }
-        val solver = CDCL(clauses, cnf.numVars)
+        val solver = CDCL(Configuration(), clauses, cnf.numVars)
         val model = solver.solve()
         println("model = $model")
     }

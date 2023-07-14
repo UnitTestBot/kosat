@@ -119,7 +119,7 @@ internal class DiamondTests {
 
         val first = readCnfRequests(fileInput).first()
 
-        val solver = CDCL(first.clauses.map { it.toClause() }, first.vars)
+        val solver = CDCL(Configuration(), first.clauses.map { it.toClause() }, first.vars)
 
         var res = "OK"
 

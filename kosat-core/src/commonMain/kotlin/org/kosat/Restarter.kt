@@ -1,9 +1,9 @@
 package org.kosat
 
 // used for restarts between searches (luby restarts are used now)
-class Restarter(private val solver: CDCL) {
+class Restarter(private val solver: CDCL, cfg: Configuration.Restarts.Luby) {
 
-    private val lubyMultiplierConstant = 50.0
+    private val lubyMultiplierConstant = cfg.conflictCountConstant
     private var restartNumber = lubyMultiplierConstant
     private var numberOfConflictsAfterRestart = 0
 
