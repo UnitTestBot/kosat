@@ -714,7 +714,7 @@ class CDCL {
         }
 
         require(lca != null)
-        return Clause(mutableListOf(lca.neg, clause[0]))
+        return Clause(mutableListOf(lca.neg, clause[0]), true)
     }
 
     // ---- Two watchers ---- //
