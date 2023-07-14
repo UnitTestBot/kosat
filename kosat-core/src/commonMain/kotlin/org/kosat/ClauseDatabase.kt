@@ -103,9 +103,13 @@ class ClauseDatabase(private val solver: CDCL) {
         removeDeleted()
     }
 
+    // TODO: Move to solver parameters
     private var reduceMaxLearnts = 6000
     private val reduceMaxLearntsIncrement = 500
 
+    /**
+     * Run [reduce] if the number of learnt clauses is too high.
+     */
     fun reduceIfNeeded() {
         if (learnts.size > reduceMaxLearnts + solver.assignment.trail.size) {
             reduceMaxLearnts += reduceMaxLearntsIncrement
