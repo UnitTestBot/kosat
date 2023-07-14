@@ -42,6 +42,9 @@ class ClauseDatabase(private val solver: CDCL) {
         learnts.removeAll { it.deleted }
     }
 
+    /**
+     * @see simplify
+     */
     private fun simplifyClause(clause: Clause) {
         for (lit in clause.lits) {
             if (solver.assignment.fixed(lit) == LBool.TRUE) {
@@ -57,6 +60,10 @@ class ClauseDatabase(private val solver: CDCL) {
         check(clause.lits.size >= 2)
     }
 
+    /**
+     * Remove clauses, satisfied at level 0, and falsified literals at level 0
+     * in the remaining clauses.
+     */
     fun simplify() {
         for (clause in clauses) {
             if (clause.deleted) continue
@@ -69,6 +76,9 @@ class ClauseDatabase(private val solver: CDCL) {
         }
     }
 
+    /**
+     * Remove the least active learned clauses.
+     */
     private fun reduce() {
         simplify()
         removeDeleted()
