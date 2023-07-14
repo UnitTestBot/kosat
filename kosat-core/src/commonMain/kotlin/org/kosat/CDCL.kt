@@ -30,8 +30,7 @@ class CDCL {
 
     /**
      * Can solver perform the search? This becomes false if given constraints
-     * cause unsatisfiability in a trivial way (e.g. empty clause, conflicting
-     * unit clauses) and whether the solver can continue the search.
+     * cause unsatisfiability in some way.
      */
     private var ok = true
 
@@ -185,6 +184,7 @@ class CDCL {
             variableSelector.backTrack(v)
         }
 
+        check(assignment.qhead >= assignment.trail.size)
         assignment.qhead = assignment.trail.size
         assignment.decisionLevel = level
     }
@@ -299,8 +299,7 @@ class CDCL {
                 variableSelector.update(lemma)
                 db.clauseDecayActivity()
 
-                // restart search after some number of conflicts
-                restarter.update()
+                restarter.numberOfConflictsAfterRestart++
             } else {
                 // NO CONFLICT
                 require(assignment.qhead == assignment.trail.size)
@@ -313,6 +312,7 @@ class CDCL {
                 }
 
                 db.reduceIfNeeded()
+                restarter.restartIfNeeded()
 
                 // try to guess variable
                 assignment.newDecisionLevel()
