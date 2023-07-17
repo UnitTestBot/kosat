@@ -88,36 +88,65 @@ class ClauseDatabase(private val solver: CDCL) {
 
     /**
      * Remove the least active learned clauses.
+     *
+     * @see [Clause.activity]
      */
     private fun reduceBasedOnActivity() {
-        learnts.sortedBy { if (it.lits.size == 2) Double.POSITIVE_INFINITY else it.activity }
+        // Putting the least active clauses at the start of the list,
+        // keeping binary clauses and deleted clauses at the end
+        learnts.sortedBy {
+            if (it.deleted || it.lits.size == 2) {
+                Double.POSITIVE_INFINITY
+            } else {
+                it.activity
+            }
+        }
 
         val countLimit = learnts.size / 2
         val activityLimit = clauseInc / learnts.size.toDouble()
 
+        // Remove the least active learned clauses, at most countLimit
         for (i in 0 until countLimit) {
             val learnt = learnts[i]
 
             if (learnt.lits.size == 2) break
+            if (learnt.deleted) break
             if (learnt.activity >= activityLimit) break
 
-            // Do not delete clauses if they are used in the trail
-            if (solver.assignment.reason(learnt[0].variable) === learnt) continue
+            // Do not remove clauses if they are used in the trail
+            // technically, this is not needed, but might be used later
+            if (isClauseLocked(learnt)) continue
 
             learnt.deleted = true
         }
     }
 
     /**
-     * Remove learned clauses with the highest LBD.
+     * Remove learned clauses with the highest Literal Block Distance.
+     *
+     * @see Clause.lbd
      */
     private fun reduceBasedOnLBD() {
-        learnts.sortByDescending { it.lbd }
+        // Similar to reduceBasedOnActivity, but sorting by LBD
+        // the clauses with the highest LBD are at the start of the list
+        // the already deleted clauses are at the end
+        learnts.sortByDescending {
+            if (it.deleted) {
+                0
+            } else {
+                it.lbd
+            }
+        }
 
         val countLimit = learnts.size / 2
 
         for (i in 0 until countLimit) {
-            learnts[i].deleted = true
+            val learnt = learnts[i]
+
+            if (learnt.deleted) break
+            if (isClauseLocked(learnt)) continue
+
+            learnt.deleted = true
         }
     }
 
@@ -133,7 +162,6 @@ class ClauseDatabase(private val solver: CDCL) {
             reduceMaxLearnts += reduceMaxLearntsIncrement
 
             simplify()
-            removeDeleted()
 
             when (reduceStrategy) {
                 ReduceStrategy.ACTIVITY -> reduceBasedOnActivity()
