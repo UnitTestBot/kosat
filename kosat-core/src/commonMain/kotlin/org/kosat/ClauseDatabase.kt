@@ -13,7 +13,7 @@ class ClauseDatabase(private val solver: CDCL) {
 
     private val reduceStrategy = ReduceStrategy.LBD
 
-    fun addClause(clause: Clause) {
+    fun add(clause: Clause) {
         if (clause.learnt) {
             learnts.add(clause)
         } else {
@@ -82,7 +82,7 @@ class ClauseDatabase(private val solver: CDCL) {
                 solver.assignment.fixed(it) == LBool.FALSE
             }
 
-            check(clause.lits.size >= 2)
+            check(clause.size >= 2)
         }
     }
 
