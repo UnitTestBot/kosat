@@ -26,14 +26,11 @@ class Restarter(private val solver: CDCL) {
 
     private var lubyPosition = 1
 
-    private fun restart() {
-        restartNumber = lubyMultiplierConstant * luby(lubyPosition++)
-        solver.backtrack(0)
-    }
-
     fun restartIfNeeded() {
         if (numberOfConflictsAfterRestart >= restartNumber) {
-            restart()
+            restartNumber = lubyMultiplierConstant * luby(lubyPosition++)
+            solver.backtrack(0)
+
             numberOfConflictsAfterRestart = 0
         }
     }
