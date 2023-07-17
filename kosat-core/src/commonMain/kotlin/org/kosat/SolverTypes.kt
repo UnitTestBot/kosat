@@ -99,7 +99,7 @@ operator fun <T> MutableList<T>.set(variable: Var, value: T) {
     this[variable.index] = value
 }
 
-operator fun BooleanArray.get(variable: Var): T {
+operator fun BooleanArray.get(variable: Var): Boolean {
     return this[variable.index]
 }
 
