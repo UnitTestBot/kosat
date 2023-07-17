@@ -131,7 +131,7 @@ internal class DiamondTests {
                 List(ind) {
                     random.nextInt(1, first.vars + 1)
                 }.map {
-                    DimacsLiteral(if (Random.nextBoolean()) it else -it)
+                    DimacsLiteral(if (random.nextBoolean()) it else -it)
                 }
             }
 
