@@ -813,7 +813,7 @@ class CDCL {
     private fun analyzeConflict(conflict: Clause): Clause {
         var numberOfActiveVariables = 0
         val lemma = mutableSetOf<Lit>()
-        val seen = MutableList(numberOfVariables) { false } // TODO: array
+        val seen = BooleanArray(numberOfVariables)
 
         conflict.lits.forEach { lit ->
             if (assignment.level(lit.variable) == assignment.decisionLevel) {
