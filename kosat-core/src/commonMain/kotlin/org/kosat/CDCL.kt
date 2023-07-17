@@ -39,7 +39,7 @@ class CDCL {
      *
      * `i`-th element of this list is the set of clauses watched by variable `i`.
      */
-    private val watchers: MutableList<MutableList<Clause>> = mutableListOf()
+    val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
     /**
      * The number of variables.

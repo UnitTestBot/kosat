@@ -46,6 +46,10 @@ class ClauseDatabase(private val solver: CDCL) {
     fun removeDeleted() {
         clauses.removeAll { it.deleted }
         learnts.removeAll { it.deleted }
+
+        for (watched in solver.watchers) {
+            watched.removeAll { it.deleted }
+        }
     }
 
     /**
