@@ -54,7 +54,7 @@ internal class DiamondTests {
         with(MiniSatSolver()) {
             val lits = List(data.vars) { newLiteral() }
             for (clause in data.clauses) {
-                addClause(clause.dimacsLiterals.map { it.value.sign * lits[abs(it.value) - 1] })
+                addClause(clause.map { it.sign * lits[abs(it) - 1] })
             }
             val result = solve()
             println("MiniSat conflicts: ${backend.numberOfConflicts}")
@@ -70,7 +70,7 @@ internal class DiamondTests {
         if (ans.size != cnfRequest.vars) return false
 
         return cnfRequest.clauses.all { clause ->
-            clause.toClause().lits.any {
+            Clause.fromDIMACS(clause).lits.any {
                 it.isPos == ans[it.variable]
             }
         }
@@ -119,7 +119,7 @@ internal class DiamondTests {
 
         val first = readCnfRequests(fileInput).first()
 
-        val solver = CDCL(first.clauses.map { it.toClause() }, first.vars)
+        val solver = CDCL(first.clauses.map { Clause.fromDIMACS(it) }, first.vars)
 
         var res = "OK"
 
@@ -131,7 +131,7 @@ internal class DiamondTests {
                 List(ind) {
                     random.nextInt(1, first.vars + 1)
                 }.map {
-                    DimacsLiteral(if (random.nextBoolean()) it else -it)
+                    if (random.nextBoolean()) it else -it
                 }
             }
 
@@ -139,13 +139,13 @@ internal class DiamondTests {
                 (variables.toInt()).toString() + " " +
                 (clauses.toInt() + assumptions.size).toString() + "\n" +
                 lines.drop(1).joinToString(separator = "\n") +
-                assumptions.map { it.value }.joinToString(prefix = "\n", separator = " 0\n", postfix = " 0")
+                assumptions.joinToString(prefix = "\n", separator = " 0\n", postfix = " 0")
 
             val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
 
             val (solution, timeKoSat) = measureTimeWithResult {
-                solver.solve(assumptions.map { it.toLiteral() })
-                val result = solver.solve(assumptions.map { it.toLiteral() })
+                solver.solve(assumptions.map { Lit.fromDIMACS(it) })
+                val result = solver.solve(assumptions.map { Lit.fromDIMACS(it) })
                 if (result == SolveResult.SAT) {
                     solver.getModel()
                 } else {

@@ -39,14 +39,6 @@ enum class LBool {
  */
 @JvmInline
 value class Lit(val inner: Int) {
-    companion object {
-        val UNDEF = Lit(-1)
-
-        fun fromExternal(lit: Int): Lit {
-            return Lit((lit.absoluteValue - 1 shl 1) + if (lit < 0) 1 else 0)
-        }
-    }
-
     /** A negation of this literal */
     val neg: Lit get() = Lit(inner xor 1)
 
@@ -61,6 +53,18 @@ value class Lit(val inner: Int) {
 
     /** Is the literal [Lit.UNDEF] or [Var.posLit]/[Var.negLit] of [Var.UNDEF] */
     val isUndef: Boolean get() = inner < 0
+
+    fun toDIMACS(): Int {
+        return if (isPos) variable.index + 1 else -(variable.index + 1)
+    }
+
+    companion object {
+        val UNDEF = Lit(-1)
+
+        fun fromDIMACS(lit: Int): Lit {
+            return Lit((lit.absoluteValue - 1 shl 1) + if (lit < 0) 1 else 0)
+        }
+    }
 }
 
 operator fun <T> List<T>.get(lit: Lit): T {
