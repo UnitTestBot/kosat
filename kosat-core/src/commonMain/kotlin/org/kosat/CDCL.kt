@@ -21,17 +21,16 @@ class CDCL {
     /**
      * Clause database.
      */
-    private val db: ClauseDatabase = ClauseDatabase()
+    private val db: ClauseDatabase = ClauseDatabase(this)
 
     /**
      * Assignment.
      */
-    private val assignment: Assignment = Assignment()
+    val assignment: Assignment = Assignment()
 
     /**
      * Can solver perform the search? This becomes false if given constraints
-     * cause unsatisfiability in a trivial way (e.g. empty clause, conflicting
-     * unit clauses) and whether the solver can continue the search.
+     * cause unsatisfiability in some way.
      */
     private var ok = true
 
@@ -40,17 +39,13 @@ class CDCL {
      *
      * `i`-th element of this list is the set of clauses watched by variable `i`.
      */
-    private val watchers: MutableList<MutableList<Clause>> = mutableListOf()
+    val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
     /**
      * The number of variables.
      */
     var numberOfVariables: Int = 0
         private set
-
-    // controls the learned clause database reduction, should be replaced and moved in the future
-    private var reduceNumber = 6000.0
-    private var reduceIncrement = 500.0
 
     /**
      * The maximum amount of probes expected to be returned
@@ -196,6 +191,7 @@ class CDCL {
             variableSelector.backTrack(v)
         }
 
+        check(assignment.qhead >= assignment.trail.size)
         assignment.qhead = assignment.trail.size
         assignment.decisionLevel = level
     }
@@ -239,23 +235,6 @@ class CDCL {
         return result
     }
 
-    // half of learnt get reduced
-    fun reduceDB() {
-        db.learnts.sortByDescending { it.lbd }
-        val deletionLimit = db.learnts.size / 2
-        var cnt = 0
-        for (clause in db.learnts) {
-            if (cnt == deletionLimit) {
-                break
-            }
-            if (!clause.deleted) {
-                cnt++
-                clause.deleted = true
-            }
-        }
-        db.learnts.removeAll { it.deleted }
-    }
-
     // ---- Solve ---- //
 
     fun solve(): SolveResult {
@@ -278,8 +257,10 @@ class CDCL {
             return SolveResult.UNSAT
         }
 
-        backtrack(0)
-        cachedModel = null
+        if (assignment.decisionLevel > 0) {
+            backtrack(0)
+            cachedModel = null
+        }
 
         variableSelector.build(db.clauses)
 
@@ -300,6 +281,7 @@ class CDCL {
                 if (assignment.decisionLevel == 0) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
+                    ok = false
                     return SolveResult.UNSAT
                 }
 
@@ -318,17 +300,13 @@ class CDCL {
                 } else {
                     attachClause(lemma)
                     assignment.uncheckedEnqueue(lemma[0], lemma)
+                    db.clauseBumpActivity(lemma)
                 }
 
-                // remove half of learnts
-                if (db.learnts.size > reduceNumber) {
-                    reduceNumber += reduceIncrement
-                    reduceDB()
-                }
                 variableSelector.update(lemma)
+                db.clauseDecayActivity()
 
-                // restart search after some number of conflicts
-                restarter.update()
+                restarter.numberOfConflictsAfterRestart++
             } else {
                 // NO CONFLICT
                 require(assignment.qhead == assignment.trail.size)
@@ -339,6 +317,9 @@ class CDCL {
                     // println("KoSat decisions:   $numberOfDecisions")
                     return SolveResult.SAT
                 }
+
+                db.reduceIfNeeded()
+                restarter.restartIfNeeded()
 
                 // try to guess variable
                 assignment.newDecisionLevel()
@@ -671,7 +652,7 @@ class CDCL {
      */
     private fun hyperBinaryResolve(clause: Clause): Clause {
         require(assignment.decisionLevel == 1)
-        require(clause.size > 2) { clause }
+        require(clause.size > 2)
         require(value(clause[0]) == LBool.UNDEF)
 
         // On level 1, the literals on the trail form a binary implication tree.
@@ -721,7 +702,7 @@ class CDCL {
         }
 
         requireNotNull(lca)
-        return Clause(mutableListOf(lca.neg, clause[0]))
+        return Clause(mutableListOf(lca.neg, clause[0]), true)
     }
 
     // ---- CDCL functions ---- //
@@ -858,7 +839,11 @@ class CDCL {
             // has a reason except for the decision variable,
             // which will not be visited because even if it is seen,
             // it is the last seen variable in order of the trail.
-            assignment.reason(v)!!.lits.forEach { u ->
+            val reason = assignment.reason(v)!!
+
+            db.clauseBumpActivity(reason)
+
+            reason.lits.forEach { u ->
                 val current = u.variable
                 if (assignment.level(current) != assignment.decisionLevel) {
                     lemma.add(u)
@@ -887,6 +872,7 @@ class CDCL {
                         minimizeMarks[it] != currentMinimizationMark
                     } ?: true
                 }.toMutableList(),
+                learnt = true,
             )
 
             val uipIndex = newClause.lits.indexOfFirst { it.variable == v }
