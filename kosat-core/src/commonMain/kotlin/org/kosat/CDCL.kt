@@ -892,7 +892,7 @@ class CDCL {
                         minimizeMarks[it] != currentMinimizationMark
                     } ?: true
                 }.toMutableList(),
-                true,
+                learnt = true,
             )
 
             val uipIndex = newClause.lits.indexOfFirst { it.variable == v }
