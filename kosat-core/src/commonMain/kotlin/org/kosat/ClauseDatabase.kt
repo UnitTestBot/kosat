@@ -43,6 +43,17 @@ class ClauseDatabase(private val solver: CDCL) {
         }
     }
 
+    /**
+     * Is the clause locked, because there is a literal on the trail,
+     * with a reason being that clause (propagated because of it)?
+     */
+    fun isClauseLocked(clause: Clause): Boolean {
+        return solver.assignment.reason(clause[0].variable) === clause
+    }
+
+    /**
+     * Remove clauses marked as deleted.
+     */
     fun removeDeleted() {
         clauses.removeAll { it.deleted }
         learnts.removeAll { it.deleted }
@@ -53,36 +64,25 @@ class ClauseDatabase(private val solver: CDCL) {
     }
 
     /**
-     * @see simplify
-     */
-    private fun simplifyClause(clause: Clause) {
-        for (lit in clause.lits) {
-            if (solver.assignment.fixed(lit) == LBool.TRUE) {
-                clause.deleted = true
-                return
-            }
-        }
-
-        clause.lits.removeAll {
-            solver.assignment.fixed(it) == LBool.FALSE
-        }
-
-        check(clause.lits.size >= 2)
-    }
-
-    /**
      * Remove clauses, satisfied at level 0, and falsified literals at level 0
      * in the remaining clauses.
      */
     fun simplify() {
-        for (clause in clauses) {
+        outer@for (clause in clauses + learnts) {
             if (clause.deleted) continue
-            simplifyClause(clause)
-        }
 
-        for (clause in learnts) {
-            if (clause.deleted) continue
-            simplifyClause(clause)
+            for (lit in clause.lits) {
+                if (solver.assignment.fixed(lit) == LBool.TRUE) {
+                    clause.deleted = true
+                    continue@outer
+                }
+            }
+
+            clause.lits.removeAll {
+                solver.assignment.fixed(it) == LBool.FALSE
+            }
+
+            check(clause.lits.size >= 2)
         }
     }
 
