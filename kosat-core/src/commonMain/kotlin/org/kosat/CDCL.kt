@@ -387,7 +387,8 @@ class CDCL {
             return SolveResult.SAT
         }
 
-        db.clauses.retainAll { !it.deleted }
+        db.simplify()
+        db.removeDeleted()
 
         return null
     }
@@ -469,8 +470,6 @@ class CDCL {
 
                 // Can we learn more while we are at level 0?
                 propagate()?.let { return SolveResult.UNSAT }
-            } else {
-                backtrack(0)
             }
         }
 
@@ -544,11 +543,19 @@ class CDCL {
                     //   this may result in too many clauses being kept.
                     //   This should be reworked with the new clause storage mechanism,
                     //   and new flags for clauses. Won't fix for now.
-                    // if (newBinary[0] in clause) {
+                    // TODO: this turns out to be more difficult than I expected and
+                    //   requires further investigation.
+                    // if (newBinary[0] in clause.lits) {
                     //     clause.deleted = true
+                    //     clausesToKeep.removeLast()
+                    //     newBinary.learnt = clause.learnt
                     // }
 
                     attachClause(newBinary)
+
+                    // Make sure watch is not overwritten at the end of the loop
+                    if (lit == newBinary[0]) clausesToKeep.add(newBinary)
+
                     assignment.uncheckedEnqueue(clause[0], newBinary)
                     // again, we try to only use binary clauses first
                     propagateOnlyBinary()?.let { conflict = it }
@@ -569,7 +576,7 @@ class CDCL {
 
     /**
      * Used in [propagateProbeAndLearnBinary] to only propagate using
-     * binary clauses. It uses a separate queue pointer ([qheadBinaryOnly]).
+     * binary clauses. It uses a separate queue pointer ([Assignment.qheadBinaryOnly]).
      */
     private fun propagateOnlyBinary(): Clause? {
         require(assignment.qheadBinaryOnly >= assignment.qhead)
