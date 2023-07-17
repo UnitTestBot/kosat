@@ -28,7 +28,9 @@ class CDCL {
     /**
      * Assignment.
      */
-    val assignment: Assignment = Assignment()
+    val assignment: Assignment = Assignment(this)
+
+    var dratBuilder: AbstractDratBuilder = NoOpDratBuilder()
 
     /**
      * Can solver perform the search? This becomes false if given constraints
@@ -172,6 +174,7 @@ class CDCL {
         when (clause.size) {
             0 -> {
                 ok = false
+                dratBuilder.addEmptyClauseAndFlush()
             }
 
             1 -> {
@@ -270,7 +273,11 @@ class CDCL {
 
         // Don't bother with anything if there is already
         // a level 0 conflict
-        propagate()?.let { return SolveResult.UNSAT }
+        propagate()?.let {
+            ok = false
+            dratBuilder.addEmptyClauseAndFlush()
+            return SolveResult.UNSAT
+        }
 
         preprocess()?.let { return it }
 
@@ -286,6 +293,7 @@ class CDCL {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
                     ok = false
+                    dratBuilder.addEmptyClauseAndFlush()
                     return SolveResult.UNSAT
                 }
 
@@ -383,6 +391,9 @@ class CDCL {
         require(assignment.decisionLevel == 0)
         require(assignment.qhead == assignment.trail.size)
 
+        dratBuilder.addComment("Preprocessing")
+        dratBuilder.addComment("Preprocessing: Failed literal probing")
+
         failedLiteralProbing()?.let { return it }
 
         // Without this, we might let the solver propagate nothing
@@ -391,8 +402,12 @@ class CDCL {
             return SolveResult.SAT
         }
 
+        dratBuilder.addComment("Post-Preprocessing cleanup")
+
         db.simplify()
         db.removeDeleted()
+
+        dratBuilder.addComment("Finished preprocessing")
 
         return null
     }
@@ -469,11 +484,15 @@ class CDCL {
 
             if (conflict != null) {
                 if (!assignment.enqueue(probe.neg, null)) {
+                    dratBuilder.addEmptyClauseAndFlush()
                     return SolveResult.UNSAT
                 }
 
                 // Can we learn more while we are at level 0?
-                propagate()?.let { return SolveResult.UNSAT }
+                propagate()?.let {
+                    dratBuilder.addEmptyClauseAndFlush()
+                    return SolveResult.UNSAT
+                }
             }
         }
 
@@ -727,6 +746,17 @@ class CDCL {
         db.add(clause)
         watchers[clause[0]].add(clause)
         watchers[clause[1]].add(clause)
+        if (clause.learnt) dratBuilder.addClause(clause)
+    }
+
+    /**
+     * Remove [clause] from the database. Watchers will be detached
+     * later, during [ClauseDatabase.reduceIfNeeded].
+     */
+    fun detachClause(clause: Clause) {
+        check(ok)
+        clause.deleted = true
+        if (clause.learnt) dratBuilder.deleteClause(clause)
     }
 
     /**

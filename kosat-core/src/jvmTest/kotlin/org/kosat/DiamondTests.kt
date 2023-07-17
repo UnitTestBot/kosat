@@ -3,7 +3,10 @@ package org.kosat
 import com.github.lipen.satlib.solver.MiniSatSolver
 import korlibs.time.measureTimeWithResult
 import korlibs.time.roundMilliseconds
+import okio.FileSystem
+import okio.Path
 import okio.Path.Companion.toPath
+import okio.buffer
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -11,11 +14,15 @@ import org.kosat.cnf.CNF
 import org.kosat.cnf.from
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 // Lazy messages are not in JUnit
@@ -29,6 +36,12 @@ private fun assertTrue(value: Boolean, lazyMessage: () -> String) {
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
     private val format = ".cnf"
+    private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
+        .resolve("dratProofs/${LocalDateTime.now()}")
+
+    init {
+        dratProofsPath.toFile().mkdirs()
+    }
 
     private fun getAllFilenames(): List<String> {
         val resourcesPath = Paths.get(projectDirAbsolutePath, testsPath)
@@ -70,15 +83,49 @@ internal class DiamondTests {
         }
     }
 
-    private fun runTest(cnf: CNF) {
+    private fun runTest(cnfPath: Path, cnf: CNF) {
         val (resultExpected, timeMiniSat) = measureTimeWithResult {
             solveWithMiniSat(cnf)
         }
 
         val solver = CDCL(cnf)
 
+        val dratFile = dratProofsPath.resolve("${cnfPath.toFile().nameWithoutExtension}.drat")
+        solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratFile).buffer())
+
         val (resultActual, timeKoSat) = measureTimeWithResult {
             solver.solve()
+        }
+
+        if (resultActual == SolveResult.SAT) {
+            dratFile.toFile().delete()
+        } else {
+            val command = "drat-trim ${cnfPath.toNioPath().toAbsolutePath()} $dratFile -U"
+            println("DRAT-TRIM command: $command")
+
+            val validator = Runtime.getRuntime().exec(command)
+
+            val finished = validator.waitFor(10, TimeUnit.SECONDS)
+
+            if (!finished) {
+                validator.destroy()
+                throw Exception("DRAT-TRIM takes too long")
+            }
+
+            val stdout = validator.inputStream.bufferedReader().readLines().filter { it.isNotBlank() }
+
+            println("DRAT-TRIM stdout:")
+            println(stdout.joinToString("\n\t", prefix = "\t"))
+            println("DRAT-TRIM stdout end")
+
+            assertContains(stdout, "s VERIFIED")
+
+            assertNotEquals(
+                80,
+                validator.exitValue(),
+                "DRAT-TRIM exited with code 80 " +
+                        "(possibly because of a termination due to warning if ran with -W flag)",
+            )
         }
 
         assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different. ")
@@ -94,7 +141,6 @@ internal class DiamondTests {
                         break
                     }
                 }
-
 
                 assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
             }
@@ -152,8 +198,9 @@ internal class DiamondTests {
     @ParameterizedTest(name = "{0}")
     @MethodSource("getAllFilenames")
     fun test(filepath: String) {
-        println("# Testing on: $filepath")
-        runTest(CNF.from("$testsPath$filepath".toPath()))
+        val path = "$testsPath$filepath".toPath()
+        println("# Testing on: $path")
+        runTest(path, CNF.from(path))
     }
 
     private val assumptionTestsPath = "$testsPath/testCover/small"
