@@ -7,7 +7,7 @@ package org.kosat
  * assignments of literals otherwise
  */
 fun solveCnf(cnf: CnfRequest): List<Boolean>? {
-    val clauses = (cnf.clauses.map { Clause.fromDIMACS(it) }).toMutableList()
+    val clauses = (cnf.clauses.map { Clause.fromDimacs(it) }).toMutableList()
     val solver = CDCL(clauses, cnf.vars)
     val result = solver.solve()
     return if (result == SolveResult.SAT) {

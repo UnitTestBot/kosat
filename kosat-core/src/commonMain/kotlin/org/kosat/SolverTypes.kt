@@ -54,14 +54,14 @@ value class Lit(val inner: Int) {
     /** Is the literal [Lit.UNDEF] or [Var.posLit]/[Var.negLit] of [Var.UNDEF] */
     val isUndef: Boolean get() = inner < 0
 
-    fun toDIMACS(): Int {
+    fun toDimacs(): Int {
         return if (isPos) variable.index + 1 else -(variable.index + 1)
     }
 
     companion object {
         val UNDEF = Lit(-1)
 
-        fun fromDIMACS(lit: Int): Lit {
+        fun fromDimacs(lit: Int): Lit {
             return Lit((abs(lit) - 1 shl 1) + if (lit < 0) 1 else 0)
         }
     }

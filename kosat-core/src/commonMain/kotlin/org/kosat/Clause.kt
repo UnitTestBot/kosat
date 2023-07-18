@@ -17,13 +17,13 @@ data class Clause(
         lits[i] = x
     }
 
-    fun toDIMACS(): List<Int> {
-        return lits.map { it.toDIMACS() }
+    fun toDimacs(): List<Int> {
+        return lits.map { it.toDimacs() }
     }
 
     companion object {
-        fun fromDIMACS(clause: List<Int>): Clause {
-            val lits = clause.map { Lit.fromDIMACS(it) }.toMutableList()
+        fun fromDimacs(clause: List<Int>): Clause {
+            val lits = clause.map { Lit.fromDimacs(it) }.toMutableList()
             return Clause(lits)
         }
     }

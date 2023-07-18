@@ -70,7 +70,7 @@ internal class DiamondTests {
         if (ans.size != cnfRequest.vars) return false
 
         return cnfRequest.clauses.all { clause ->
-            Clause.fromDIMACS(clause).lits.any {
+            Clause.fromDimacs(clause).lits.any {
                 it.isPos == ans[it.variable]
             }
         }
@@ -119,7 +119,7 @@ internal class DiamondTests {
 
         val first = readCnfRequests(fileInput).first()
 
-        val solver = CDCL(first.clauses.map { Clause.fromDIMACS(it) }, first.vars)
+        val solver = CDCL(first.clauses.map { Clause.fromDimacs(it) }, first.vars)
 
         var res = "OK"
 
@@ -144,8 +144,8 @@ internal class DiamondTests {
             val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
 
             val (solution, timeKoSat) = measureTimeWithResult {
-                solver.solve(assumptions.map { Lit.fromDIMACS(it) })
-                val result = solver.solve(assumptions.map { Lit.fromDIMACS(it) })
+                solver.solve(assumptions.map { Lit.fromDimacs(it) })
+                val result = solver.solve(assumptions.map { Lit.fromDimacs(it) })
                 if (result == SolveResult.SAT) {
                     solver.getModel()
                 } else {
