@@ -1,5 +1,7 @@
 package org.kosat
 
+import org.kosat.cnf.CNF
+
 /**
  * Solves [cnf] and returns
  * `null` if request unsatisfiable
@@ -103,6 +105,8 @@ class CDCL {
         initialClauses.forEach { newClause(it) }
         polarity = MutableList(numberOfVariables + 1) { LBool.UNDEF }
     }
+
+    constructor(cnf: CNF) : this(cnf.clauses.map { Clause.fromDimacs(it) }, cnf.numVars)
 
     /**
      * Allocate a new variable in the solver.

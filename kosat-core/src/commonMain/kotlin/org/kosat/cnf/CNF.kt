@@ -1,6 +1,7 @@
 package org.kosat.cnf
 
 import okio.BufferedSource
+import kotlin.math.abs
 
 class CNF(
     val clauses: List<List<Int>>,
@@ -18,6 +19,8 @@ class CNF(
 
                 if (line.startsWith('c')) {
                     // Skip comment
+                } else if (line.isBlank()) {
+                    // Skip empty line
                 } else if (line.startsWith('p')) {
                     // Header
                     val tokens = line.split(RE_SPACE)
@@ -55,5 +58,5 @@ class CNF(
 }
 
 fun determineNumberOfVariables(clauses: List<List<Int>>): Int {
-    return clauses.maxOfOrNull { it.max() } ?: 0
+    return clauses.maxOfOrNull { clause -> clause.maxOfOrNull{ lit -> abs(lit) } ?: 0 } ?: 0
 }
