@@ -16,6 +16,7 @@ import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
@@ -70,7 +71,7 @@ internal class DiamondTests {
             result == SolveResult.SAT
         }
 
-        assertEquals(isSatExpected, isSatActual, "MiniSat and KoSat results are different")
+        assertEquals(isSatExpected, isSatActual, "MiniSat and KoSat results are different. ")
 
         if (isSatActual) {
             val model = solver.getModel()
@@ -84,7 +85,7 @@ internal class DiamondTests {
                     }
                 }
 
-                assert(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                assertTrue(satisfied, "Clause $clause is not satisfied. Model: $model")
             }
         }
 
@@ -122,12 +123,12 @@ internal class DiamondTests {
                         }
                     }
 
-                    assert(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                    assertTrue(satisfied, "Clause $clause is not satisfied. Model: $model")
                 }
 
                 for (assumption in assumptions) {
                     val assumptionValue = model[abs(assumption) - 1] == (assumption.sign == 1)
-                    assert(assumptionValue) { "Assumption $assumption is not satisfied. Model: $model" }
+                    assertTrue(assumptionValue, "Assumption $assumption is not satisfied. Model: $model")
                 }
             }
 
