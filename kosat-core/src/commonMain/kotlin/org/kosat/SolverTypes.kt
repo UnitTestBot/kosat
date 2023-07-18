@@ -57,7 +57,7 @@ value class Lit(val inner: Int) {
 
     companion object {
         fun fromDimacs(lit: Int): Lit {
-            return Lit((abs(lit) - 1 shl 1) + if (lit < 0) 1 else 0)
+            return Lit(((abs(lit) - 1) shl 1) + if (lit < 0) 1 else 0)
         }
     }
 }
