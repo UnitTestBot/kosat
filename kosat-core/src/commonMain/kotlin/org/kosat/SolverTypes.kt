@@ -34,7 +34,7 @@ enum class LBool {
 
 /**
  * An opaque and safe type representing a literal in the solver, wrapper around [Int].
- * Literal can be used as a list index, using [Lit.inner], unless it is [Lit.UNDEF].
+ * Literal can be used as a list index, using [Lit.inner].
  * @param inner - the inner integer representation of the literal, index in the list
  */
 @JvmInline
@@ -51,16 +51,11 @@ value class Lit(val inner: Int) {
     /** Is this a negative literal (Negation of a variable)? */
     val isNeg: Boolean get() = (inner and 1) == 1
 
-    /** Is the literal [Lit.UNDEF] or [Var.posLit]/[Var.negLit] of [Var.UNDEF] */
-    val isUndef: Boolean get() = inner < 0
-
     fun toDimacs(): Int {
         return if (isPos) variable.index + 1 else -(variable.index + 1)
     }
 
     companion object {
-        val UNDEF = Lit(-1)
-
         fun fromDimacs(lit: Int): Lit {
             return Lit((abs(lit) - 1 shl 1) + if (lit < 0) 1 else 0)
         }
@@ -81,18 +76,11 @@ operator fun <T> MutableList<T>.set(lit: Lit, value: T) {
  */
 @JvmInline
 value class Var(val index: Int) {
-    companion object {
-        val UNDEF = Var(-1)
-    }
-
     /** A literal of that variable */
     val posLit: Lit get() = Lit(index shl 1)
 
     /** A literal of negation of that variable */
     val negLit: Lit get() = Lit((index shl 1) or 1)
-
-    /** Is the variable [Var.UNDEF]? */
-    val isUndef: Boolean get() = index < 0
 }
 
 operator fun <T> List<T>.get(variable: Var): T {

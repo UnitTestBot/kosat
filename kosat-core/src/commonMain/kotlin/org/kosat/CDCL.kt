@@ -327,7 +327,7 @@ class CDCL {
                 numberOfDecisions++
 
                 // in case there is assumption propagated to false
-                if (nextDecisionLiteral.isUndef) {
+                if (nextDecisionLiteral == null) {
                     return SolveResult.UNSAT
                 }
 
