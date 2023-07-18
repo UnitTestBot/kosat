@@ -43,7 +43,7 @@ internal class DiamondTests {
             .toList()
     }
 
-    private fun solveWithMiniSat(cnf: CNF): Boolean {
+    private fun solveWithMiniSat(cnf: CNF): SolveResult {
         MiniSatSolver().close()
 
         return with(MiniSatSolver()) {
@@ -51,7 +51,11 @@ internal class DiamondTests {
             for (clause in cnf.clauses) {
                 addClause(clause.map { it.sign * lits[abs(it) - 1] })
             }
-            val result = solve()
+            val result = if (solve()) {
+                SolveResult.SAT
+            } else {
+                SolveResult.UNSAT
+            }
             println("MiniSat conflicts: ${backend.numberOfConflicts}")
             println("Minisat decisions: ${backend.numberOfDecisions}")
 
@@ -60,20 +64,19 @@ internal class DiamondTests {
     }
 
     private fun runTest(cnf: CNF) {
-        val (isSatExpected, timeMiniSat) = measureTimeWithResult {
+        val (resultExpected, timeMiniSat) = measureTimeWithResult {
             solveWithMiniSat(cnf)
         }
 
         val solver = CDCL(cnf)
 
-        val (isSatActual, timeKoSat) = measureTimeWithResult {
-            val result = solver.solve()
-            result == SolveResult.SAT
+        val (resultActual, timeKoSat) = measureTimeWithResult {
+            solver.solve()
         }
 
-        assertEquals(isSatExpected, isSatActual, "MiniSat and KoSat results are different. ")
+        assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different. ")
 
-        if (isSatActual) {
+        if (resultActual == SolveResult.SAT) {
             val model = solver.getModel()
 
             for (clause in cnf.clauses) {
@@ -100,18 +103,17 @@ internal class DiamondTests {
             println("## Solving with assumptions: $assumptions")
             val cnfWithAssumptions = CNF(cnf.clauses + assumptions.map { listOf(it) }, cnf.numVars)
 
-            val (isSatExpected, timeMiniSat) = measureTimeWithResult {
+            val (resultExpected, timeMiniSat) = measureTimeWithResult {
                 solveWithMiniSat(cnfWithAssumptions)
             }
 
-            val (isSatActual, timeKoSat) = measureTimeWithResult {
-                val result = solver.solve(assumptions.map { Lit.fromDimacs(it) })
-                result == SolveResult.SAT
+            val (resultActual, timeKoSat) = measureTimeWithResult {
+                solver.solve(assumptions.map { Lit.fromDimacs(it) })
             }
 
-            assertEquals(isSatExpected, isSatActual, "MiniSat and KoSat results are different")
+            assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different")
 
-            if (isSatActual) {
+            if (resultActual == SolveResult.SAT) {
                 val model = solver.getModel()
 
                 for (clause in cnf.clauses) {
