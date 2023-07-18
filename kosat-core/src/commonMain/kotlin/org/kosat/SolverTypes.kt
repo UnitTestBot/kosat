@@ -1,7 +1,7 @@
 package org.kosat
 
 import kotlin.jvm.JvmInline
-import kotlin.math.absoluteValue
+import kotlin.math.abs
 
 /**
  * A boolean value in the solver
@@ -62,7 +62,7 @@ value class Lit(val inner: Int) {
         val UNDEF = Lit(-1)
 
         fun fromDIMACS(lit: Int): Lit {
-            return Lit((lit.absoluteValue - 1 shl 1) + if (lit < 0) 1 else 0)
+            return Lit((abs(lit) - 1 shl 1) + if (lit < 0) 1 else 0)
         }
     }
 }
