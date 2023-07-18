@@ -18,6 +18,12 @@ import kotlin.streams.toList
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+// Lazy messages are not in JUnit
+private fun assertTrue(value: Boolean, lazyMessage: () -> String) {
+    if (!value) println(lazyMessage())
+    assertTrue(value)
+}
+
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
@@ -88,7 +94,8 @@ internal class DiamondTests {
                     }
                 }
 
-                assertTrue(satisfied, "Clause $clause is not satisfied. Model: $model")
+
+                assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
             }
         }
 
@@ -125,12 +132,12 @@ internal class DiamondTests {
                         }
                     }
 
-                    assertTrue(satisfied, "Clause $clause is not satisfied. Model: $model")
+                    assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
                 }
 
                 for (assumption in assumptions) {
                     val assumptionValue = model[abs(assumption) - 1] == (assumption.sign == 1)
-                    assertTrue(assumptionValue, "Assumption $assumption is not satisfied. Model: $model")
+                    assertTrue(assumptionValue) { "Assumption $assumption is not satisfied. Model: $model" }
                 }
             }
 
