@@ -1,6 +1,6 @@
 package org.kosat
 
-class CnfRequest(val vars: Int, val clauses: List<DimacsClause>)
+class CnfRequest(val vars: Int, val clauses: List<List<Int>>)
 
 /**
  * Reads [CnfRequest]'s assuming [s] is formatted according [Simplified DIMACS](http://www.satcompetition.org/2004/format-solvers2004.html)
@@ -65,7 +65,7 @@ fun readCnfRequests(dimacs: String) = sequence {
             }
         }
 
-        yield(CnfRequest(vars, clauses.map { DimacsClause(it.map(::DimacsLiteral)) }))
+        yield(CnfRequest(vars, clauses))
     }
 }
 

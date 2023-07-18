@@ -8,7 +8,7 @@ abstract class VariableSelector {
     }
 
     abstract fun build(clauses: List<Clause>)
-    abstract fun nextDecision(assignment: Assignment): Lit
+    abstract fun nextDecision(assignment: Assignment): Lit?
     abstract fun addVariable()
     abstract fun update(lemma: Clause)
     abstract fun backTrack(variable: Var)
@@ -209,9 +209,9 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
     }
 
     // returns the literal as the assumptions give information about the value of the variable
-    override fun nextDecision(assignment: Assignment): Lit {
+    override fun nextDecision(assignment: Assignment): Lit? {
         if (assumptions.any { assignment.value(it) == LBool.FALSE }) {
-            return Lit.UNDEF
+            return null
         }
         // if there is undefined assumption pick it, other way pick best choice
         return assumptions.firstOrNull { assignment.value(it) == LBool.UNDEF }
@@ -240,12 +240,12 @@ class FixedOrder : VariableSelector() {
     override fun build(clauses: List<Clause>) {
     }
 
-    override fun nextDecision(assignment: Assignment): Lit {
+    override fun nextDecision(assignment: Assignment): Lit? {
         // TODO: check indices
         for (i in 1..assignment.value.lastIndex) {
             if (assignment.value(Var(i)) == LBool.UNDEF) return Lit(i)
         }
-        return Lit.UNDEF
+        return null
     }
 
     override fun addVariable() {
@@ -305,21 +305,21 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0) : VariableSelect
         }
     }
 
-    override fun nextDecision(assignment: Assignment): Lit {
+    override fun nextDecision(assignment: Assignment): Lit? {
         if (assumptions.any { assignment.value(it) == LBool.FALSE }) {
-            return Lit.UNDEF
+            return null
         }
         // if there is undefined assumption pick it, other way pick best choice
         return assumptions.firstOrNull { assignment.value(it) == LBool.UNDEF }
-            ?: getMaxActivityVariable(assignment).posLit
+            ?: getMaxActivityVariable(assignment)?.posLit
     }
 
     override fun backTrack(variable: Var) {
     }
 
     // Looks for index of undefined variable with max activity
-    private fun getMaxActivityVariable(assignment: Assignment): Var {
-        var v = Var.UNDEF
+    private fun getMaxActivityVariable(assignment: Assignment): Var? {
+        var v: Var? = null
         var max = -1.0
         for (i in 0 until numberOfVariables) {
             if (assignment.value(Var(i)) == LBool.UNDEF && max < activity[i]) {

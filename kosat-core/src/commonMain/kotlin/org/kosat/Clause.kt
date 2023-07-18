@@ -16,4 +16,15 @@ data class Clause(
     operator fun set(i: Int, x: Lit) {
         lits[i] = x
     }
+
+    fun toDimacs(): List<Int> {
+        return lits.map { it.toDimacs() }
+    }
+
+    companion object {
+        fun fromDimacs(clause: List<Int>): Clause {
+            val lits = clause.map { Lit.fromDimacs(it) }.toMutableList()
+            return Clause(lits)
+        }
+    }
 }

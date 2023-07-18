@@ -11,7 +11,7 @@ internal class ManualTest {
         val path = "src/jvmTest/resources/benchmarks/sat-grid-pbl-0070.sat05-1334.reshuffled-07.cnf".toPath()
         val cnf = CNF.from(path)
         val clauses = cnf.clauses.map { lits ->
-            Clause(lits.map { Lit.fromExternal(it) }.toMutableList())
+            Clause(lits.map { Lit.fromDimacs(it) }.toMutableList())
         }
         val solver = CDCL(clauses, cnf.numVars)
         val model = solver.solve()
