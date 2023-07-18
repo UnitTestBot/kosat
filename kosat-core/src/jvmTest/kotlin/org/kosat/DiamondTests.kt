@@ -42,39 +42,31 @@ internal class DiamondTests {
             .toList()
     }
 
-    private fun runTest(cnf: CNF, assumptions: List<Int>? = null) {
+    private fun solveWithMiniSat(cnf: CNF): Boolean {
+        MiniSatSolver().close()
+
+        return with(MiniSatSolver()) {
+            val lits = List(cnf.numVars) { newLiteral() }
+            for (clause in cnf.clauses) {
+                addClause(clause.map { it.sign * lits[abs(it) - 1] })
+            }
+            val result = solve()
+            println("MiniSat conflicts: ${backend.numberOfConflicts}")
+            println("Minisat decisions: ${backend.numberOfDecisions}")
+
+            result
+        }
+    }
+
+    private fun runTest(cnf: CNF) {
         val (isSatExpected, timeMiniSat) = measureTimeWithResult {
-            val cnfWithAssumptions = if (assumptions != null) {
-                val newClauses = assumptions.map { listOf(it) }
-                // intentional copy when adding new clauses
-                CNF(cnf.clauses + newClauses)
-            } else {
-                cnf
-            }
-
-            MiniSatSolver().close()
-            with(MiniSatSolver()) {
-                val lits = List(cnfWithAssumptions.numVars) { newLiteral() }
-                for (clause in cnfWithAssumptions.clauses) {
-                    addClause(clause.map { it.sign * lits[abs(it) - 1] })
-                }
-                val result = solve()
-                println("MiniSat conflicts: ${backend.numberOfConflicts}")
-                println("Minisat decisions: ${backend.numberOfDecisions}")
-
-                result
-            }
+            solveWithMiniSat(cnf)
         }
 
         val solver = CDCL(cnf)
 
         val (isSatActual, timeKoSat) = measureTimeWithResult {
-            val result = if (assumptions != null) {
-                solver.solve(assumptions.map { Lit.fromDimacs(it) })
-            } else {
-                solver.solve()
-            }
-
+            val result = solver.solve()
             result == SolveResult.SAT
         }
 
@@ -94,18 +86,54 @@ internal class DiamondTests {
 
                 assert(satisfied) { "Clause $clause is not satisfied. Model: $model" }
             }
-
-            if (assumptions != null) {
-                for (assumption in assumptions) {
-                    assert(model[abs(assumption) - 1] == (assumption.sign == 1)) {
-                        "Assumption $assumption is not satisfied. Model: $model"
-                    }
-                }
-            }
         }
 
         println("MiniSat time: ${timeMiniSat.roundMilliseconds()}")
         println("KoSat time: ${timeKoSat.roundMilliseconds()}")
+    }
+
+    private fun runTestWithAssumptions(cnf: CNF, assumptionsSets: List<List<Int>>) {
+        val solver = CDCL(cnf)
+
+        for (assumptions in assumptionsSets) {
+            println("## Solving with assumptions: $assumptions")
+            val cnfWithAssumptions = CNF(cnf.clauses + assumptions.map { listOf(it) }, cnf.numVars)
+
+            val (isSatExpected, timeMiniSat) = measureTimeWithResult {
+                solveWithMiniSat(cnfWithAssumptions)
+            }
+
+            val (isSatActual, timeKoSat) = measureTimeWithResult {
+                val result = solver.solve(assumptions.map { Lit.fromDimacs(it) })
+                result == SolveResult.SAT
+            }
+
+            assertEquals(isSatExpected, isSatActual, "MiniSat and KoSat results are different")
+
+            if (isSatActual) {
+                val model = solver.getModel()
+
+                for (clause in cnf.clauses) {
+                    var satisfied = false
+                    for (lit in clause) {
+                        if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                            satisfied = true
+                            break
+                        }
+                    }
+
+                    assert(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                }
+
+                for (assumption in assumptions) {
+                    val assumptionValue = model[abs(assumption) - 1] == (assumption.sign == 1)
+                    assert(assumptionValue) { "Assumption $assumption is not satisfied. Model: $model" }
+                }
+            }
+
+            println("MiniSat time: ${timeMiniSat.roundMilliseconds()}")
+            println("KoSat time: ${timeKoSat.roundMilliseconds()}")
+        }
     }
 
     private val testsPath = "src/jvmTest/resources"
@@ -131,19 +159,17 @@ internal class DiamondTests {
             return
         }
 
-        for (i in 1..5) {
+        val assumptionSets = List(5) { i ->
             val random = Random(i)
 
-            val assumptions = List(i) {
+            List(i) {
                 random.nextInt(1, cnf.numVars + 1)
             }.map {
                 if (random.nextBoolean()) it else -it
             }
-
-            println("## Testing with assumptions: $assumptions")
-
-            runTest(cnf, assumptions)
         }
+
+        runTestWithAssumptions(cnf, assumptionSets)
 
         println()
     }
