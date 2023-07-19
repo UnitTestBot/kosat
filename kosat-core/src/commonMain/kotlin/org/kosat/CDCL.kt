@@ -886,7 +886,7 @@ class CDCL {
      */
     private fun analyzeConflict(conflict: Clause): Clause {
         var numberOfActiveVariables = 0
-        val lemma = mutableSetOf<Lit>()
+        val learntLits = mutableSetOf<Lit>()
         val seen = BooleanArray(numberOfVariables)
 
         conflict.lits.forEach { lit ->
@@ -894,7 +894,7 @@ class CDCL {
                 seen[lit.variable] = true
                 numberOfActiveVariables++
             } else {
-                lemma.add(lit)
+                learntLits.add(lit)
             }
         }
 
@@ -920,7 +920,7 @@ class CDCL {
             reason.lits.forEach { u ->
                 val current = u.variable
                 if (assignment.level(current) != assignment.decisionLevel) {
-                    lemma.add(u)
+                    learntLits.add(u)
                 } else if (current != v && !seen[current]) {
                     seen[current] = true
                     numberOfActiveVariables++
@@ -931,17 +931,17 @@ class CDCL {
             numberOfActiveVariables--
         }
 
-        var newClause: Clause
+        var learnt: Clause
 
         assignment.trail.last { seen[it.variable] }.let { lit ->
             val v = lit.variable
-            lemma.add(if (value(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
+            learntLits.add(if (value(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
 
             // Simplify clause by removing redundant literals which follow from their reasons
             currentMinimizationMark++
-            lemma.forEach { minimizeMarks[it] = currentMinimizationMark }
-            newClause = Clause(
-                lemma.filter { possiblyImpliedLit ->
+            learntLits.forEach { minimizeMarks[it] = currentMinimizationMark }
+            learnt = Clause(
+                learntLits.filter { possiblyImpliedLit ->
                     assignment.reason(possiblyImpliedLit.variable)?.lits?.any {
                         minimizeMarks[it] != currentMinimizationMark
                     } ?: true
@@ -949,18 +949,22 @@ class CDCL {
                 learnt = true,
             )
 
-            val uipIndex = newClause.lits.indexOfFirst { it.variable == v }
+            val uipIndex = learnt.lits.indexOfFirst { it.variable == v }
             // move UIP vertex to 0 position
-            newClause.lits.swap(uipIndex, 0)
+            learnt.lits.swap(uipIndex, 0)
             seen[v] = false
         }
         // move last defined literal to 1 position
-        if (newClause.size > 1) {
-            val secondMax = newClause.lits.drop(1).indices.maxByOrNull {
-                assignment.level(newClause[it + 1].variable)
+        if (learnt.size > 1) {
+            val secondMax = learnt.lits.drop(1).indices.maxByOrNull {
+                assignment.level(learnt[it + 1].variable)
             } ?: 0
-            newClause.lits.swap(1, secondMax + 1)
+            learnt.lits.swap(1, secondMax + 1)
         }
-        return newClause
+
+        // compute lbd "score" for lemma
+        learnt.lbd = learnt.lits.distinctBy { assignment.level(it.variable) }.size
+
+        return learnt
     }
 }
