@@ -222,8 +222,8 @@ class CDCL {
     fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
         assumptions = currentAssumptions
 
-        // If already UNSAT, return the cached result
-        if (!ok) return SolveResult.UNSAT
+        // If given clauses are already cause UNSAT, no need to do anything
+        if (!ok) return finishWithUnsat()
 
         // Check if the assumptions are trivially unsatisfiable
         // Set can be pretty expensive, but it's a one-time cost
@@ -333,16 +333,30 @@ class CDCL {
         }
     }
 
+    /**
+     * Finish solving with UNSAT (without considering assumptions),
+     * mark the solver as not ok, add empty clause to the DRAT proof,
+     * flush the proof and return [SolveResult.UNSAT].
+     */
     private fun finishWithUnsat(): SolveResult {
         ok = false
         dratBuilder.addEmptyClauseAndFlush()
         return SolveResult.UNSAT
     }
 
+    /**
+     * Finish solving due to unsatisfiability under assumptions.
+     * Solver will still be able to perform search after this.
+     */
     private fun finishWithAssumptionsUnsat(): SolveResult {
         return SolveResult.UNSAT
     }
 
+    /**
+     * Finish solving with SAT and check if all assumptions are satisfied.
+     * If not, return [SolveResult.UNSAT] due to assumptions being impossible
+     * to satisfy, otherwise return [SolveResult.SAT].
+     */
     private fun finishWithSatIfAssumptionsOk(): SolveResult {
         for (assumption in assumptions) {
             if (value(assumption) == LBool.FALSE) {
