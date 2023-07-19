@@ -260,76 +260,91 @@ class CDCL {
     // ---- Search ---- //
 
     private fun search(): SolveResult {
-        var numberOfConflicts = 0
-        var numberOfDecisions = 0
-
         // main loop
         while (true) {
-            val conflictClause = propagate()
-            if (conflictClause != null) {
-                // CONFLICT
-                numberOfConflicts++
+            // Propagate all not yet propagated literals,
+            // in case there is a conflict, backtrack, and repeat.
+            val shouldContinue = propagateAnalyzeBacktrack()
 
-                // in case there is a conflict in CNF and trail is already in 0 state
-                if (assignment.decisionLevel == 0) {
-                    // println("KoSat conflicts:   $numberOfConflicts")
-                    // println("KoSat decisions:   $numberOfDecisions")
-                    return finishWithUnsat()
-                }
+            // If the conflict on level 0 is reached, the problem is UNSAT.
+            if (!shouldContinue) return finishWithUnsat()
 
-                // build new clause by conflict clause
-                val lemma = analyzeConflict(conflictClause)
+            require(assignment.qhead == assignment.trail.size)
 
-                // compute lbd "score" for lemma
-                lemma.lbd = lemma.lits.distinctBy { assignment.level(it.variable) }.size
-
-                // return to decision level where lemma would be propagated
-                val level = if (lemma.size > 1) assignment.level(lemma[1].variable) else 0
-                backtrack(level)
-                // if lemma.size == 1 we just add it to 0 decision level of trail
-                if (lemma.size == 1) {
-                    assignment.uncheckedEnqueue(lemma[0], null)
-                } else {
-                    attachClause(lemma)
-                    assignment.uncheckedEnqueue(lemma[0], lemma)
-                    db.clauseBumpActivity(lemma)
-                }
-
-                variableSelector.update(lemma)
-                db.clauseDecayActivity()
-
-                restarter.numberOfConflictsAfterRestart++
-            } else {
-                // NO CONFLICT
-                require(assignment.qhead == assignment.trail.size)
-
-                // If (the problem is already) SAT, return the current assignment
-                if (assignment.trail.size == numberOfVariables) {
-                    // println("KoSat conflicts:   $numberOfConflicts")
-                    // println("KoSat decisions:   $numberOfDecisions")
-                    return finishWithSatIfAssumptionsOk()
-                }
-
-                db.reduceIfNeeded()
-                restarter.restartIfNeeded()
-
-                // try to guess variable
-                assignment.newDecisionLevel()
-                var nextDecisionLiteral = variableSelector.nextDecision(assignment)
-                numberOfDecisions++
-
-                // in case there is assumption propagated to false
-                if (nextDecisionLiteral == null) {
-                    return finishWithAssumptionsUnsat()
-                }
-
-                // phase saving heuristic
-                if (assignment.decisionLevel > assumptions.size && polarity[nextDecisionLiteral.variable] == LBool.FALSE) {
-                    nextDecisionLiteral = nextDecisionLiteral.neg
-                }
-
-                assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+            // If (the problem is already) SAT, return the current assignment
+            if (assignment.trail.size == numberOfVariables) {
+                return finishWithSatIfAssumptionsOk()
             }
+
+            // At this point, the state of the solver is predictable and coherent,
+            // the trail is propagated, the clauses are satisfied,
+            // it is safe to backtrack, make a decision, remove or add clauses, etc.
+            // We use this opportunity to do some "maintenance".
+            // For example, it is safe to shrink the clauses
+            // (by removing the falsified  literals from them),
+            // because it won't cause the clause to become empty or unit.
+
+            db.reduceIfNeeded()
+            restarter.restartIfNeeded()
+
+            // And after that, we are ready to make a decision.
+            assignment.newDecisionLevel()
+            var nextDecisionLiteral = variableSelector.nextDecision(assignment)
+
+            // We always choose the assumption literals first, then the rest.
+            // If there are no non-assumed literals left, the problem is
+            // UNSAT under given assumptions.
+            nextDecisionLiteral ?: return finishWithAssumptionsUnsat()
+
+            // TODO: currently, to check if the literal is assumed or guessed, we check
+            //       the decision level. This is not precise (some assumptions can be deduced)
+            //       and error-prone.
+            // Use the phase from the search before, if possible (so called "Phase Saving")
+            if (assignment.decisionLevel > assumptions.size && polarity[nextDecisionLiteral.variable] == LBool.FALSE) {
+                nextDecisionLiteral = nextDecisionLiteral.neg
+            }
+
+            // Enqueue the decision literal, expect it to propagate at the next iteration.
+            assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+        }
+    }
+
+    /**
+     * [propagate]. If the conflict is found, [analyzeConflict], [backtrack],
+     * and with the literal learned from the conflict, repeat the process.
+     *
+     * If level 0 conflict is eventually found, return false
+     * (setting the solver in UNSAT state is left to the caller).
+     * Otherwise, if no conflict is found and the decision has to be made,
+     * return true.
+     */
+    private fun propagateAnalyzeBacktrack(): Boolean {
+        while (true) {
+            val conflict = propagate() ?: return true
+
+            // There is a conflict on level 0, so the problem is UNSAT
+            if (assignment.decisionLevel == 0) return false
+
+            // Build new clause by analyzing conflict
+            val learnt = analyzeConflict(conflict)
+
+            // Return to decision level where lemma would be propagated
+            val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
+            backtrack(level)
+
+            // Attach learnt to the solver
+            if (learnt.size == 1) {
+                assignment.uncheckedEnqueue(learnt[0], null)
+            } else {
+                attachClause(learnt)
+                assignment.uncheckedEnqueue(learnt[0], learnt)
+                db.clauseBumpActivity(learnt)
+            }
+
+            variableSelector.update(learnt)
+            db.clauseDecayActivity()
+
+            restarter.numberOfConflictsAfterRestart++
         }
     }
 
