@@ -154,42 +154,69 @@ class CDCL {
     fun newClause(clause: Clause) {
         check(assignment.decisionLevel == 0)
 
-        // early return when already UNSAT
+        // Return early when already UNSAT
         if (!ok) return
 
-        // add not mentioned variables from new clause
+        // Add not mentioned variables from the new clause
         val maxVar = clause.lits.maxOfOrNull { it.variable.index } ?: 0
         while (numberOfVariables < maxVar) {
             newVariable()
         }
 
-        // don't add clause if it already had true literal
-        if (clause.lits.any { value(it) == LBool.TRUE }) {
-            return
-        }
-
-        // delete all falsified literals from new clause
+        // Remove falsified literals from the new clause
         clause.lits.removeAll { value(it) == LBool.FALSE }
 
-        // if the clause contains x and -x then it is useless
-        if (clause.lits.any { it.neg in clause.lits }) {
-            return
-        }
+        // If the clause contains complementary literals, it is useless,
+        // otherwise removes duplicate literals in it.
+        if (sortDedupAndCheckComplimentary(clause.lits)) return
 
         when (clause.size) {
+            // Empty clause is an immediate UNSAT
             0 -> {
                 ok = false
                 dratBuilder.addEmptyClauseAndFlush()
             }
 
+            // Enqueue the literal from a unit clauses.
             1 -> {
-                assignment.uncheckedEnqueue(clause[0], null)
+                // Note that this enqueue can't cause a conflict
+                // because if the negation of the literal is in the clause,
+                // it is already removed above.
+                check(assignment.value(clause[0]) != LBool.FALSE)
+
+                if (assignment.value(clause[0]) == LBool.UNDEF) {
+                    assignment.uncheckedEnqueue(clause[0], null)
+                }
             }
 
-            else -> {
-                attachClause(clause)
+            else -> attachClause(clause)
+        }
+    }
+
+    // ---- Utility methods ---- //
+
+    /**
+     * Takes a list of literals, sorts it and removes duplicates in place,
+     * then checks if the list contains a literal and its negation
+     * and returns true if so.
+     */
+    private fun sortDedupAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
+        lits.sortBy { it.inner }
+
+        var i = 0
+        for (j in 1 until lits.size) {
+            if (lits[i] == lits[j].neg) return true
+            if (lits[i] != lits[j]) {
+                i++
+                lits[i] = lits[j]
             }
         }
+
+        while (lits.size > i + 1) {
+            lits.removeLast()
+        }
+
+        return false
     }
 
     // ---- Trail ---- //
