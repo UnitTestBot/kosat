@@ -19,6 +19,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 // Lazy messages are not in JUnit
+// and interpolating strings where we have to is too expensive
 private fun assertTrue(value: Boolean, lazyMessage: () -> String) {
     if (!value) println(lazyMessage())
     assertTrue(value)
