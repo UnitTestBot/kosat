@@ -30,14 +30,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Build project using Gradle
+        run: ./gradlew assemble --stacktrace --scan
+
       - name: Setup dependent native libraries
         run: |
           ./gradlew :downloadLibs
           cp libs/*.dll C:/Windows/
           ldd kosat-core/src/jvmTest/resources/lib/win64/*.dll
-
-      - name: Build project using Gradle
-        run: ./gradlew assemble --stacktrace --scan
 
       - name: Install drat-trim
         run: |
