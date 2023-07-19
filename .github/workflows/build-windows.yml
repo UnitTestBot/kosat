@@ -37,7 +37,7 @@ jobs:
           ldd kosat-core/src/jvmTest/resources/lib/win64/*.dll
 
       - name: Build project using Gradle
-        run: ./gradlew build -x test -x jsBrowserTest --stacktrace --scan
+        run: ./gradlew assemble --stacktrace --scan
 
       - name: Install drat-trim
         run: |
@@ -47,7 +47,7 @@ jobs:
           echo "$(realpath drat-trim)" >> $GITHUB_PATH
 
       - name: Run tests
-        run: ./gradlew cleanTest test --no-build-cache --stacktrace
+        run: ./gradlew check --no-build-cache --stacktrace
 
       # Note: on Windows, you must stop the Gradle daemon at the end of CI process in order to release the lock on Gradle caches. Otherwise, cache-upload post-action step will fail, and your build cache won't be updated.
       - name: Stop Gradle daemon
