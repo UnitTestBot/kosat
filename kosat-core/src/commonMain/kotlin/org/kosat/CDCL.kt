@@ -226,30 +226,18 @@ class CDCL {
         val assumptionSet = assumptions.toSet()
         for (assumption in assumptions) {
             if (assumption.neg in assumptionSet) {
-                return SolveResult.UNSAT
+                return finishWithAssumptionsUnsat()
             }
         }
 
         variableSelector.initAssumptions(assumptions)
 
-        val result = mainloop()
-
-        if (result == SolveResult.UNSAT) {
-            return result
-        }
-
-        currentAssumptions.forEach { lit ->
-            if (value(lit) == LBool.FALSE) {
-                return SolveResult.UNSAT
-            }
-        }
-
-        return result
+        return search()
     }
 
-    // ---- Solve ---- //
+    // ---- Search ---- //
 
-    private fun mainloop(): SolveResult {
+    private fun search(): SolveResult {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
@@ -264,8 +252,7 @@ class CDCL {
         cachedModel = null
 
         if (db.clauses.isEmpty()) {
-            dratBuilder.flush()
-            return SolveResult.SAT
+            return finishWithSatIfAssumptionsOk()
         }
 
         variableSelector.build(db.clauses)
@@ -273,9 +260,7 @@ class CDCL {
         // Don't bother with anything if there is already
         // a level 0 conflict
         propagate()?.let {
-            ok = false
-            dratBuilder.addEmptyClauseAndFlush()
-            return SolveResult.UNSAT
+            return finishWithUnsat()
         }
 
         preprocess()?.let { return it }
@@ -291,9 +276,7 @@ class CDCL {
                 if (assignment.decisionLevel == 0) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    ok = false
-                    dratBuilder.addEmptyClauseAndFlush()
-                    return SolveResult.UNSAT
+                    return finishWithUnsat()
                 }
 
                 // build new clause by conflict clause
@@ -326,8 +309,7 @@ class CDCL {
                 if (assignment.trail.size == numberOfVariables) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    dratBuilder.flush()
-                    return SolveResult.SAT
+                    return finishWithSatIfAssumptionsOk()
                 }
 
                 db.reduceIfNeeded()
@@ -340,7 +322,7 @@ class CDCL {
 
                 // in case there is assumption propagated to false
                 if (nextDecisionLiteral == null) {
-                    return SolveResult.UNSAT
+                    return finishWithAssumptionsUnsat()
                 }
 
                 // phase saving heuristic
@@ -351,6 +333,27 @@ class CDCL {
                 assignment.uncheckedEnqueue(nextDecisionLiteral, null)
             }
         }
+    }
+
+    private fun finishWithUnsat(): SolveResult {
+        ok = false
+        dratBuilder.addEmptyClauseAndFlush()
+        return SolveResult.UNSAT
+    }
+
+    private fun finishWithAssumptionsUnsat(): SolveResult {
+        return SolveResult.UNSAT
+    }
+
+    private fun finishWithSatIfAssumptionsOk(): SolveResult {
+        for (assumption in assumptions) {
+            if (value(assumption) == LBool.FALSE) {
+                return finishWithAssumptionsUnsat()
+            }
+        }
+
+        dratBuilder.flush()
+        return SolveResult.SAT
     }
 
     /**
@@ -404,8 +407,7 @@ class CDCL {
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
         if (assignment.trail.size == numberOfVariables) {
-            dratBuilder.flush()
-            return SolveResult.SAT
+            return finishWithSatIfAssumptionsOk()
         }
 
         dratBuilder.addComment("Post-Preprocessing cleanup")
@@ -490,14 +492,12 @@ class CDCL {
 
             if (conflict != null) {
                 if (!assignment.enqueue(probe.neg, null)) {
-                    dratBuilder.addEmptyClauseAndFlush()
-                    return SolveResult.UNSAT
+                    return finishWithUnsat()
                 }
 
                 // Can we learn more while we are at level 0?
                 propagate()?.let {
-                    dratBuilder.addEmptyClauseAndFlush()
-                    return SolveResult.UNSAT
+                    return finishWithUnsat()
                 }
             }
         }
