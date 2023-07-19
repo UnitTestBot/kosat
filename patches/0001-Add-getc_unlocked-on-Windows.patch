@@ -1,4 +1,4 @@
-From a1254f00d6d8198a33af2e459aa8bee28e2ffcab Mon Sep 17 00:00:00 2001
+From e922e503e4f004bfcf7ad3e1ad2dd167b9c52748 Mon Sep 17 00:00:00 2001
 From: Konstantin Chukharev <lipen00@gmail.com>
 Date: Wed, 19 Jul 2023 17:32:24 +0300
 Subject: [PATCH] Add getc_unlocked on Windows
@@ -8,14 +8,14 @@ Subject: [PATCH] Add getc_unlocked on Windows
  1 file changed, 5 insertions(+)
 
 diff --git a/drat-trim.c b/drat-trim.c
-index a8ad52e..d6ed507 100644
+index a8ad52e..26a4f7e 100644
 --- a/drat-trim.c
 +++ b/drat-trim.c
 @@ -55,6 +55,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
  
  #define COMPRESS
  
-+#if defined _WIN32
++#if defined(_WIN32) || defined(WIN32)
 +inline int getchar_unlocked() { return _getchar_nolock(); }
 +inline int getc_unlocked(FILE *stream) { return _getc_nolock(stream); }
 +#endif
