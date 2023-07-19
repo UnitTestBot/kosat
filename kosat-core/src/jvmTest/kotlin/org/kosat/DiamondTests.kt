@@ -119,7 +119,7 @@ internal class DiamondTests {
                 80,
                 validator.exitValue(),
                 "DRAT-TRIM exited with code 80 " +
-                        "(possibly because of a termination due to warning if ran with -W flag)",
+                    "(possibly because of a termination due to warning if ran with -W flag)",
             )
 
             assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different. ")
