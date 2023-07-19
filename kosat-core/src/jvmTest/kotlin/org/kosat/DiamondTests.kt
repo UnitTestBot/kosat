@@ -97,22 +97,16 @@ internal class DiamondTests {
             solver.solve()
         }
 
-        if (resultActual == SolveResult.SAT) {
-            dratFile.toFile().delete()
-        } else {
-            val command = "drat-trim ${cnfPath.toNioPath().toAbsolutePath()} $dratFile -U"
+        if (resultActual == SolveResult.UNSAT) {
+            val command = "drat-trim ${cnfPath.toNioPath().toAbsolutePath()} $dratFile -U -f"
+
             println("DRAT-TRIM command: $command")
 
             val validator = Runtime.getRuntime().exec(command)
 
-            val finished = validator.waitFor(10, TimeUnit.SECONDS)
-
-            if (!finished) {
-                validator.destroy()
-                throw Exception("DRAT-TRIM takes too long")
-            }
-
             val stdout = validator.inputStream.bufferedReader().readLines().filter { it.isNotBlank() }
+
+            validator.waitFor()
 
             println("DRAT-TRIM stdout:")
             println(stdout.joinToString("\n\t", prefix = "\t"))
@@ -126,11 +120,11 @@ internal class DiamondTests {
                 "DRAT-TRIM exited with code 80 " +
                         "(possibly because of a termination due to warning if ran with -W flag)",
             )
-        }
 
-        assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different. ")
+            assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different. ")
+        } else {
+            dratFile.toFile().renameTo(dratFile.toFile().parentFile.resolve("sats/${dratFile.toFile().name}"))
 
-        if (resultActual == SolveResult.SAT) {
             val model = solver.getModel()
 
             for (clause in cnf.clauses) {

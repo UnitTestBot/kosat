@@ -253,15 +253,8 @@ class CDCL {
         }
 
         if (db.clauses.isEmpty()) {
+            dratBuilder.flush()
             return SolveResult.SAT
-        }
-
-        if (db.clauses.any { clause -> clause.lits.isEmpty() }) {
-            return SolveResult.UNSAT
-        }
-
-        if (db.clauses.any { clause -> clause.lits.all { value(it) == LBool.FALSE } }) {
-            return SolveResult.UNSAT
         }
 
         if (assignment.decisionLevel > 0) {
@@ -327,6 +320,7 @@ class CDCL {
                 if (assignment.trail.size == numberOfVariables) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
+                    dratBuilder.flush()
                     return SolveResult.SAT
                 }
 
@@ -399,6 +393,7 @@ class CDCL {
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
         if (assignment.trail.size == numberOfVariables) {
+            dratBuilder.flush()
             return SolveResult.SAT
         }
 
