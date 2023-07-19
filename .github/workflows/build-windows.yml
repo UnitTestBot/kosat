@@ -39,6 +39,13 @@ jobs:
       - name: Build project using Gradle
         run: ./gradlew build -x test -x jsBrowserTest --stacktrace --scan
 
+      - name: Install drat-trim
+        run: |
+          git clone https://github.com/marijnheule/drat-trim
+          cd drat-trim
+          make
+          echo "$(realpath drat-trim)" >> $GITHUB_PATH
+
       - name: Run tests
         run: ./gradlew cleanTest test --no-build-cache --stacktrace
 
