@@ -209,7 +209,7 @@ class CDCL {
      */
     private var polarity: MutableList<LBool> = mutableListOf()
 
-    // --- Solve with assumptions ---- //
+    // ---- Solve ---- //
 
     /**
      * The assumptions given to an incremental solver.
@@ -222,7 +222,11 @@ class CDCL {
     fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
         assumptions = currentAssumptions
 
-        // O(len(assumptions)) is usually better than O(numberOfVariables)
+        // If already UNSAT, return the cached result
+        if (!ok) return SolveResult.UNSAT
+
+        // Check if the assumptions are trivially unsatisfiable
+        // Set can be pretty expensive, but it's a one-time cost
         val assumptionSet = assumptions.toSet()
         for (assumption in assumptions) {
             if (assumption.neg in assumptionSet) {
@@ -230,7 +234,25 @@ class CDCL {
             }
         }
 
+        // Clean up from the previous solve
+        if (assignment.decisionLevel > 0) backtrack(0)
+        cachedModel = null
+
+        // If the problem is trivially SAT, simply return the result
+        // (and check for assumption satisfiability)
+        if (db.clauses.isEmpty()) return finishWithSatIfAssumptionsOk()
+
+        // Check for an immediate level 0 conflict
+        propagate()?.let { return finishWithUnsat() }
+
+        // Rebuild the variable selector
+        // TODO: is there a way to not rebuild the selector every solve?
+        variableSelector.build(db.clauses)
+
+        // Enqueue the assumptions in the selector
         variableSelector.initAssumptions(assumptions)
+
+        preprocess()?.let { return it }
 
         return search()
     }
@@ -240,30 +262,6 @@ class CDCL {
     private fun search(): SolveResult {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
-
-        if (!ok) {
-            return SolveResult.UNSAT
-        }
-
-        if (assignment.decisionLevel > 0) {
-            backtrack(0)
-        }
-
-        cachedModel = null
-
-        if (db.clauses.isEmpty()) {
-            return finishWithSatIfAssumptionsOk()
-        }
-
-        variableSelector.build(db.clauses)
-
-        // Don't bother with anything if there is already
-        // a level 0 conflict
-        propagate()?.let {
-            return finishWithUnsat()
-        }
-
-        preprocess()?.let { return it }
 
         // main loop
         while (true) {
