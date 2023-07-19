@@ -35,7 +35,7 @@ jobs:
           git clone https://github.com/marijnheule/drat-trim
           cd drat-trim
           git apply -v ../patches/0001-Add-getc_unlocked-on-Windows.patch
-          clang -O3 -o drat-drim drat-trim.c
+          make drat-trim
           echo "$(realpath .)" >> $GITHUB_PATH
 
       - name: Build project using Gradle
