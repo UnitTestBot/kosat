@@ -30,6 +30,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Show gcc defines
+        run: |
+          gcc --version
+          echo | gcc -dM -E -
+
       - name: Build project using Gradle
         run: ./gradlew assemble --stacktrace --scan
 
