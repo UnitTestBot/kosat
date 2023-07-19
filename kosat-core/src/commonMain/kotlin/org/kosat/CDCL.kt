@@ -9,7 +9,7 @@ import org.kosat.cnf.CNF
  * assignments of literals otherwise
  */
 fun solveCnf(cnf: CnfRequest): List<Boolean>? {
-    val clauses = (cnf.clauses.map { Clause.fromDimacs(it) }).toMutableList()
+    val clauses = cnf.clauses.map { Clause.fromDimacs(it) }.toMutableList()
     val solver = CDCL(clauses, cnf.vars)
     val result = solver.solve()
     return if (result == SolveResult.SAT) {
@@ -19,6 +19,10 @@ fun solveCnf(cnf: CnfRequest): List<Boolean>? {
     }
 }
 
+/**
+ * CDCL (Conflict-Driven Clause Learning) solver instance
+ * for solving Boolean satisfiability (SAT) problem,
+ */
 class CDCL {
     /**
      * Clause database.
@@ -92,9 +96,10 @@ class CDCL {
 
     /**
      * Create a new solver instance with given clauses.
+     *
      * @param initialClauses the initial clauses.
      * @param initialVarsNumber the number of variables in the problem, if known.
-     * Can help to avoid resizing of internal data structures.
+     *        Can help to avoid resizing of internal data structures.
      */
     constructor(
         initialClauses: Iterable<Clause>,
