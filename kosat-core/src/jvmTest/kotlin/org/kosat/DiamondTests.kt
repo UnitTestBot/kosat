@@ -2,189 +2,212 @@ package org.kosat
 
 import com.github.lipen.satlib.solver.MiniSatSolver
 import korlibs.time.measureTimeWithResult
+import korlibs.time.roundMilliseconds
+import okio.FileSystem
+import okio.Path.Companion.toOkioPath
+import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.kosat.cnf.CNF
+import org.kosat.cnf.from
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
+import java.time.LocalDateTime
+import java.util.stream.Stream
+import kotlin.io.path.extension
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.relativeTo
 import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
-import kotlin.streams.toList
-import kotlin.test.assertEquals
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
-    private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
-    private val format = ".cnf"
+    private val workingDir = Paths.get("").toAbsolutePath()
+    private val testsPath = workingDir.resolve("src/jvmTest/resources")
+    private val assumptionTestsPath = testsPath.resolve("testCover/small")
+    private val benchmarksPath = testsPath.resolve("benchmarks")
 
-    private fun getAllFilenames(): List<String> {
-        val resourcesPath = Paths.get(projectDirAbsolutePath, testsPath)
-        return Files.walk(resourcesPath)
-            .filter { Files.isRegularFile(it) }
-            .map { it.toString().substring(projectDirAbsolutePath.length + testsPath.length + 1) }
-            .filter { it.endsWith(format) }
-            // FIXME: temporarily skip 'benchmarks':
-            .filter { !it.contains("benchmark") }
-            .toList()
+    private val format = "cnf"
+
+    private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
+        .resolve("dratProofs/${LocalDateTime.now()}")
+
+    init {
+        dratProofsPath.toFile().mkdirs()
     }
 
-    private fun getAssumptionFilenames(): List<String> {
-        val resourcesPath = Paths.get(projectDirAbsolutePath, assumptionTestsPath)
-        return Files.walk(resourcesPath)
-            .filter { Files.isRegularFile(it) }
-            .map { it.toString().substring(projectDirAbsolutePath.length + assumptionTestsPath.length + 1) }
-            .filter { it.endsWith(format) }
-            .toList()
+    private fun isTestFile(path: Path): Boolean {
+        return path.isRegularFile() && path.extension == format
     }
 
-    private fun buildPadding(names: List<String>, padding: Int = 13, separator: String = " | "): String {
-        val result = StringBuilder()
-        names.forEachIndexed { ind, it ->
-            result.append(it.padEnd(if (ind == 0) 40 else padding, ' '))
-            result.append(separator)
-        }
-        return if (result.isNotEmpty()) result.dropLast(separator.length).toString() else ""
+    private fun getAllNotBenchmarks(): Stream<Arguments> {
+        return Files.walk(testsPath)
+            .filter { isTestFile(it) }
+            .filter { !it.startsWith(benchmarksPath) }
+            .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
     }
 
-    private fun processMiniSatSolver(input: String): Boolean {
-        val data = readCnfRequests(input).first()
+    private fun getAssumptionFiles(): Stream<Arguments> {
+        return Files.walk(assumptionTestsPath)
+            .filter { isTestFile(it) }
+            .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+    }
 
-        with(MiniSatSolver()) {
-            val lits = List(data.vars) { newLiteral() }
-            for (clause in data.clauses) {
+    private fun getBenchmarkFiles(): Stream<Arguments> {
+        return Files.walk(benchmarksPath)
+            .filter { isTestFile(it) }
+            .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+    }
+
+    private fun solveWithMiniSat(cnf: CNF): SolveResult {
+        MiniSatSolver().close()
+
+        return with(MiniSatSolver()) {
+            val lits = List(cnf.numVars) { newLiteral() }
+            for (clause in cnf.clauses) {
                 addClause(clause.map { it.sign * lits[abs(it) - 1] })
             }
-            val result = solve()
+            val result = if (solve()) {
+                SolveResult.SAT
+            } else {
+                SolveResult.UNSAT
+            }
             println("MiniSat conflicts: ${backend.numberOfConflicts}")
             println("Minisat decisions: ${backend.numberOfDecisions}")
-            return result
+
+            result
         }
     }
 
-    private fun checkKoSatSolution(ans: List<Boolean>?, input: String, isSolution: Boolean): Boolean {
-        if (ans == null) return !isSolution
-
-        val cnfRequest = readCnfRequests(input).first()
-        if (ans.size != cnfRequest.vars) return false
-
-        return cnfRequest.clauses.all { clause ->
-            Clause.fromDimacs(clause).lits.any {
-                it.isPos == ans[it.variable]
-            }
-        }
-    }
-
-    private fun runTest(filepath: String): Boolean {
-        MiniSatSolver().close()
-
-        val input = File(filepath).readText()
-
-        val (isSolution, timeMiniSat) = measureTimeWithResult {
-            processMiniSatSolver(input)
+    private fun runTest(cnf: CNF) {
+        val (resultExpected, timeMiniSat) = measureTimeWithResult {
+            solveWithMiniSat(cnf)
         }
 
-        val (solution, timeKoSat) = measureTimeWithResult {
-            solveCnf(readCnfRequests(input).first())
+        val solver = CDCL(cnf)
+
+        val (resultActual, timeKoSat) = measureTimeWithResult {
+            solver.solve()
         }
 
-        val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
-
-        println(
-            buildPadding(
-                listOf(
-                    filepath.dropLast(format.length), // test name
-                    timeKoSat.seconds.round(3).toString(),
-                    timeMiniSat.seconds.round(3).toString(),
-                    checkRes,
-                    if (isSolution) "SAT" else "UNSAT",
-                ),
-            ),
-        )
-
-        return checkRes != "WA"
-    }
-
-    private fun runAssumptionTest(filepath: String): Boolean {
-        MiniSatSolver().close()
-
-        val fileInput = File(filepath).readText()
-        val lines = fileInput.split("\n", "\r", "\r\n").filter { line ->
-            line.isNotEmpty() && line[0] != 'c'
+        Assertions.assertEquals(resultExpected, resultActual){
+            "MiniSat ($resultExpected) and KoSat ($resultActual) results are different"
         }
-        val fileFirstLine = lines[0].split(' ')
-        val variables = fileFirstLine[2]
-        val clauses = fileFirstLine[3]
 
-        val first = readCnfRequests(fileInput).first()
+        if (resultActual == SolveResult.SAT) {
+            val model = solver.getModel()
 
-        val solver = CDCL(first.clauses.map { Clause.fromDimacs(it) }, first.vars)
-
-        var res = "OK"
-
-        repeat(5) { ind ->
-            val random = Random(ind)
-            val assumptions = if (first.vars == 0) {
-                listOf()
-            } else {
-                List(ind) {
-                    random.nextInt(1, first.vars + 1)
-                }.map {
-                    if (random.nextBoolean()) it else -it
+            for (clause in cnf.clauses) {
+                var satisfied = false
+                for (lit in clause) {
+                    if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                        satisfied = true
+                        break
+                    }
                 }
+
+                Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+            }
+        }
+
+        println("MiniSat time: ${timeMiniSat.roundMilliseconds()}")
+        println("KoSat time: ${timeKoSat.roundMilliseconds()}")
+    }
+
+    private fun runTestWithAssumptions(cnf: CNF, assumptionsSets: List<List<Int>>) {
+        val solver = CDCL(cnf)
+
+        for (assumptions in assumptionsSets) {
+            println("## Solving with assumptions: $assumptions")
+            val cnfWithAssumptions = CNF(cnf.clauses + assumptions.map { listOf(it) }, cnf.numVars)
+
+            val (resultExpected, timeMiniSat) = measureTimeWithResult {
+                solveWithMiniSat(cnfWithAssumptions)
             }
 
-            val input = fileFirstLine.dropLast(2).joinToString(" ") + " " +
-                (variables.toInt()).toString() + " " +
-                (clauses.toInt() + assumptions.size).toString() + "\n" +
-                lines.drop(1).joinToString(separator = "\n") +
-                assumptions.joinToString(prefix = "\n", separator = " 0\n", postfix = " 0")
-
-            val (isSolution, timeMiniSat) = measureTimeWithResult { processMiniSatSolver(input) }
-
-            val (solution, timeKoSat) = measureTimeWithResult {
+            val (resultActual, timeKoSat) = measureTimeWithResult {
                 solver.solve(assumptions.map { Lit.fromDimacs(it) })
-                val result = solver.solve(assumptions.map { Lit.fromDimacs(it) })
-                if (result == SolveResult.SAT) {
-                    solver.getModel()
-                } else {
-                    null
+            }
+
+            Assertions.assertEquals(resultExpected, resultActual) {
+                "MiniSat ($resultExpected) and KoSat ($resultActual) results are different"
+            }
+
+            if (resultActual == SolveResult.SAT) {
+                val model = solver.getModel()
+
+                for (clause in cnf.clauses) {
+                    var satisfied = false
+                    for (lit in clause) {
+                        if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                            satisfied = true
+                            break
+                        }
+                    }
+
+                    Assertions.assertTrue(satisfied) {
+                        "Clause $clause is not satisfied. Model: $model"
+                    }
+                }
+
+                for (assumption in assumptions) {
+                    val assumptionValue = model[abs(assumption) - 1] == (assumption.sign == 1)
+                    Assertions.assertTrue(assumptionValue) {
+                        "Assumption $assumption is not satisfied. Model: $model"
+                    }
                 }
             }
 
-            val checkRes = if (checkKoSatSolution(solution, input, isSolution)) "OK" else "WA"
-
-            if (checkRes == "WA") res = "WA"
-
-            println(
-                buildPadding(
-                    listOf(
-                        filepath.dropLast(format.length), // test name
-                        timeKoSat.seconds.round(3).toString(),
-                        timeMiniSat.seconds.round(3).toString(),
-                        checkRes,
-                        if (isSolution) "SAT" else "UNSAT",
-                    ),
-                ),
-            )
+            println("MiniSat time: ${timeMiniSat.roundMilliseconds()}")
+            println("KoSat time: ${timeKoSat.roundMilliseconds()}")
         }
-        return res != "WA"
     }
 
-    private val testsPath = "src/jvmTest/resources"
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("getAllFilenames")
-    fun test(filepath: String) {
-        assertEquals(true, runTest("$testsPath$filepath"))
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("getAllNotBenchmarks")
+    fun test(file: File, testName: String) {
+        println("# Testing on: $file")
+        runTest(CNF.from(file.toOkioPath()))
     }
 
-    private val assumptionTestsPath = "$testsPath/testCover/small"
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("getBenchmarkFiles")
+    @Disabled
+    fun testOnBenchmarks(file: File, testName: String) {
+        println("# Testing on: $file")
+        runTest(CNF.from(file.toOkioPath()))
+    }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("getAssumptionFilenames")
-    fun assumptionTest(filepath: String) {
-        assertEquals(true, runAssumptionTest("$assumptionTestsPath$filepath"))
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("getAssumptionFiles")
+    fun assumptionTest(file: File, testName: String) {
+        val cnf = CNF.from(file.toOkioPath())
+
+        val clauseCount = cnf.clauses.size
+        println("# Testing on: $file ($clauseCount clauses, ${cnf.numVars} variables)")
+
+        if (cnf.numVars == 0) {
+            return
+        }
+
+        val assumptionSets = List(5) { i ->
+            val random = Random(i)
+
+            List(i) {
+                random.nextInt(1, cnf.numVars + 1)
+            }.map {
+                if (random.nextBoolean()) it else -it
+            }
+        }
+
+        runTestWithAssumptions(cnf, assumptionSets)
+
+        println()
     }
 }
