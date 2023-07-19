@@ -246,25 +246,20 @@ class CDCL {
     /**
      * The assumptions given to an incremental solver.
      */
-    private var assumptions: List<Lit> = emptyList()
+    private var assumptions: MutableList<Lit> = mutableListOf()
 
     /**
      * Solve the problem with the given assumptions.
      */
     fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
-        assumptions = currentAssumptions
+        assumptions = currentAssumptions.toMutableList()
 
         // If given clauses are already cause UNSAT, no need to do anything
         if (!ok) return finishWithUnsat()
 
-        // Check if the assumptions are trivially unsatisfiable
-        // Set can be pretty expensive, but it's a one-time cost
-        val assumptionSet = assumptions.toSet()
-        for (assumption in assumptions) {
-            if (assumption.neg in assumptionSet) {
-                return finishWithAssumptionsUnsat()
-            }
-        }
+        // Check if the assumptions are trivially unsatisfiable,
+        // and remove duplicates along the way.
+        if (sortDedupAndCheckComplimentary(assumptions)) return finishWithUnsat()
 
         // Clean up from the previous solve
         if (assignment.decisionLevel > 0) backtrack(0)
