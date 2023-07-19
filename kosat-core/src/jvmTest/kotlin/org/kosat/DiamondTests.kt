@@ -1,6 +1,7 @@
 package org.kosat
 
 import com.github.lipen.satlib.solver.MiniSatSolver
+import korlibs.time.DateTime
 import korlibs.time.measureTimeWithResult
 import korlibs.time.roundMilliseconds
 import okio.FileSystem
@@ -14,8 +15,6 @@ import org.kosat.cnf.CNF
 import org.kosat.cnf.from
 import java.nio.file.Files
 import java.nio.file.Paths
-import java.time.LocalDateTime
-import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
@@ -32,12 +31,14 @@ private fun assertTrue(value: Boolean, lazyMessage: () -> String) {
     assertTrue(value)
 }
 
+private const val timeFormat = "yyyy-MM-dd_HH-mm-ss"
+
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
     private val format = ".cnf"
     private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
-        .resolve("dratProofs/${LocalDateTime.now()}")
+        .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
 
     init {
         dratProofsPath.toFile().mkdirs()
