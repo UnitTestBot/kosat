@@ -40,9 +40,8 @@ jobs:
         run: |
           git clone https://github.com/marijnheule/drat-trim
           cd drat-trim
-          make
-          cd ..
-          echo "$(realpath drat-trim)" >> $GITHUB_PATH
+          make drat-trim
+          echo "$(realpath .)" >> $GITHUB_PATH
 
       - name: Run tests
         run: ./gradlew check --no-build-cache --stacktrace
