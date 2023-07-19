@@ -39,6 +39,10 @@ enum class LBool {
  */
 @JvmInline
 value class Lit(val inner: Int) {
+    init {
+        require(inner >= 0) { "Inner value of Lit must be non-negative" }
+    }
+
     /** A negation of this literal */
     val neg: Lit get() = Lit(inner xor 1)
 
@@ -51,13 +55,24 @@ value class Lit(val inner: Int) {
     /** Is this a negative literal (Negation of a variable)? */
     val isNeg: Boolean get() = (inner and 1) == 1
 
+    operator fun not(): Lit {
+        return neg
+    }
+
+    infix fun xor(sign: Boolean): Lit {
+        return Lit(inner xor sign.toInt())
+    }
+
     fun toDimacs(): Int {
-        return if (isPos) variable.index + 1 else -(variable.index + 1)
+        val v = (inner shr 1) + 1 // 1-based variable index
+        return if (isPos) v else -v
     }
 
     companion object {
         fun fromDimacs(lit: Int): Lit {
-            return Lit(((abs(lit) - 1) shl 1) + if (lit < 0) 1 else 0)
+            val v = abs(lit) - 1 // 0-based variables index
+            val sign = if (lit < 0) 1 else 0 // sign ("is negative")
+            return Lit((v shl 1) + sign)
         }
     }
 }
