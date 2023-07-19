@@ -30,11 +30,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Show gcc defines
-        run: |
-          gcc --version
-          echo | gcc -dM -E -
-
       - name: Install drat-trim
         run: |
           git clone https://github.com/marijnheule/drat-trim

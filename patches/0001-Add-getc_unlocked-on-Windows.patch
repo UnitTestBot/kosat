@@ -1,4 +1,4 @@
-From c7973b74493a4155cb97cd4d260fe576192e55c6 Mon Sep 17 00:00:00 2001
+From 5999a83bd04d1b1f575279e0f90cc0dfc78861e7 Mon Sep 17 00:00:00 2001
 From: Konstantin Chukharev <lipen00@gmail.com>
 Date: Wed, 19 Jul 2023 17:32:24 +0300
 Subject: [PATCH] Add getc_unlocked on Windows
@@ -8,17 +8,17 @@ Subject: [PATCH] Add getc_unlocked on Windows
  1 file changed, 5 insertions(+)
 
 diff --git a/drat-trim.c b/drat-trim.c
-index a8ad52e..fc5bc54 100644
+index a8ad52e..f590742 100644
 --- a/drat-trim.c
 +++ b/drat-trim.c
 @@ -55,6 +55,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
  
  #define COMPRESS
  
-+// #if defined(_WIN32) || defined(WIN32)
-+inline int getchar_unlocked() { return _getchar_nolock(); }
-+inline int getc_unlocked(FILE *stream) { return _getc_nolock(stream); }
-+// #endif
++#ifdef _WIN32
++int getchar_unlocked() { return _getchar_nolock(); }
++int getc_unlocked(FILE *stream) { return _getc_nolock(stream); }
++#endif
 +
  struct solver { FILE *inputFile, *proofFile, *lratFile, *traceFile, *activeFile;
      int *DB, nVars, timeout, mask, delete, *falseStack, *falseA, *forced, binMode, optimize, binOutput,
