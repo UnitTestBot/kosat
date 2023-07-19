@@ -41,7 +41,7 @@ private fun assertTrue(value: Boolean, lazyMessage: () -> String) {
 internal class DiamondTests {
     private val workingDir = Paths.get("").toAbsolutePath()
     private val testsPath = workingDir.resolve("src/jvmTest/resources")
-    private val assumptionTestsPath = testsPath.resolve("testCover/small")
+    private val assumptionTestsPath = testsPath.resolve("testCover")
     private val benchmarksPath = testsPath.resolve("benchmarks")
 
     private val format = "cnf"

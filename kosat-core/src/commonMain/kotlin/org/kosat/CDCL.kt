@@ -219,32 +219,37 @@ class CDCL {
     /**
      * Solve the problem with the given assumptions.
      */
-    fun solve(currentAssumptions: List<Lit>): SolveResult {
+    fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
         assumptions = currentAssumptions
-        variableSelector.initAssumptions(assumptions)
 
-        val result = solve()
-
-        if (result == SolveResult.UNSAT) {
-            assumptions = emptyList()
-            return result
-        }
-
-        val model = getModel()
-
-        currentAssumptions.forEach { lit ->
-            if (model[lit.variable] != lit.isPos) {
-                assumptions = emptyList()
+        // O(len(assumptions)) is usually better than O(numberOfVariables)
+        val assumptionSet = assumptions.toSet()
+        for (assumption in assumptions) {
+            if (assumption.neg in assumptionSet) {
                 return SolveResult.UNSAT
             }
         }
-        assumptions = emptyList()
+
+        variableSelector.initAssumptions(assumptions)
+
+        val result = mainloop()
+
+        if (result == SolveResult.UNSAT) {
+            return result
+        }
+
+        currentAssumptions.forEach { lit ->
+            if (value(lit) == LBool.FALSE) {
+                return SolveResult.UNSAT
+            }
+        }
+
         return result
     }
 
     // ---- Solve ---- //
 
-    fun solve(): SolveResult {
+    private fun mainloop(): SolveResult {
         var numberOfConflicts = 0
         var numberOfDecisions = 0
 
@@ -252,14 +257,15 @@ class CDCL {
             return SolveResult.UNSAT
         }
 
+        if (assignment.decisionLevel > 0) {
+            backtrack(0)
+        }
+
+        cachedModel = null
+
         if (db.clauses.isEmpty()) {
             dratBuilder.flush()
             return SolveResult.SAT
-        }
-
-        if (assignment.decisionLevel > 0) {
-            backtrack(0)
-            cachedModel = null
         }
 
         variableSelector.build(db.clauses)
@@ -352,7 +358,7 @@ class CDCL {
      * the result of the first call to [getModel] and return the cached value
      * on subsequent calls. This is reset in [solve].
      */
-    private var cachedModel: List<Boolean>? = null
+    private var cachedModel: MutableList<Boolean>? = null
 
     /**
      * Return the assignment of variables. This function is meant to be used
@@ -366,6 +372,11 @@ class CDCL {
                 LBool.TRUE, LBool.UNDEF -> true
                 LBool.FALSE -> false
             }
+        }.toMutableList()
+
+        for (assumption in assumptions) {
+            check(value(assumption) != LBool.FALSE)
+            cachedModel!![assumption.variable] = assumption.isPos
         }
 
         return cachedModel!!
