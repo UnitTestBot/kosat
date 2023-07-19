@@ -17,13 +17,13 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.LocalDateTime
+import java.util.stream.Stream
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.relativeTo
 import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
-import kotlin.streams.toList
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -54,26 +54,23 @@ internal class DiamondTests {
         return path.isRegularFile() && path.extension == format
     }
 
-    private fun getAllNotBenchmarks(): List<Arguments> {
+    private fun getAllNotBenchmarks(): Stream<Arguments> {
         return Files.walk(testsPath)
             .filter { isTestFile(it) }
             .filter { !it.startsWith(benchmarksPath) }
-            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
-            .toList()
+            .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
     }
 
-    private fun getAssumptionFiles(): List<Arguments> {
+    private fun getAssumptionFiles(): Stream<Arguments> {
         return Files.walk(assumptionTestsPath)
             .filter { isTestFile(it) }
-            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
-            .toList()
+            .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
     }
 
-    private fun getBenchmarkFiles(): List<Arguments> {
+    private fun getBenchmarkFiles(): Stream<Arguments> {
         return Files.walk(benchmarksPath)
             .filter { isTestFile(it) }
-            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
-            .toList()
+            .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
     }
 
     private fun solveWithMiniSat(cnf: CNF): SolveResult {
