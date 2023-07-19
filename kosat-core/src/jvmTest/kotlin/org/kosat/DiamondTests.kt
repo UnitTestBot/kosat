@@ -36,7 +36,7 @@ private const val timeFormat = "yyyy-MM-dd_HH-mm-ss"
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
     private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
-    private val format = ".cnf"
+    private val ext = ".cnf"
     private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
         .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
 
@@ -49,7 +49,7 @@ internal class DiamondTests {
         return Files.walk(resourcesPath)
             .filter { Files.isRegularFile(it) }
             .map { it.toString().substring(projectDirAbsolutePath.length + testsPath.length + 1) }
-            .filter { it.endsWith(format) }
+            .filter { it.endsWith(ext) }
             // FIXME: temporarily skip 'benchmarks':
             .filter { !it.contains("benchmark") }
             .toList()
@@ -60,7 +60,7 @@ internal class DiamondTests {
         return Files.walk(resourcesPath)
             .filter { Files.isRegularFile(it) }
             .map { it.toString().substring(projectDirAbsolutePath.length + assumptionTestsPath.length + 1) }
-            .filter { it.endsWith(format) }
+            .filter { it.endsWith(ext) }
             .toList()
     }
 
