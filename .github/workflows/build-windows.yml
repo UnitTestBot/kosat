@@ -48,7 +48,7 @@ jobs:
         run: |
           git clone https://github.com/marijnheule/drat-trim
           cd drat-trim
-          git apply ../patches/0001-Add-getc_unlocked-on-Windows.patch
+          git apply -v ../patches/0001-Add-getc_unlocked-on-Windows.patch
           make drat-trim
           echo "$(realpath .)" >> $GITHUB_PATH
 
