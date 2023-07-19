@@ -5,6 +5,7 @@ import korlibs.time.measureTimeWithResult
 import korlibs.time.roundMilliseconds
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
@@ -24,15 +25,6 @@ import kotlin.io.path.relativeTo
 import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
-
-// Lazy messages are not in JUnit
-// and interpolating strings where we have to is too expensive
-private fun assertTrue(value: Boolean, lazyMessage: () -> String) {
-    if (!value) println(lazyMessage())
-    assertTrue(value)
-}
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
@@ -104,7 +96,9 @@ internal class DiamondTests {
             solver.solve()
         }
 
-        assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different.")
+        Assertions.assertEquals(resultExpected, resultActual){
+            "MiniSat ($resultExpected) and KoSat ($resultActual) results are different"
+        }
 
         if (resultActual == SolveResult.SAT) {
             val model = solver.getModel()
@@ -118,7 +112,7 @@ internal class DiamondTests {
                     }
                 }
 
-                assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
             }
         }
 
@@ -141,7 +135,9 @@ internal class DiamondTests {
                 solver.solve(assumptions.map { Lit.fromDimacs(it) })
             }
 
-            assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different")
+            Assertions.assertEquals(resultExpected, resultActual) {
+                "MiniSat ($resultExpected) and KoSat ($resultActual) results are different"
+            }
 
             if (resultActual == SolveResult.SAT) {
                 val model = solver.getModel()
@@ -155,12 +151,16 @@ internal class DiamondTests {
                         }
                     }
 
-                    assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                    Assertions.assertTrue(satisfied) {
+                        "Clause $clause is not satisfied. Model: $model"
+                    }
                 }
 
                 for (assumption in assumptions) {
                     val assumptionValue = model[abs(assumption) - 1] == (assumption.sign == 1)
-                    assertTrue(assumptionValue) { "Assumption $assumption is not satisfied. Model: $model" }
+                    Assertions.assertTrue(assumptionValue) {
+                        "Assumption $assumption is not satisfied. Model: $model"
+                    }
                 }
             }
 
