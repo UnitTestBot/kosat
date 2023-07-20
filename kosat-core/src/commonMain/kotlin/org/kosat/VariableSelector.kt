@@ -165,7 +165,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
             heap.forEachIndexed { ind, elem ->
                 index[elem] = ind
             }
-            for (ind in (heap.size / 2) downTo 0) {
+            for (ind in (heap.size / 2 - 1) downTo 0) {
                 siftDown(ind)
             }
             capacity = size

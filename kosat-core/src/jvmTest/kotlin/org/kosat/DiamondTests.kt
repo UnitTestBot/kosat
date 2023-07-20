@@ -5,16 +5,22 @@ import korlibs.time.DateTime
 import korlibs.time.measureTimeWithResult
 import korlibs.time.roundMilliseconds
 import okio.FileSystem
-import okio.Path
-import okio.Path.Companion.toPath
+import okio.Path.Companion.toOkioPath
 import okio.buffer
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.kosat.cnf.CNF
 import org.kosat.cnf.from
+import java.io.File
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.io.path.extension
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.relativeTo
 import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
@@ -35,8 +41,12 @@ private const val timeFormat = "yyyy-MM-dd_HH-mm-ss"
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
-    private val projectDirAbsolutePath = Paths.get("").toAbsolutePath().toString()
-    private val ext = ".cnf"
+    private val workingDir = Paths.get("").toAbsolutePath()
+    private val testsPath = workingDir.resolve("src/jvmTest/resources")
+    private val assumptionTestsPath = testsPath.resolve("testCover")
+    private val benchmarksPath = testsPath.resolve("benchmarks")
+
+    private val ext = "cnf"
     private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
         .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
 
@@ -44,23 +54,29 @@ internal class DiamondTests {
         dratProofsPath.toFile().mkdirs()
     }
 
-    private fun getAllFilenames(): List<String> {
-        val resourcesPath = Paths.get(projectDirAbsolutePath, testsPath)
-        return Files.walk(resourcesPath)
-            .filter { Files.isRegularFile(it) }
-            .map { it.toString().substring(projectDirAbsolutePath.length + testsPath.length + 1) }
-            .filter { it.endsWith(ext) }
-            // FIXME: temporarily skip 'benchmarks':
-            .filter { !it.contains("benchmark") }
+    private fun isTestFile(path: Path): Boolean {
+        return path.isRegularFile() && path.extension == ext
+    }
+
+    private fun getAllNotBenchmarks(): List<Arguments> {
+        return Files.walk(testsPath)
+            .filter { isTestFile(it) }
+            .filter { !it.startsWith(benchmarksPath) }
+            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
             .toList()
     }
 
-    private fun getAssumptionFilenames(): List<String> {
-        val resourcesPath = Paths.get(projectDirAbsolutePath, assumptionTestsPath)
-        return Files.walk(resourcesPath)
-            .filter { Files.isRegularFile(it) }
-            .map { it.toString().substring(projectDirAbsolutePath.length + assumptionTestsPath.length + 1) }
-            .filter { it.endsWith(ext) }
+    private fun getAssumptionFiles(): List<Arguments> {
+        return Files.walk(assumptionTestsPath)
+            .filter { isTestFile(it) }
+            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
+            .toList()
+    }
+
+    private fun getBenchmarkFiles(): List<Arguments> {
+        return Files.walk(benchmarksPath)
+            .filter { isTestFile(it) }
+            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
             .toList()
     }
 
@@ -84,22 +100,24 @@ internal class DiamondTests {
         }
     }
 
-    private fun runTest(cnfPath: Path, cnf: CNF) {
+    private fun runTest(cnfFile: File, cnf: CNF) {
         val (resultExpected, timeMiniSat) = measureTimeWithResult {
             solveWithMiniSat(cnf)
         }
 
         val solver = CDCL(cnf)
 
-        val dratFile = dratProofsPath.resolve("${cnfPath.toFile().nameWithoutExtension}.drat")
-        solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratFile).buffer())
+        val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
+        solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
 
         val (resultActual, timeKoSat) = measureTimeWithResult {
             solver.solve()
         }
 
+        assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different.")
+
         if (resultActual == SolveResult.UNSAT) {
-            val command = "drat-trim ${cnfPath.toNioPath().toAbsolutePath()} $dratFile -U -f"
+            val command = "drat-trim ${cnfFile.absolutePath} $dratPath -U -f"
 
             println("DRAT-TRIM command: $command")
 
@@ -121,10 +139,8 @@ internal class DiamondTests {
                 "DRAT-TRIM exited with code 80 " +
                     "(possibly because of a termination due to warning if ran with -W flag)",
             )
-
-            assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different. ")
         } else {
-            dratFile.toFile().renameTo(dratFile.toFile().parentFile.resolve("sats/${dratFile.toFile().name}"))
+            dratPath.toFile().renameTo(dratPath.parent!!.resolve("sats/${dratPath.name}").toFile())
 
             val model = solver.getModel()
 
@@ -188,25 +204,28 @@ internal class DiamondTests {
         }
     }
 
-    private val testsPath = "src/jvmTest/resources"
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("getAllFilenames")
-    fun test(filepath: String) {
-        val path = "$testsPath$filepath".toPath()
-        println("# Testing on: $path")
-        runTest(path, CNF.from(path))
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("getAllNotBenchmarks")
+    fun test(file: File, testName: String) {
+        println("# Testing on: $file")
+        runTest(file, CNF.from(file.toOkioPath()))
     }
 
-    private val assumptionTestsPath = "$testsPath/testCover/small"
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("getBenchmarkFiles")
+    @Disabled
+    fun testOnBenchmarks(file: File, testName: String) {
+        println("# Testing on: $file")
+        runTest(file, CNF.from(file.toOkioPath()))
+    }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("getAssumptionFilenames")
-    fun assumptionTest(filepath: String) {
-        val cnf = CNF.from("$assumptionTestsPath$filepath".toPath())
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("getAssumptionFiles")
+    fun assumptionTest(file: File, testName: String) {
+        val cnf = CNF.from(file.toOkioPath())
+
         val clauseCount = cnf.clauses.size
-
-        println("# Testing on: $filepath ($clauseCount clauses, ${cnf.numVars} variables)")
+        println("# Testing on: $file ($clauseCount clauses, ${cnf.numVars} variables)")
 
         if (cnf.numVars == 0) {
             return

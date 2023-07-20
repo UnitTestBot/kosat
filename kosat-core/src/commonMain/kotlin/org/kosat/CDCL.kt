@@ -209,7 +209,7 @@ class CDCL {
      */
     private var polarity: MutableList<LBool> = mutableListOf()
 
-    // --- Solve with assumptions ---- //
+    // ---- Solve ---- //
 
     /**
      * The assumptions given to an incremental solver.
@@ -219,60 +219,49 @@ class CDCL {
     /**
      * Solve the problem with the given assumptions.
      */
-    fun solve(currentAssumptions: List<Lit>): SolveResult {
+    fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
         assumptions = currentAssumptions
-        variableSelector.initAssumptions(assumptions)
 
-        val result = solve()
+        // If given clauses are already cause UNSAT, no need to do anything
+        if (!ok) return finishWithUnsat()
 
-        if (result == SolveResult.UNSAT) {
-            assumptions = emptyList()
-            return result
-        }
-
-        val model = getModel()
-
-        currentAssumptions.forEach { lit ->
-            if (model[lit.variable] != lit.isPos) {
-                assumptions = emptyList()
-                return SolveResult.UNSAT
+        // Check if the assumptions are trivially unsatisfiable
+        // Set can be pretty expensive, but it's a one-time cost
+        val assumptionSet = assumptions.toSet()
+        for (assumption in assumptions) {
+            if (assumption.neg in assumptionSet) {
+                return finishWithAssumptionsUnsat()
             }
         }
-        assumptions = emptyList()
-        return result
-    }
 
-    // ---- Solve ---- //
+        // Clean up from the previous solve
+        if (assignment.decisionLevel > 0) backtrack(0)
+        cachedModel = null
 
-    fun solve(): SolveResult {
-        var numberOfConflicts = 0
-        var numberOfDecisions = 0
+        // If the problem is trivially SAT, simply return the result
+        // (and check for assumption satisfiability)
+        if (db.clauses.isEmpty()) return finishWithSatIfAssumptionsOk()
 
-        if (!ok) {
-            return SolveResult.UNSAT
-        }
+        // Check for an immediate level 0 conflict
+        propagate()?.let { return finishWithUnsat() }
 
-        if (db.clauses.isEmpty()) {
-            dratBuilder.flush()
-            return SolveResult.SAT
-        }
-
-        if (assignment.decisionLevel > 0) {
-            backtrack(0)
-            cachedModel = null
-        }
-
+        // Rebuild the variable selector
+        // TODO: is there a way to not rebuild the selector every solve?
         variableSelector.build(db.clauses)
 
-        // Don't bother with anything if there is already
-        // a level 0 conflict
-        propagate()?.let {
-            ok = false
-            dratBuilder.addEmptyClauseAndFlush()
-            return SolveResult.UNSAT
-        }
+        // Enqueue the assumptions in the selector
+        variableSelector.initAssumptions(assumptions)
 
         preprocess()?.let { return it }
+
+        return search()
+    }
+
+    // ---- Search ---- //
+
+    private fun search(): SolveResult {
+        var numberOfConflicts = 0
+        var numberOfDecisions = 0
 
         // main loop
         while (true) {
@@ -285,9 +274,7 @@ class CDCL {
                 if (assignment.decisionLevel == 0) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    ok = false
-                    dratBuilder.addEmptyClauseAndFlush()
-                    return SolveResult.UNSAT
+                    return finishWithUnsat()
                 }
 
                 // build new clause by conflict clause
@@ -320,8 +307,7 @@ class CDCL {
                 if (assignment.trail.size == numberOfVariables) {
                     // println("KoSat conflicts:   $numberOfConflicts")
                     // println("KoSat decisions:   $numberOfDecisions")
-                    dratBuilder.flush()
-                    return SolveResult.SAT
+                    return finishWithSatIfAssumptionsOk()
                 }
 
                 db.reduceIfNeeded()
@@ -334,7 +320,7 @@ class CDCL {
 
                 // in case there is assumption propagated to false
                 if (nextDecisionLiteral == null) {
-                    return SolveResult.UNSAT
+                    return finishWithAssumptionsUnsat()
                 }
 
                 // phase saving heuristic
@@ -348,11 +334,46 @@ class CDCL {
     }
 
     /**
+     * Finish solving with UNSAT (without considering assumptions),
+     * mark the solver as not ok, add empty clause to the DRAT proof,
+     * flush the proof and return [SolveResult.UNSAT].
+     */
+    private fun finishWithUnsat(): SolveResult {
+        ok = false
+        dratBuilder.addEmptyClauseAndFlush()
+        return SolveResult.UNSAT
+    }
+
+    /**
+     * Finish solving due to unsatisfiability under assumptions.
+     * Solver will still be able to perform search after this.
+     */
+    private fun finishWithAssumptionsUnsat(): SolveResult {
+        return SolveResult.UNSAT
+    }
+
+    /**
+     * Finish solving with SAT and check if all assumptions are satisfied.
+     * If not, return [SolveResult.UNSAT] due to assumptions being impossible
+     * to satisfy, otherwise return [SolveResult.SAT].
+     */
+    private fun finishWithSatIfAssumptionsOk(): SolveResult {
+        for (assumption in assumptions) {
+            if (value(assumption) == LBool.FALSE) {
+                return finishWithAssumptionsUnsat()
+            }
+        }
+
+        dratBuilder.flush()
+        return SolveResult.SAT
+    }
+
+    /**
      * Since returning the model is a potentially expensive operation, we cache
      * the result of the first call to [getModel] and return the cached value
      * on subsequent calls. This is reset in [solve].
      */
-    private var cachedModel: List<Boolean>? = null
+    private var cachedModel: MutableList<Boolean>? = null
 
     /**
      * Return the assignment of variables. This function is meant to be used
@@ -366,6 +387,11 @@ class CDCL {
                 LBool.TRUE, LBool.UNDEF -> true
                 LBool.FALSE -> false
             }
+        }.toMutableList()
+
+        for (assumption in assumptions) {
+            check(value(assumption) != LBool.FALSE)
+            cachedModel!![assumption.variable] = assumption.isPos
         }
 
         return cachedModel!!
@@ -393,8 +419,7 @@ class CDCL {
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
         if (assignment.trail.size == numberOfVariables) {
-            dratBuilder.flush()
-            return SolveResult.SAT
+            return finishWithSatIfAssumptionsOk()
         }
 
         dratBuilder.addComment("Post-Preprocessing cleanup")
@@ -479,14 +504,12 @@ class CDCL {
 
             if (conflict != null) {
                 if (!assignment.enqueue(probe.neg, null)) {
-                    dratBuilder.addEmptyClauseAndFlush()
-                    return SolveResult.UNSAT
+                    return finishWithUnsat()
                 }
 
                 // Can we learn more while we are at level 0?
                 propagate()?.let {
-                    dratBuilder.addEmptyClauseAndFlush()
-                    return SolveResult.UNSAT
+                    return finishWithUnsat()
                 }
             }
         }
