@@ -44,7 +44,15 @@ internal class DiamondTests {
             .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
 
         init {
-            if (generateDrat) dratProofsPath.toFile().mkdirs()
+            if (generateDrat) {
+                dratProofsPath.toFile().mkdirs()
+                System.err.println(
+                    "DRAT proofs will be generated to $dratProofsPath " +
+                            "and verified using $dratTrimExecutable"
+                )
+            } else {
+                System.err.println("DRAT proofs will not be generated")
+            }
         }
 
         private fun isTestFile(path: Path): Boolean {
