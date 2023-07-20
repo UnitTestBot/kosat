@@ -56,7 +56,7 @@ internal class DiamondTests {
             return Files.walk(testsPath)
                 .filter { isTestFile(it) }
                 .filter { !it.startsWith(benchmarksPath) }
-                .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
+                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
                 .toList()
         }
 
@@ -64,7 +64,7 @@ internal class DiamondTests {
         private fun getAssumptionFiles(): List<Arguments> {
             return Files.walk(assumptionTestsPath)
                 .filter { isTestFile(it) }
-                .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
+                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
                 .toList()
         }
 
@@ -72,7 +72,7 @@ internal class DiamondTests {
         private fun getBenchmarkFiles(): List<Arguments> {
             return Files.walk(benchmarksPath)
                 .filter { isTestFile(it) }
-                .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
+                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
                 .toList()
         }
     }
