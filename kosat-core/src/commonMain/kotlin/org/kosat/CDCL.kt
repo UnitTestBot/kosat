@@ -190,32 +190,6 @@ class CDCL {
         }
     }
 
-    // ---- Utility methods ---- //
-
-    /**
-     * Takes a list of literals, sorts it and removes duplicates in place,
-     * then checks if the list contains a literal and its negation
-     * and returns true if so.
-     */
-    private fun sortDedupAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
-        lits.sortBy { it.inner }
-
-        var i = 0
-        for (j in 1 until lits.size) {
-            if (lits[i] == lits[j].neg) return true
-            if (lits[i] != lits[j]) {
-                i++
-                lits[i] = lits[j]
-            }
-        }
-
-        while (lits.size > i + 1) {
-            lits.removeLast()
-        }
-
-        return false
-    }
-
     // ---- Trail ---- //
 
     fun backtrack(level: Int) {
