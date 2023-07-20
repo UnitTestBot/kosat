@@ -45,12 +45,15 @@ internal class DiamondTests {
         private val assumptionTestsPath = testsPath.resolve("testCover")
         private val benchmarksPath = testsPath.resolve("benchmarks")
 
+        private val dratTrimExecutable: Path? = System.getenv()["DRAT_TRIM_EXECUTABLE"]?.let { Paths.get(it) }
+        private val generateDrat = dratTrimExecutable != null
+
         private const val ext = "cnf"
         private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
             .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
 
         init {
-            dratProofsPath.toFile().mkdirs()
+            if (generateDrat) dratProofsPath.toFile().mkdirs()
         }
 
         private fun isTestFile(path: Path): Boolean {
@@ -111,7 +114,10 @@ internal class DiamondTests {
         val solver = CDCL(cnf)
 
         val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
-        solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
+
+        if (generateDrat) {
+            solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
+        }
 
         val (resultActual, timeKoSat) = measureTimeWithResult {
             solver.solve()
@@ -120,30 +126,39 @@ internal class DiamondTests {
         assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different.")
 
         if (resultActual == SolveResult.UNSAT) {
-            val command = "drat-trim ${cnfFile.absolutePath} $dratPath -U -f"
+            if (!generateDrat) {
+                println(
+                    "Path to DRAT-TRIM in environment variable DRAT_TRIM_EXECUTABLE is not set. " +
+                            "Skipping DRAT-trim test."
+                )
+            } else {
+                val command = "$dratTrimExecutable ${cnfFile.absolutePath} $dratPath -U -f"
 
-            println("DRAT-TRIM command: $command")
+                println("DRAT-TRIM command: $command")
 
-            val validator = Runtime.getRuntime().exec(command)
+                val validator = Runtime.getRuntime().exec(command)
 
-            val stdout = validator.inputStream.bufferedReader().readLines().filter { it.isNotBlank() }
+                val stdout = validator.inputStream.bufferedReader().readLines().filter { it.isNotBlank() }
 
-            validator.waitFor()
+                validator.waitFor()
 
-            println("DRAT-TRIM stdout:")
-            println(stdout.joinToString("\n\t", prefix = "\t"))
-            println("DRAT-TRIM stdout end")
+                println("DRAT-TRIM stdout:")
+                println(stdout.joinToString("\n\t", prefix = "\t"))
+                println("DRAT-TRIM stdout end")
 
-            assertContains(stdout, "s VERIFIED")
+                assertContains(stdout, "s VERIFIED")
 
-            assertNotEquals(
-                80,
-                validator.exitValue(),
-                "DRAT-TRIM exited with code 80 " +
-                    "(possibly because of a termination due to warning if ran with -W flag)",
-            )
+                assertNotEquals(
+                    80,
+                    validator.exitValue(),
+                    "DRAT-TRIM exited with code 80 " +
+                            "(possibly because of a termination due to warning if ran with -W flag)",
+                )
+            }
         } else {
-            dratPath.toFile().renameTo(dratPath.parent!!.resolve("sats/${dratPath.name}").toFile())
+            if (generateDrat) {
+                dratPath.toFile().renameTo(dratPath.parent!!.resolve("sats/${dratPath.name}").toFile())
+            }
 
             val model = solver.getModel()
 
