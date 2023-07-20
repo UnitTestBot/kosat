@@ -263,9 +263,10 @@ class CDCL {
      */
     private fun search(): SolveResult {
         while (true) {
-            require(assignment.qhead == assignment.trail.size)
+            check(assignment.qhead == assignment.trail.size)
 
-            // If (the problem is already) SAT, return the current assignment
+            // Check if all variables are assigned, indicating satisfiability,
+            // (unless assumptions are falsified)
             if (assignment.trail.size == numberOfVariables) {
                 return finishWithSatIfAssumptionsOk()
             }
@@ -280,6 +281,8 @@ class CDCL {
 
             db.reduceIfNeeded()
             restarter.restartIfNeeded()
+
+            check(assignment.qhead == assignment.trail.size)
 
             // And after that, we are ready to make a decision.
             assignment.newDecisionLevel()
@@ -324,10 +327,10 @@ class CDCL {
         while (true) {
             val conflict = propagate() ?: return true
 
-            // There is a conflict on level 0, so the problem is UNSAT
+            // If there is a conflict on level 0, the problem is UNSAT
             if (assignment.decisionLevel == 0) return false
 
-            // Build new clause by analyzing conflict
+            // Construct a new clause by analyzing conflict
             val learnt = analyzeConflict(conflict)
 
             // Return to decision level where lemma would be propagated
@@ -339,10 +342,14 @@ class CDCL {
                 assignment.uncheckedEnqueue(learnt[0], null)
             } else {
                 attachClause(learnt)
+                // Failure Driven Assertion: at level we backtracked to,
+                // the learnt will be propagated and will result in a literal
+                // added to the trail. We do that here.
                 assignment.uncheckedEnqueue(learnt[0], learnt)
                 db.clauseBumpActivity(learnt)
             }
 
+            // Update the heuristics
             variableSelector.update(learnt)
             db.clauseDecayActivity()
 
@@ -414,8 +421,6 @@ class CDCL {
         return cachedModel!!
     }
 
-    // ---- Preprocessing ---- //
-
     /**
      * Preprocessing is ran before the main loop of the solver,
      * allowing to spend some time simplifying the problem
@@ -441,7 +446,11 @@ class CDCL {
 
         dratBuilder.addComment("Post-Preprocessing cleanup")
 
+        // Remove satisfied clauses and shrink the clauses by
+        // removing falsified literals
         db.simplify()
+
+        // Remove deleted clauses which may have occurred during preprocessing
         db.removeDeleted()
 
         dratBuilder.addComment("Finished preprocessing")
@@ -770,8 +779,6 @@ class CDCL {
         return Clause(mutableListOf(lca.neg, clause[0]), true)
     }
 
-    // ---- CDCL functions ---- //
-
     /**
      * Add [clause] into the database and attach watchers for it.
      */
@@ -786,7 +793,7 @@ class CDCL {
 
     /**
      * Remove [clause] from the database. Watchers will be detached
-     * later, during [ClauseDatabase.reduceIfNeeded].
+     * later, during [ClauseDatabase.reduceIfNeeded] or [propagate].
      */
     fun detachClause(clause: Clause) {
         check(ok)
@@ -795,18 +802,17 @@ class CDCL {
     }
 
     /**
-     * Propagate all the literals in the trail that are
-     * not yet propagated. If a conflict is found, return
-     * the clause that caused it.
+     * Propagate all the literals in the trail that are not yet propagated. If
+     * a conflict is found, return the clause that caused it.
      *
-     * This function takes every literal on the trail that
-     * has not been propagated (that is, all literals for
-     * which `qhead <= index < trail.size`) and applies
-     * the unit propagation rule to it, possibly leading
-     * to deducing new literals. The new literals are added
-     * to the trail, and the process is repeated until no
-     * more literals can be propagated, or a conflict
-     * is found.
+     * This function takes every literal on the trail that has not been
+     * propagated (that is, all literals for which `qhead <= index < trail.size`)
+     * and applies the unit propagation rule to it, possibly leading to deducing
+     * new literals. The new literals are added to the trail, and the process is
+     * repeated until no more literals can be propagated, or a conflict is found.
+     *
+     * @return the conflict clause if a conflict is found, or `null` if no
+     * conflict occurs.
      */
     private fun propagate(): Clause? {
         check(ok)
@@ -881,57 +887,63 @@ class CDCL {
 
     /**
      * Analyzes the conflict clause returned by [propagate]
-     * and returns a new clause that can be learnt.
-     * Post-conditions:
-     *      - first element in clause has max (current) propagate level
-     *      - second element in clause has second max propagate level
+     * and returns a new clause that can be learned.
+     *
+     * This function analyzes the conflict clause by walking back on
+     * the trail and replacing all but one literal in the conflict clause
+     * by their reasons. The learned clause is then simplified by removing
+     * redundant literals.
+     *
+     * @param conflict the conflict clause.
+     * @return the learned clause.
      */
     private fun analyzeConflict(conflict: Clause): Clause {
-        var numberOfActiveVariables = 0
+        var activeVariableCount = 0
         val learntLits = mutableSetOf<Lit>()
         val seen = BooleanArray(numberOfVariables)
 
-        conflict.lits.forEach { lit ->
+        for (lit in conflict.lits) {
             if (assignment.level(lit.variable) == assignment.decisionLevel) {
                 seen[lit.variable] = true
-                numberOfActiveVariables++
+                activeVariableCount++
             } else {
                 learntLits.add(lit)
             }
         }
 
-        var lastLevelWalkIndex = assignment.trail.lastIndex
-
         // The UIP is the only literal in the current decision level
         // of the conflict clause. To build it, we walk back on the
         // last level of the trail and replace all but one literal
         // in the conflict clause by their reason.
-        while (numberOfActiveVariables > 1) {
-            val v = assignment.trail[lastLevelWalkIndex--].variable
+        var index = assignment.trail.lastIndex
+        while (activeVariableCount > 1) {
+            val v = assignment.trail[index--].variable
             if (!seen[v]) continue
 
             // The null assertion is safe because we only traverse
             // the last level, and every variable on this level
-            // has a reason except for the decision variable,
-            // which will not be visited because even if it is seen,
+            // has a reason, except for the decision variable,
+            // which will not be visited because. Even if it is seen,
             // it is the last seen variable in order of the trail.
             val reason = assignment.reason(v)!!
 
             db.clauseBumpActivity(reason)
 
-            reason.lits.forEach { u ->
-                val current = u.variable
-                if (assignment.level(current) != assignment.decisionLevel) {
-                    learntLits.add(u)
-                } else if (current != v && !seen[current]) {
-                    seen[current] = true
-                    numberOfActiveVariables++
+            for (lit in reason.lits) {
+                val u = lit.variable
+                if (assignment.level(u) != assignment.decisionLevel) {
+                    learntLits.add(lit)
+                } else if (u != v && !seen[u]) {
+                    seen[u] = true
+                    activeVariableCount++
                 }
             }
 
             seen[v] = false
-            numberOfActiveVariables--
+            activeVariableCount--
         }
+
+        check(activeVariableCount == 1)
 
         var learnt: Clause
 
