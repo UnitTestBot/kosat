@@ -2,6 +2,7 @@
 
 object Versions {
     const val git_versioning = "6.4.2"
+    const val gradle_download = "5.4.0"
     const val gradle_versions = "0.47.0"
     const val junit = "5.9.1"
     const val klock = "4.0.2"
@@ -72,6 +73,12 @@ object Plugins {
     object GitVersioning {
         const val version = Versions.git_versioning
         const val id = "me.qoomon.git-versioning"
+    }
+
+    // https://github.com/michel-kraemer/gradle-download-task
+    object GradleDownload {
+        const val version = Versions.gradle_download
+        const val id = "de.undercouch.download"
     }
 
     // https://github.com/ben-manes/gradle-versions-plugin
