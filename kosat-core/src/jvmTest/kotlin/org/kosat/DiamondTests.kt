@@ -8,7 +8,6 @@ import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import okio.buffer
 import org.junit.jupiter.api.Disabled
-import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -39,45 +38,49 @@ private fun assertTrue(value: Boolean, lazyMessage: () -> String) {
 
 private const val timeFormat = "yyyy-MM-dd_HH-mm-ss"
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
-    private val workingDir = Paths.get("").toAbsolutePath()
-    private val testsPath = workingDir.resolve("src/jvmTest/resources")
-    private val assumptionTestsPath = testsPath.resolve("testCover")
-    private val benchmarksPath = testsPath.resolve("benchmarks")
+    companion object {
+        private val workingDir = Paths.get("").toAbsolutePath()
+        private val testsPath = workingDir.resolve("src/jvmTest/resources")
+        private val assumptionTestsPath = testsPath.resolve("testCover")
+        private val benchmarksPath = testsPath.resolve("benchmarks")
 
-    private val ext = "cnf"
-    private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
-        .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
+        private const val ext = "cnf"
+        private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
+            .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
 
-    init {
-        dratProofsPath.toFile().mkdirs()
-    }
+        init {
+            dratProofsPath.toFile().mkdirs()
+        }
 
-    private fun isTestFile(path: Path): Boolean {
-        return path.isRegularFile() && path.extension == ext
-    }
+        private fun isTestFile(path: Path): Boolean {
+            return path.isRegularFile() && path.extension == ext
+        }
 
-    private fun getAllNotBenchmarks(): List<Arguments> {
-        return Files.walk(testsPath)
-            .filter { isTestFile(it) }
-            .filter { !it.startsWith(benchmarksPath) }
-            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
-            .toList()
-    }
+        @JvmStatic
+        private fun getAllNotBenchmarks(): List<Arguments> {
+            return Files.walk(testsPath)
+                .filter { isTestFile(it) }
+                .filter { !it.startsWith(benchmarksPath) }
+                .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
+                .toList()
+        }
 
-    private fun getAssumptionFiles(): List<Arguments> {
-        return Files.walk(assumptionTestsPath)
-            .filter { isTestFile(it) }
-            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
-            .toList()
-    }
+        @JvmStatic
+        private fun getAssumptionFiles(): List<Arguments> {
+            return Files.walk(assumptionTestsPath)
+                .filter { isTestFile(it) }
+                .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
+                .toList()
+        }
 
-    private fun getBenchmarkFiles(): List<Arguments> {
-        return Files.walk(benchmarksPath)
-            .filter { isTestFile(it) }
-            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
-            .toList()
+        @JvmStatic
+        private fun getBenchmarkFiles(): List<Arguments> {
+            return Files.walk(benchmarksPath)
+                .filter { isTestFile(it) }
+                .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
+                .toList()
+        }
     }
 
     private fun solveWithMiniSat(cnf: CNF): SolveResult {
