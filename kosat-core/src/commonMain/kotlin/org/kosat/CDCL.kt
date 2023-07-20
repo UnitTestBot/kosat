@@ -262,15 +262,7 @@ class CDCL {
      * @return the result of the search.
      */
     private fun search(): SolveResult {
-        // main loop
         while (true) {
-            // Propagate all not yet propagated literals,
-            // in case there is a conflict, backtrack, and repeat.
-            val shouldContinue = propagateAnalyzeBacktrack()
-
-            // If the conflict on level 0 is reached, the problem is UNSAT.
-            if (!shouldContinue) return finishWithUnsat()
-
             require(assignment.qhead == assignment.trail.size)
 
             // If (the problem is already) SAT, return the current assignment
@@ -308,6 +300,14 @@ class CDCL {
 
             // Enqueue the decision literal, expect it to propagate at the next iteration.
             assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+
+            // Propagate the decision,
+            // in case there is a conflict, backtrack, and repeat
+            // (until the conflict is resolved).
+            val shouldContinue = propagateAnalyzeBacktrack()
+
+            // If the conflict on level 0 is reached, the problem is UNSAT.
+            if (!shouldContinue) return finishWithUnsat()
         }
     }
 
