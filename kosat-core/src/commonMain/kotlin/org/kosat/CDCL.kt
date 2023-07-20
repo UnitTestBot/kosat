@@ -230,7 +230,7 @@ class CDCL {
 
         // Check if the assumptions are trivially unsatisfiable,
         // and remove duplicates along the way.
-        if (sortDedupAndCheckComplimentary(assumptions)) return finishWithUnsat()
+        if (sortDedupAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
 
         // Clean up from the previous solve
         if (assignment.decisionLevel > 0) backtrack(0)
