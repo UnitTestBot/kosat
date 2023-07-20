@@ -21,7 +21,7 @@ fun solveCnf(cnf: CnfRequest): List<Boolean>? {
 
 /**
  * CDCL (Conflict-Driven Clause Learning) solver instance
- * for solving Boolean satisfiability (SAT) problem,
+ * for solving Boolean satisfiability (SAT) problem.
  */
 class CDCL {
     /**
@@ -99,7 +99,7 @@ class CDCL {
      *
      * @param initialClauses the initial clauses.
      * @param initialVarsNumber the number of variables in the problem, if known.
-     *        Can help to avoid resizing of internal data structures.
+     *   Can help to avoid resizing of internal data structures.
      */
     constructor(
         initialClauses: Iterable<Clause>,
@@ -190,8 +190,6 @@ class CDCL {
         }
     }
 
-    // ---- Trail ---- //
-
     fun backtrack(level: Int) {
         while (assignment.trail.isNotEmpty() && assignment.level(assignment.trail.last().variable) > level) {
             val lit = assignment.trail.removeLast()
@@ -212,15 +210,16 @@ class CDCL {
      */
     private var polarity: MutableList<LBool> = mutableListOf()
 
-    // ---- Solve ---- //
-
     /**
      * The assumptions given to an incremental solver.
      */
     private var assumptions: MutableList<Lit> = mutableListOf()
 
     /**
-     * Solve the problem with the given assumptions.
+     * Solves the CNF problem using the CDCL algorithm.
+     *
+     * @return The [result][SolveResult] of the solving process:
+     *   [SolveResult.SAT], [SolveResult.UNSAT], or [SolveResult.UNKNOWN].
      */
     fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
         assumptions = currentAssumptions.toMutableList()
@@ -257,6 +256,11 @@ class CDCL {
 
     // ---- Search ---- //
 
+    /**
+     * The main CDCL search loop.
+     *
+     * @return the result of the search.
+     */
     private fun search(): SolveResult {
         // main loop
         while (true) {
@@ -278,9 +282,9 @@ class CDCL {
             // the trail is propagated, the clauses are satisfied,
             // it is safe to backtrack, make a decision, remove or add clauses, etc.
             // We use this opportunity to do some "maintenance".
-            // For example, it is safe to shrink the clauses
-            // (by removing the falsified  literals from them),
-            // because it won't cause the clause to become empty or unit.
+            // For example, it is safe to shrink clauses
+            // (by removing the falsified literals from them),
+            // because it won't cause a clause becoming empty or unit.
 
             db.reduceIfNeeded()
             restarter.restartIfNeeded()
