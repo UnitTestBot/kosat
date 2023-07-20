@@ -172,10 +172,7 @@ class CDCL {
         }
 
         when (clause.size) {
-            0 -> {
-                ok = false
-                dratBuilder.addEmptyClauseAndFlush()
-            }
+            0 -> finishWithUnsat()
 
             1 -> {
                 assignment.uncheckedEnqueue(clause[0], null)
