@@ -898,6 +898,97 @@ class CDCL {
      * @return the learned clause.
      */
     private fun analyzeConflict(conflict: Clause): Clause {
+        var activeVariableCount = 0
+        val learntLits = mutableSetOf<Lit>()
+        val seen = BooleanArray(numberOfVariables)
+
+        for (lit in conflict.lits) {
+            if (assignment.level(lit.variable) == assignment.decisionLevel) {
+                seen[lit.variable] = true
+                activeVariableCount++
+            } else {
+                learntLits.add(lit)
+            }
+        }
+
+        // The UIP is the only literal in the current decision level
+        // of the conflict clause. To build it, we walk back on the
+        // last level of the trail and replace all but one literal
+        // in the conflict clause by their reason.
+        var index = assignment.trail.lastIndex
+        while (activeVariableCount > 1) {
+            val v = assignment.trail[index--].variable
+            if (!seen[v]) continue
+
+            // The null assertion is safe because we only traverse
+            // the last level, and every variable on this level
+            // has a reason, except for the decision variable,
+            // which will not be visited because. Even if it is seen,
+            // it is the last seen variable in order of the trail.
+            val reason = assignment.reason(v)!!
+
+            db.clauseBumpActivity(reason)
+
+            for (lit in reason.lits) {
+                val u = lit.variable
+                if (assignment.level(u) != assignment.decisionLevel) {
+                    learntLits.add(lit)
+                } else if (u != v && !seen[u]) {
+                    seen[u] = true
+                    activeVariableCount++
+                }
+            }
+
+            seen[v] = false
+            activeVariableCount--
+        }
+
+        check(activeVariableCount == 1)
+
+        var learnt: Clause
+
+        assignment.trail.last { seen[it.variable] }.let { lit ->
+            val v = lit.variable
+            learntLits.add(if (value(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
+
+            // Simplify clause by removing redundant literals which follow from their reasons
+            currentMinimizationMark++
+            learntLits.forEach { minimizeMarks[it] = currentMinimizationMark }
+            learnt = Clause(
+                learntLits.filter { possiblyImpliedLit ->
+                    assignment.reason(possiblyImpliedLit.variable)?.lits?.any {
+                        minimizeMarks[it] != currentMinimizationMark
+                    } ?: true
+                }.toMutableList(),
+                learnt = true,
+            )
+
+            val uipIndex = learnt.lits.indexOfFirst { it.variable == v }
+            // move UIP vertex to 0 position
+            learnt.lits.swap(uipIndex, 0)
+            seen[v] = false
+        }
+        // move last defined literal to 1 position
+        if (learnt.size > 1) {
+            val secondMax = learnt.lits.drop(1).indices.maxByOrNull {
+                assignment.level(learnt[it + 1].variable)
+            } ?: 0
+            learnt.lits.swap(1, secondMax + 1)
+        }
+
+        // compute lbd "score" for lemma
+        learnt.lbd = learnt.lits.distinctBy { assignment.level(it.variable) }.size
+
+        val otherLearnt = newAnalyzeConflict(conflict)
+        check(learnt.lits[0] == otherLearnt.lits[0])
+        check(learnt.lits.drop(1).toSet() == otherLearnt.lits.drop(1).toSet())
+        check(learnt.size == otherLearnt.size)
+        check(learnt.size <= 1 || assignment.level(learnt.lits[1].variable) == assignment.level(otherLearnt.lits[1].variable))
+
+        return learnt
+    }
+
+    private fun newAnalyzeConflict(conflict: Clause): Clause {
         val startOfLastLevel = assignment.trail.indexOfFirst { assignment.level(it) == assignment.decisionLevel }
         val lastLevelTrailSize = assignment.trail.size - startOfLastLevel
 
