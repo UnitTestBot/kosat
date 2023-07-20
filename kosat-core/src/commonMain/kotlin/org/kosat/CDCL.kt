@@ -979,6 +979,72 @@ class CDCL {
             }
         }
 
+        val otherLearnt = newAnalyzeConflict(conflict)
+        check(learnt.lits[0] == otherLearnt.lits[0])
+        check(learnt.lits.drop(1).toSet() == otherLearnt.lits.drop(1).toSet())
+        check(learnt.size == otherLearnt.size)
+        check(learnt.size <= 1 || assignment.level(learnt.lits[1].variable) == assignment.level(otherLearnt.lits[1].variable))
+
+        return learnt
+    }
+
+    fun newAnalyzeConflict(conflict: Clause): Clause {
+        currentMark++
+
+        var clauseInCut = conflict
+        var index = assignment.trail.lastIndex
+        var lastLevelLitCount = 0
+        val learntLits = mutableListOf<Lit>()
+
+        while (true) {
+            for (lit in clauseInCut.lits) {
+                if (marks[lit.variable] != currentMark) {
+                    marks[lit.variable] = currentMark
+                    if (assignment.level(lit) == assignment.decisionLevel) {
+                        lastLevelLitCount++
+                    } else {
+                        learntLits.add(lit)
+                    }
+                }
+            }
+
+            while (marks[assignment.trail[index].variable] != currentMark) {
+                index--
+            }
+
+            val lit = assignment.trail[index]
+
+            check(lastLevelLitCount >= 1)
+            check(assignment.level(lit) == assignment.decisionLevel)
+            if (lastLevelLitCount == 1) break
+
+            clauseInCut = assignment.reason(lit.variable)!!
+            lastLevelLitCount--
+            marks[lit.variable] = 0
+            index--
+        }
+
+        val uip = assignment.trail[index]
+
+        learntLits.retainAll { possiblyImpliedLit ->
+            assignment.reason(possiblyImpliedLit.variable)?.lits?.any {
+                it != possiblyImpliedLit.neg && marks[it.variable] != currentMark
+            } ?: true
+        }
+
+        learntLits.add(uip)
+        learntLits.sortByDescending { assignment.level(it) }
+
+        val learnt = Clause(learntLits, learnt = true)
+
+        learnt.lbd = 1
+
+        for (i in 0 until learnt.size - 1) {
+            if (assignment.level(learnt[i]) != assignment.level(learnt[i + 1])) {
+                learnt.lbd++
+            }
+        }
+
         return learnt
     }
 }
