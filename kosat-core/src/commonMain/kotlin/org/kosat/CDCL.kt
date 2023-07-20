@@ -172,10 +172,7 @@ class CDCL {
 
         when (clause.size) {
             // Empty clause is an immediate UNSAT
-            0 -> {
-                ok = false
-                dratBuilder.addEmptyClauseAndFlush()
-            }
+            0 -> finishWithUnsat()
 
             // Enqueue the literal from a unit clauses.
             1 -> {
