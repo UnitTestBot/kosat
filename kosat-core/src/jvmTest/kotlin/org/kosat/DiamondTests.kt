@@ -7,6 +7,7 @@ import korlibs.time.roundMilliseconds
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import okio.buffer
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -25,16 +26,6 @@ import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
 import kotlin.test.assertContains
-import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
-import kotlin.test.assertTrue
-
-// Lazy messages are not in JUnit
-// and interpolating strings where we have to is too expensive
-private fun assertTrue(value: Boolean, lazyMessage: () -> String) {
-    if (!value) println(lazyMessage())
-    assertTrue(value)
-}
 
 private const val timeFormat = "yyyy-MM-dd_HH-mm-ss"
 
@@ -123,7 +114,9 @@ internal class DiamondTests {
             solver.solve()
         }
 
-        assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different.")
+        Assertions.assertEquals(resultExpected, resultActual) { "MiniSat and KoSat results are different." }
+
+        println("MiniSat and KoSat results are the same: $resultActual")
 
         if (resultActual == SolveResult.UNSAT) {
             if (!generateDrat) {
@@ -148,12 +141,13 @@ internal class DiamondTests {
 
                 assertContains(stdout, "s VERIFIED")
 
-                assertNotEquals(
+                Assertions.assertNotEquals(
                     80,
-                    validator.exitValue(),
+                    validator.exitValue()
+                ) {
                     "DRAT-TRIM exited with code 80 " +
-                            "(possibly because of a termination due to warning if ran with -W flag)",
-                )
+                            "(possibly because of a termination due to warning if ran with -W flag)"
+                }
             }
         } else {
             if (generateDrat) {
@@ -171,7 +165,7 @@ internal class DiamondTests {
                     }
                 }
 
-                assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
             }
         }
 
@@ -194,7 +188,8 @@ internal class DiamondTests {
                 solver.solve(assumptions.map { Lit.fromDimacs(it) })
             }
 
-            assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different")
+            Assertions.assertEquals(resultExpected, resultActual) { "MiniSat and KoSat results are different" }
+            println("MiniSat and KoSat results are the same: $resultActual")
 
             if (resultActual == SolveResult.SAT) {
                 val model = solver.getModel()
@@ -208,12 +203,12 @@ internal class DiamondTests {
                         }
                     }
 
-                    assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                    Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
                 }
 
                 for (assumption in assumptions) {
                     val assumptionValue = model[abs(assumption) - 1] == (assumption.sign == 1)
-                    assertTrue(assumptionValue) { "Assumption $assumption is not satisfied. Model: $model" }
+                    Assertions.assertTrue(assumptionValue) { "Assumption $assumption is not satisfied. Model: $model" }
                 }
             }
 
