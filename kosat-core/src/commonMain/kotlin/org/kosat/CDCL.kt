@@ -979,6 +979,89 @@ class CDCL {
         // compute lbd "score" for lemma
         learnt.lbd = learnt.lits.distinctBy { assignment.level(it.variable) }.size
 
+        val otherLearnt = newAnalyzeConflict(conflict)
+        check(learnt.lits[0] == otherLearnt.lits[0])
+        check(learnt.lits.drop(1).toSet() == otherLearnt.lits.drop(1).toSet())
+        check(learnt.size == otherLearnt.size)
+        check(learnt.size <= 1 || assignment.level(learnt.lits[1].variable) == assignment.level(otherLearnt.lits[1].variable))
+
+        return learnt
+    }
+
+    private fun newAnalyzeConflict(conflict: Clause): Clause {
+        val startOfLastLevel = assignment.trail.indexOfFirst { assignment.level(it) == assignment.decisionLevel }
+        val lastLevelTrailSize = assignment.trail.size - startOfLastLevel
+
+        fun levelTrailIndex(lit: Lit): Int {
+            val localIndex = assignment.varData[lit.variable].trailIndex - startOfLastLevel
+            check(localIndex in 0 until lastLevelTrailSize)
+            return localIndex
+        }
+
+        val curLevelQueue = mutableListOf<Lit>()
+        val enqueued = BooleanArray(lastLevelTrailSize)
+        var firstEnqueuedTrailIndex = Int.MAX_VALUE
+        val learntLits = mutableListOf<Lit>()
+
+        fun enqueueLastLevelLit(lit: Lit) {
+            val trailIndex = levelTrailIndex(lit)
+            if (enqueued[trailIndex]) return
+
+            enqueued[trailIndex] = true
+            curLevelQueue.add(lit)
+
+            if (trailIndex < firstEnqueuedTrailIndex) {
+                firstEnqueuedTrailIndex = trailIndex
+            }
+        }
+
+        fun dequeueLastLevelLit(): Lit {
+            val trailIndex = levelTrailIndex(curLevelQueue.last())
+
+            if (trailIndex == firstEnqueuedTrailIndex) {
+                curLevelQueue.swap(curLevelQueue.lastIndex, 0)
+            } else {
+                check(trailIndex > firstEnqueuedTrailIndex)
+            }
+
+            return curLevelQueue.removeLast()
+        }
+
+        fun enqueueReasonClause(clause: Clause) {
+            for (lit in clause.lits) {
+                if (assignment.level(lit) == assignment.decisionLevel) {
+                    enqueueLastLevelLit(lit)
+                } else {
+                    learntLits.add(lit)
+                }
+            }
+        }
+
+        enqueueReasonClause(conflict)
+
+        while (curLevelQueue.size > 1) {
+            val lit = dequeueLastLevelLit()
+            val reason = assignment.reason(lit.variable)!!
+
+            enqueueReasonClause(reason)
+        }
+
+        val containsComplimentary = sortDedupAndCheckComplimentary(learntLits)
+        check(!containsComplimentary)
+
+        val uip = curLevelQueue[0]
+        learntLits.add(uip)
+        learntLits.sortByDescending { assignment.level(it) }
+
+        val learnt = Clause(learntLits, learnt = true)
+
+        learnt.lbd = 0
+        for (i in 0 until learnt.size - 1) {
+            if (assignment.level(learnt[i]) != assignment.level(learnt[i + 1])) {
+                learnt.lbd++
+            }
+        }
+
         return learnt
     }
 }

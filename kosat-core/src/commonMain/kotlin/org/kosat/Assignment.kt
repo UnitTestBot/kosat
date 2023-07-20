@@ -48,6 +48,10 @@ class Assignment(private val solver: CDCL) {
         return varData[v].level
     }
 
+    fun level(v: Lit): Int {
+        return level(v.variable)
+    }
+
     fun trailIndex(v: Var): Int {
         return varData[v].trailIndex
     }
@@ -86,6 +90,7 @@ class Assignment(private val solver: CDCL) {
         value[lit.variable] = LBool.from(lit.isPos)
         varData[lit.variable].reason = reason
         varData[lit.variable].level = decisionLevel
+        varData[lit.variable].trailIndex = trail.size
         trail.add(lit)
     }
 
