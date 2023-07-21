@@ -68,8 +68,6 @@ class CDCL {
      */
     private val flpMaxProbes = 1000
 
-    // ---- Heuristics ---- //
-
     /**
      * The branching heuristic, used to choose the next decision variable.
      */
@@ -80,8 +78,6 @@ class CDCL {
      * @see [solve]
      */
     private val restarter = Restarter(this)
-
-    // ---- Public Interface ---- //
 
     /**
      * Create a new solver instance with no clauses.
@@ -156,7 +152,7 @@ class CDCL {
         // Remove falsified literals from the new clause
         clause.lits.removeAll { value(it) == LBool.FALSE }
 
-        // If the clause contains complementary literals, it is useless,
+        // If the clause contains complementary literals, ignore it as useless,
         // otherwise removes duplicate literals in it.
         if (sortDedupAndCheckComplimentary(clause.lits)) return
 
@@ -243,8 +239,6 @@ class CDCL {
 
         return search()
     }
-
-    // ---- Search ---- //
 
     /**
      * The main CDCL search loop.
