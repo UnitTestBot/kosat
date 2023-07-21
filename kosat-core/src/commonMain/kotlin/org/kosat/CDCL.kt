@@ -988,57 +988,48 @@ class CDCL {
         return learnt
     }
 
-    fun newAnalyzeConflict(conflict: Clause): Clause {
-        currentMark++
-
-        var clauseInCut = conflict
-        var index = assignment.trail.lastIndex
-        var lastLevelLitCount = 0
+    private fun newAnalyzeConflict(conflict: Clause): Clause {
+        val seen = BooleanArray(numberOfVariables) { false }
         val learntLits = mutableListOf<Lit>()
 
+        var lastLevelLitCount = 0
+        var clauseToAdd = conflict
+        var index = assignment.trail.lastIndex
+
         while (true) {
-            for (lit in clauseInCut.lits) {
-                if (marks[lit.variable] != currentMark) {
-                    marks[lit.variable] = currentMark
-                    if (assignment.level(lit) == assignment.decisionLevel) {
-                        lastLevelLitCount++
-                    } else {
-                        learntLits.add(lit)
-                    }
+            for (lit in clauseToAdd.lits) {
+                if (seen[lit.variable]) continue
+
+                seen[lit.variable] = true
+
+                if (assignment.level(lit) == assignment.decisionLevel) {
+                    lastLevelLitCount++
+                } else {
+                    learntLits.add(lit)
                 }
             }
 
-            while (marks[assignment.trail[index].variable] != currentMark) {
-                index--
-            }
-
-            val lit = assignment.trail[index]
-
-            check(lastLevelLitCount >= 1)
-            check(assignment.level(lit) == assignment.decisionLevel)
+            while (!seen[assignment.trail[index].variable]) index--
             if (lastLevelLitCount == 1) break
 
-            clauseInCut = assignment.reason(lit.variable)!!
             lastLevelLitCount--
-            marks[lit.variable] = 0
+            val lastLevelVar = assignment.trail[index].variable
             index--
+            clauseToAdd = assignment.reason(lastLevelVar)!!
         }
 
         val uip = assignment.trail[index]
+        learntLits.add(uip.neg)
 
-        learntLits.retainAll { possiblyImpliedLit ->
+        val learnt = Clause(learntLits.filter { possiblyImpliedLit ->
             assignment.reason(possiblyImpliedLit.variable)?.lits?.any {
-                it != possiblyImpliedLit.neg && marks[it.variable] != currentMark
+                it != possiblyImpliedLit.neg && marks[it] != currentMark
             } ?: true
-        }
+        }.toMutableList(), learnt = true)
 
-        learntLits.add(uip)
-        learntLits.sortByDescending { assignment.level(it) }
-
-        val learnt = Clause(learntLits, learnt = true)
+        learnt.lits.sortByDescending { assignment.level(it) }
 
         learnt.lbd = 1
-
         for (i in 0 until learnt.size - 1) {
             if (assignment.level(learnt[i]) != assignment.level(learnt[i + 1])) {
                 learnt.lbd++
