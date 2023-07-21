@@ -35,6 +35,11 @@ class CDCL {
     val assignment: Assignment = Assignment(this)
 
     /**
+     * Statistics of the solver.
+     */
+    val statistics: Statistics = Statistics()
+
+    /**
      * DRAT proof builder. Can be used to generate DRAT proofs,
      * but disabled by default. It is intentionally made public
      * variable.
