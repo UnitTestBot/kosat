@@ -30,6 +30,11 @@ class CDCL {
      */
     val assignment: Assignment = Assignment(this)
 
+    /**
+     * DRAT proof builder. Can be used to generate DRAT proofs,
+     * but disabled by default. It is intentionally made public
+     * variable.
+     */
     var dratBuilder: AbstractDratBuilder = NoOpDratBuilder()
 
     /**
