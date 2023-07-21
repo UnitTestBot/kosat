@@ -46,4 +46,4 @@ jobs:
       - name: Run tests
         run: ./gradlew check --no-build-cache --stacktrace
         env:
-          DRAT_TRIM_EXECUTABLE: drat-trim
+          TEST_CHECK_UNSAT_PROOF: true
