@@ -48,7 +48,7 @@ internal class DiamondTests {
                 dratProofsPath.toFile().mkdirs()
                 System.err.println(
                     "DRAT proofs will be generated to $dratProofsPath " +
-                            "and verified using $dratTrimExecutable"
+                        "and verified using $dratTrimExecutable"
                 )
             } else {
                 System.err.println("DRAT proofs will not be generated")
@@ -130,7 +130,7 @@ internal class DiamondTests {
             if (!generateAndCheckDrat) {
                 println(
                     "Path to DRAT-TRIM in environment variable DRAT_TRIM_EXECUTABLE is not set. " +
-                            "Skipping DRAT-trim test."
+                        "Skipping DRAT-trim test."
                 )
             } else {
                 val command = "$dratTrimExecutable ${cnfFile.absolutePath} $dratPath -U -f"
@@ -154,7 +154,7 @@ internal class DiamondTests {
                     validator.exitValue()
                 ) {
                     "DRAT-TRIM exited with code 80 " +
-                            "(possibly because of a termination due to warning if ran with -W flag)"
+                        "(possibly because of a termination due to warning if ran with -W flag)"
                 }
             }
         } else {
