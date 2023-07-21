@@ -34,6 +34,9 @@ class Assignment(private val solver: CDCL) {
 
     fun unassign(v: Var) {
         value[v] = LBool.UNDEF
+        varData[v].reason = null
+        varData[v].level = -1
+        varData[v].trailIndex = -1
     }
 
     // fun varData(v: Var): VarState {
@@ -75,7 +78,7 @@ class Assignment(private val solver: CDCL) {
     fun addVariable() {
         check(decisionLevel == 0)
         value.add(LBool.UNDEF)
-        varData.add(VarState(null, 0))
+        varData.add(VarState(null, -1))
     }
 
     fun newDecisionLevel() {
