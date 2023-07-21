@@ -383,8 +383,6 @@ class CDCL {
             // Update the heuristics
             variableSelector.update(learnt)
             db.clauseDecayActivity()
-
-            restarter.numberOfConflictsAfterRestart++
         }
     }
 

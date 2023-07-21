@@ -5,7 +5,6 @@ class Restarter(private val solver: CDCL) {
 
     private val lubyMultiplierConstant = 50.0
     private var restartNumber = lubyMultiplierConstant
-    var numberOfConflictsAfterRestart = 0
 
     // 1, 1, 2, 1, 1, 2, 4, 1, 1, 2, 1, 1, 2, 4, 8, ...
     // return i'th element of luby sequence
@@ -27,12 +26,10 @@ class Restarter(private val solver: CDCL) {
     private var lubyPosition = 1
 
     fun restartIfNeeded() {
-        if (numberOfConflictsAfterRestart >= restartNumber) {
+        if (solver.statistics.conflicts.thisRestart >= restartNumber) {
             restartNumber = lubyMultiplierConstant * luby(lubyPosition++)
             solver.backtrack(0)
-            solver.statistics.restarts.inc { "Restarting" }
-
-            numberOfConflictsAfterRestart = 0
+            solver.statistics.restart()
         }
     }
 }

@@ -16,11 +16,39 @@ class Statistics {
     var flpPropagations = Statistic(false)
     var flpHyperBinaries = Statistic(false)
     var flpUnitClauses = Statistic(false)
+
+    fun restart() {
+        conflicts.restart()
+        decisions.restart()
+        propagations.restart()
+        propagatedLiterals.restart()
+        learned.restart()
+        deleted.restart()
+        restarts.restart()
+        shrunkClauses.restart()
+        satisfiedClauses.restart()
+        dbReduces.restart()
+
+        flpProbes.restart()
+        flpPropagations.restart()
+        flpHyperBinaries.restart()
+        flpUnitClauses.restart()
+
+        restarts.inc { "Restarting" }
+    }
 }
 
-class Statistic(val logging: Boolean, var value: Int = 0) {
+data class Statistic(val logging: Boolean) {
+    var value: Int = 0
+    private var valueLastRestart: Int = 0
+    val thisRestart get() = value - valueLastRestart
+
     inline fun inc(crossinline reasonToLog: () -> String?) {
         value++
         if (logging) reasonToLog()?.let { println(it) }
+    }
+
+    fun restart() {
+        valueLastRestart = value
     }
 }
