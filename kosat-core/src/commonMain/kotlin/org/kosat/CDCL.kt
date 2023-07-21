@@ -341,7 +341,7 @@ class CDCL {
             // Construct a new clause by analyzing conflict
             val learnt = analyzeConflict(conflict)
 
-            // Return to decision level where lemma would be propagated
+            // Return to decision level where learnt would be propagated
             val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
             backtrack(level)
 
@@ -919,7 +919,7 @@ class CDCL {
 
         // Keep track of the variables we have "seen" during the analysis
         // (see implementation below for details)
-        val seen = BooleanArray(numberOfVariables) { false }
+        val seen = BooleanArray(numberOfVariables)
 
         // The list of literals of the learnt
         val learntLits = mutableListOf<Lit>()
