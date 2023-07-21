@@ -73,7 +73,7 @@ class ClauseDatabase(private val solver: CDCL) {
 
             for (lit in clause.lits) {
                 if (solver.assignment.fixed(lit) == LBool.TRUE) {
-                    solver.detachClause(clause)
+                    solver.markDeleted(clause)
                     continue@outer
                 }
             }
@@ -130,7 +130,7 @@ class ClauseDatabase(private val solver: CDCL) {
             // technically, this is not needed, but might be used later
             if (isClauseLocked(learnt)) continue
 
-            solver.detachClause(learnt)
+            solver.markDeleted(learnt)
         }
     }
 
@@ -159,7 +159,7 @@ class ClauseDatabase(private val solver: CDCL) {
             if (learnt.deleted) break
             if (isClauseLocked(learnt)) continue
 
-            solver.detachClause(learnt)
+            solver.markDeleted(learnt)
         }
     }
 

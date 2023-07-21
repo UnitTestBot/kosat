@@ -764,10 +764,11 @@ class CDCL {
     }
 
     /**
-     * Remove [clause] from the database. Watchers will be detached
-     * later, during [ClauseDatabase.reduceIfNeeded].
+     * Mark [clause] for deletion. During [ClauseDatabase.reduceIfNeeded]
+     * it will be removed from the database, and the watchers
+     * will be detached (the latter may also happen in [propagate]).
      */
-    fun detachClause(clause: Clause) {
+    fun markDeleted(clause: Clause) {
         check(ok)
         clause.deleted = true
         if (clause.learnt) dratBuilder.deleteClause(clause)
