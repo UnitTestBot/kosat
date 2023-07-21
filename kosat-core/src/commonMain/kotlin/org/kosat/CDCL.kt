@@ -790,7 +790,7 @@ class CDCL {
     /**
      * Mark [clause] for deletion. During [ClauseDatabase.reduceIfNeeded]
      * it will be removed from the database, and the watchers
-     * will be detached (which may also happen in [propagate]).
+     * will be detached (the latter may also happen in [propagate]).
      */
     fun markDeleted(clause: Clause) {
         check(ok)
