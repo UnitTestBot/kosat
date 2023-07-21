@@ -11,7 +11,7 @@ data class VarState(
     var trailIndex: Int = -1,
 )
 
-class Assignment {
+class Assignment(private val solver: CDCL) {
     val value: MutableList<LBool> = mutableListOf()
     val varData: MutableList<VarState> = mutableListOf()
     val trail: MutableList<Lit> = mutableListOf()
@@ -80,6 +80,8 @@ class Assignment {
 
     fun uncheckedEnqueue(lit: Lit, reason: Clause?) {
         require(value(lit) == LBool.UNDEF)
+
+        if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(mutableListOf(lit)))
 
         value[lit.variable] = LBool.from(lit.isPos)
         varData[lit.variable].reason = reason

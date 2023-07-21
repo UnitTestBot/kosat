@@ -1,6 +1,8 @@
 package org.kosat
 
 import okio.Path.Companion.toPath
+import okio.buffer
+import okio.sink
 import org.kosat.cnf.CNF
 import org.kosat.cnf.from
 import kotlin.test.Test
@@ -8,13 +10,19 @@ import kotlin.test.Test
 internal class ManualTest {
     @Test
     fun testManual() {
-        val path = "src/jvmTest/resources/benchmarks/sat-grid-pbl-0070.sat05-1334.reshuffled-07.cnf".toPath()
+        val path = "src/jvmTest/resources/testCover/cover/cover0033.cnf".toPath()
         val cnf = CNF.from(path)
         val clauses = cnf.clauses.map { lits ->
             Clause(lits.map { Lit.fromDimacs(it) }.toMutableList())
         }
         val solver = CDCL(clauses, cnf.numVars)
+        solver.dratBuilder = DratBuilder(System.err.sink().buffer())
         val model = solver.solve()
+        println("${solver.getModel()}")
         println("model = $model")
+        val model2 = solver.solve(listOf(Lit.fromDimacs(1)))
+        val model3 = solver.solve(listOf(Lit.fromDimacs(2), Lit.fromDimacs(-1)))
+        println("model = $model2")
+        println("model = $model3")
     }
 }

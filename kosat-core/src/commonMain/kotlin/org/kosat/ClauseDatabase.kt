@@ -73,13 +73,26 @@ class ClauseDatabase(private val solver: CDCL) {
 
             for (lit in clause.lits) {
                 if (solver.assignment.fixed(lit) == LBool.TRUE) {
-                    clause.deleted = true
+                    solver.markDeleted(clause)
                     continue@outer
                 }
             }
 
+            val needsShrink = clause.lits.any {
+                solver.assignment.fixed(it) == LBool.FALSE
+            }
+
+            if (!needsShrink) continue
+
+            val clauseClone = Clause(clause.lits.toMutableList())
+
             clause.lits.removeAll {
                 solver.assignment.fixed(it) == LBool.FALSE
+            }
+
+            if (clause.learnt) {
+                solver.dratBuilder.addClause(clause)
+                solver.dratBuilder.deleteClause(clauseClone)
             }
 
             check(clause.size >= 2)
@@ -117,7 +130,7 @@ class ClauseDatabase(private val solver: CDCL) {
             // technically, this is not needed, but might be used later
             if (isClauseLocked(learnt)) continue
 
-            learnt.deleted = true
+            solver.markDeleted(learnt)
         }
     }
 
@@ -146,7 +159,7 @@ class ClauseDatabase(private val solver: CDCL) {
             if (learnt.deleted) break
             if (isClauseLocked(learnt)) continue
 
-            learnt.deleted = true
+            solver.markDeleted(learnt)
         }
     }
 
