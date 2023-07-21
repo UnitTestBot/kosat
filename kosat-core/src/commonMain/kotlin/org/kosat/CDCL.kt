@@ -89,7 +89,7 @@ class CDCL {
      *
      * @param initialClauses the initial clauses.
      * @param initialVarsNumber the number of variables in the problem, if known.
-     *   Can help to avoid resizing of internal data structures.
+     *        Can help to avoid resizing of internal data structures.
      */
     constructor(
         initialClauses: Iterable<Clause>,
