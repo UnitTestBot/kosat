@@ -176,6 +176,18 @@ class CDCL {
         }
     }
 
+    /**
+     * Backtracks to the given [level], undoing all the assignments made.
+     *
+     * It iterates over [Assignment.trail] in the reverse order, until the
+     * given level is reached. This level and all the levels above it
+     * (with lower index) are not affected. All the assignments made on
+     * the levels below the given one are undone, and the variables are
+     * unassigned.
+     *
+     * This function also memorized the [polarity] of the variables,
+     * so that it can be reused during the next decision, for phase saving.
+     */
     fun backtrack(level: Int) {
         while (assignment.trail.isNotEmpty() && assignment.level(assignment.trail.last().variable) > level) {
             val lit = assignment.trail.removeLast()
