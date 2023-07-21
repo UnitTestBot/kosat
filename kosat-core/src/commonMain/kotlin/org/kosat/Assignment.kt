@@ -85,7 +85,7 @@ class Assignment(private val solver: CDCL) {
     fun uncheckedEnqueue(lit: Lit, reason: Clause?) {
         require(value(lit) == LBool.UNDEF)
 
-        if (decisionLevel == 0) solver.dratBuilder.addLiteral(lit)
+        if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(mutableListOf(lit)))
 
         value[lit.variable] = LBool.from(lit.isPos)
         varData[lit.variable].reason = reason

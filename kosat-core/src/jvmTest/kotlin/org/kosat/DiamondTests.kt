@@ -36,15 +36,15 @@ internal class DiamondTests {
         private val assumptionTestsPath = testsPath.resolve("testCover")
         private val benchmarksPath = testsPath.resolve("benchmarks")
 
-        private val dratTrimExecutable: Path? = System.getenv()["DRAT_TRIM_EXECUTABLE"]?.let { Paths.get(it) }
-        private val generateDrat = dratTrimExecutable != null
+        private val dratTrimExecutable: Path = Paths.get("drat-trim")
+        private val generateAndCheckDrat = System.getenv()["TEST_CHECK_UNSAT_PROOF"]?.let { it == "true" } ?: false
 
         private const val ext = "cnf"
         private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
             .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
 
         init {
-            if (generateDrat) {
+            if (generateAndCheckDrat) {
                 dratProofsPath.toFile().mkdirs()
                 System.err.println(
                     "DRAT proofs will be generated to $dratProofsPath " +
@@ -114,7 +114,7 @@ internal class DiamondTests {
 
         val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
 
-        if (generateDrat) {
+        if (generateAndCheckDrat) {
             solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
         }
 
@@ -127,7 +127,7 @@ internal class DiamondTests {
         println("MiniSat and KoSat results are the same: $resultActual")
 
         if (resultActual == SolveResult.UNSAT) {
-            if (!generateDrat) {
+            if (!generateAndCheckDrat) {
                 println(
                     "Path to DRAT-TRIM in environment variable DRAT_TRIM_EXECUTABLE is not set. " +
                             "Skipping DRAT-trim test."
@@ -158,7 +158,7 @@ internal class DiamondTests {
                 }
             }
         } else {
-            if (generateDrat) {
+            if (generateAndCheckDrat) {
                 dratPath.toFile().renameTo(dratPath.parent!!.resolve("sats/${dratPath.name}").toFile())
             }
 
