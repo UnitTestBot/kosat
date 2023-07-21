@@ -241,7 +241,7 @@ class CDCL(var cfg: Configuration) {
     fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
         assumptions = currentAssumptions.toMutableList()
 
-        statistics.nextSolve()
+        statistics.resetThisSolve()
 
         // If given clauses are already cause UNSAT, no need to do anything
         if (!ok) return finishWithUnsat()
