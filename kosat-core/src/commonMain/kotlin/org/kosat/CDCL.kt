@@ -68,17 +68,6 @@ class CDCL {
      */
     private val flpMaxProbes = 1000
 
-    /**
-     * Used in analyzeConflict() to simplify clauses by
-     * removing literals implied by their reasons.
-     */
-    private val marks = mutableListOf<Int>()
-
-    /**
-     * @see [marks]
-     */
-    private var currentMark = 0
-
     // ---- Heuristics ---- //
 
     /**
@@ -141,10 +130,6 @@ class CDCL {
 
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
-
-        // Used for lemma minimization in analyzeConflict()
-        marks.add(0)
-        marks.add(0)
 
         return numberOfVariables
     }
