@@ -30,6 +30,7 @@ class Restarter(private val solver: CDCL) {
         if (numberOfConflictsAfterRestart >= restartNumber) {
             restartNumber = lubyMultiplierConstant * luby(lubyPosition++)
             solver.backtrack(0)
+            solver.statistics.restarts.inc { "Restarting" }
 
             numberOfConflictsAfterRestart = 0
         }

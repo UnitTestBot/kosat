@@ -1,28 +1,26 @@
 package org.kosat
 
 class Statistics {
-    var conflicts = Statistic(true)
-    var decisions = Statistic(true)
-    var propagations = Statistic(true)
-    var learned = Statistic(true)
-    var deleted = Statistic(true)
+    var conflicts = Statistic(false)
+    var decisions = Statistic(false)
+    var propagations = Statistic(false)
+    var propagatedLiterals = Statistic(false)
+    var learned = Statistic(false)
+    var deleted = Statistic(false)
+    var restarts = Statistic(false)
+    var shrunkClauses = Statistic(false)
+    var satisfiedClauses = Statistic(false)
+    var dbReduces = Statistic(false)
 
-    var flp = object {
-        var probes = Statistic(true)
-        var propagations = Statistic(true)
-        var hyperBinaries = Statistic(true)
-        var unitLiterals = Statistic(true)
-    }
+    var flpProbes = Statistic(false)
+    var flpPropagations = Statistic(false)
+    var flpHyperBinaries = Statistic(false)
+    var flpUnitClauses = Statistic(false)
 }
 
 class Statistic(val logging: Boolean, var value: Int = 0) {
-    inline fun inc(crossinline lazyMessage: () -> String? = { null }) {
+    inline fun inc(crossinline reasonToLog: () -> String?) {
         value++
-        if (logging) lazyMessage()?.let { println(it) }
-    }
-
-    operator fun inc(): Statistic {
-        inc { null }
-        return this
+        if (logging) reasonToLog()?.let { println(it) }
     }
 }
