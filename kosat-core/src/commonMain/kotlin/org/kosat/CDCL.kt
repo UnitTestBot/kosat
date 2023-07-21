@@ -927,6 +927,8 @@ class CDCL {
         var index = assignment.trail.lastIndex
 
         while (true) {
+            db.clauseBumpActivity(clauseToAdd)
+
             for (lit in clauseToAdd.lits) {
                 if (seen[lit.variable]) continue
 
