@@ -36,19 +36,45 @@ class Statistics {
 
         restarts.inc { "Restarting" }
     }
+
+    fun nextSolve() {
+        conflicts.nextSolve()
+        decisions.nextSolve()
+        propagations.nextSolve()
+        propagatedLiterals.nextSolve()
+        learned.nextSolve()
+        deleted.nextSolve()
+        restarts.nextSolve()
+        shrunkClauses.nextSolve()
+        satisfiedClauses.nextSolve()
+        dbReduces.nextSolve()
+
+        flpProbes.nextSolve()
+        flpPropagations.nextSolve()
+        flpHyperBinaries.nextSolve()
+        flpUnitClauses.nextSolve()
+    }
 }
 
 data class Statistic(val logging: Boolean) {
-    var value: Int = 0
+    var overall: Int = 0
     private var valueLastRestart: Int = 0
-    val thisRestart get() = value - valueLastRestart
+    private var valueLastSolve: Int = 0
+
+    val thisRestart get() = overall - valueLastRestart
+    val thisSolve get() = overall - valueLastSolve
 
     inline fun inc(crossinline reasonToLog: () -> String?) {
-        value++
+        overall++
         if (logging) reasonToLog()?.let { println(it) }
     }
 
     fun restart() {
-        valueLastRestart = value
+        valueLastRestart = overall
+    }
+
+    fun nextSolve() {
+        restart()
+        valueLastSolve = overall
     }
 }
