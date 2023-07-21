@@ -53,14 +53,6 @@ abstract class AbstractDratBuilder {
         addClause(Clause(mutableListOf()))
         flush()
     }
-
-    /**
-     * Adds a literal to the proof by adding a unit clause with that
-     * literal.
-     */
-    fun addLiteral(lit: Lit) {
-        addClause(Clause(mutableListOf(lit)))
-    }
 }
 
 /**
