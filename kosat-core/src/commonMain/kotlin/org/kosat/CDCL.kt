@@ -364,7 +364,7 @@ class CDCL(val cfg: Configuration) {
             val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
             backtrack(level)
 
-            statistics.learned.inc { "Learned: Learnt" }
+            statistics.learned.inc { "Learned: $learnt" }
 
             // Attach learnt to the solver
             if (learnt.size == 1) {
