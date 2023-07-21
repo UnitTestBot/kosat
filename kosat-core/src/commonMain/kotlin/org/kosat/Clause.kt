@@ -27,4 +27,13 @@ data class Clause(
             return Clause(lits)
         }
     }
+
+    override fun toString(): String {
+        val flags = sequenceOf(
+            if (learnt) "L" else ".",
+            if (deleted) "D" else "."
+        ).joinToString("")
+
+        return "Cl(${lits.joinToString(" ")} | flg=$flags act=${activity.round(2)} lbd=$lbd)"
+    }
 }
