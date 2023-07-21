@@ -10,7 +10,7 @@ import org.kosat.cnf.CNF
  */
 fun solveCnf(cnf: CnfRequest): List<Boolean>? {
     val clauses = cnf.clauses.map { Clause.fromDimacs(it) }.toMutableList()
-    val solver = CDCL(clauses, cnf.vars)
+    val solver = CDCL(Configuration(), clauses, cnf.vars)
     val result = solver.solve()
     return if (result == SolveResult.SAT) {
         solver.getModel()
@@ -23,7 +23,7 @@ fun solveCnf(cnf: CnfRequest): List<Boolean>? {
  * CDCL (Conflict-Driven Clause Learning) solver instance
  * for solving Boolean satisfiability (SAT) problem.
  */
-class CDCL {
+class CDCL(val cfg: Configuration) {
     /**
      * Clause database.
      */
@@ -40,11 +40,9 @@ class CDCL {
     val statistics: Statistics = Statistics()
 
     /**
-     * DRAT proof builder. Can be used to generate DRAT proofs,
-     * but disabled by default. It is intentionally made public
-     * variable.
+     * DRAT proof builder. Can be used to generate DRAT proofs.
      */
-    var dratBuilder: AbstractDratBuilder = NoOpDratBuilder()
+    val dratBuilder get() = cfg.dratBuilder
 
     /**
      * Can solver perform the search? This becomes false if given constraints
@@ -66,14 +64,6 @@ class CDCL {
         private set
 
     /**
-     * The maximum amount of probes expected to be returned
-     * by [generateProbes].
-     *
-     * @see [failedLiteralProbing]
-     */
-    private val flpMaxProbes = 1000
-
-    /**
      * The branching heuristic, used to choose the next decision variable.
      */
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
@@ -85,11 +75,6 @@ class CDCL {
     private val restarter = Restarter(this)
 
     /**
-     * Create a new solver instance with no clauses.
-     */
-    constructor() : this(mutableListOf<Clause>())
-
-    /**
      * Create a new solver instance with given clauses.
      *
      * @param initialClauses the initial clauses.
@@ -97,9 +82,10 @@ class CDCL {
      *        Can help to avoid resizing of internal data structures.
      */
     constructor(
+        cfg: Configuration,
         initialClauses: Iterable<Clause>,
         initialVarsNumber: Int = 0,
-    ) {
+    ) : this(cfg) {
         while (numberOfVariables < initialVarsNumber) {
             newVariable()
         }
@@ -108,7 +94,11 @@ class CDCL {
         polarity = MutableList(numberOfVariables + 1) { LBool.UNDEF }
     }
 
-    constructor(cnf: CNF) : this(cnf.clauses.map { Clause.fromDimacs(it) }, cnf.numVars)
+    constructor(cfg: Configuration, cnf: CNF) : this(
+        cfg,
+        cnf.clauses.map { Clause.fromDimacs(it) },
+        cnf.numVars,
+    )
 
     /**
      * Allocate a new variable in the solver.
@@ -309,6 +299,12 @@ class CDCL {
             db.reduceIfNeeded()
             restarter.restartIfNeeded()
 
+            // We can even terminate the search entirely if we are out of budget
+            // (for example, if we are running on a time limit).
+            if (!cfg.withinBudget(statistics)) {
+                return SolveResult.UNKNOWN
+            }
+
             check(assignment.qhead == assignment.trail.size)
 
             // And after that, we are ready to make a decision.
@@ -465,9 +461,12 @@ class CDCL {
         require(assignment.qhead == assignment.trail.size)
 
         dratBuilder.addComment("Preprocessing")
-        dratBuilder.addComment("Preprocessing: Failed literal probing")
 
-        failedLiteralProbing()?.let { return it }
+        if (cfg.flp != null) {
+            dratBuilder.addComment("Preprocessing: Failed literal probing")
+
+            failedLiteralProbing()?.let { return it }
+        }
 
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
@@ -513,9 +512,9 @@ class CDCL {
             if (clause.size == 2) {
                 val (a, b) = clause.lits
                 if (assignment.value(a) == LBool.UNDEF) probes.add(a.neg)
-                if (probes.size >= flpMaxProbes) break
+                if (probes.size >= cfg.flp!!.maxProbes) break
                 if (assignment.value(b) == LBool.UNDEF) probes.add(b.neg)
-                if (probes.size >= flpMaxProbes) break
+                if (probes.size >= cfg.flp.maxProbes) break
             }
         }
 
@@ -636,37 +635,41 @@ class CDCL {
                 if (firstNotFalse == -1 && value(clause[0]) == LBool.FALSE) {
                     conflict = clause
                 } else if (firstNotFalse == -1) {
-                    // we deduced this literal from a non-binary clause,
-                    // so we can learn a new clause
-                    val newBinary = hyperBinaryResolve(clause)
+                    if (cfg.flp!!.hyperBinaryResolution) {
+                        // we deduced this literal from a non-binary clause,
+                        // so we can learn a new clause
+                        val newBinary = hyperBinaryResolve(clause)
 
-                    statistics.flpHyperBinaries.inc {
-                        "FLP: Learned binary clause $newBinary through hyper binary resolution"
+                        statistics.flpHyperBinaries.inc {
+                            "FLP: Learned binary clause $newBinary through hyper binary resolution"
+                        }
+
+                        // The new clause may subsume the old one, rendering it useless
+                        // TODO: However, we don't know if this clause is learned or given,
+                        //   so we can't let it be deleted. On the other hand, we can't
+                        //   allow just adding it to the list of clauses to keep, because
+                        //   this may result in too many clauses being kept.
+                        //   This should be reworked with the new clause storage mechanism,
+                        //   and new flags for clauses. Won't fix for now.
+                        // TODO: this turns out to be more difficult than I expected and
+                        //   requires further investigation.
+                        // if (newBinary[0] in clause.lits) {
+                        //     clause.deleted = true
+                        //     clausesToKeep.removeLast()
+                        //     newBinary.learnt = clause.learnt
+                        // }
+
+                        attachClause(newBinary)
+
+                        // Make sure watch is not overwritten at the end of the loop
+                        if (lit == newBinary[0]) clausesToKeep.add(newBinary)
+
+                        assignment.uncheckedEnqueue(clause[0], newBinary)
+                        // again, we try to only use binary clauses first
+                        propagateOnlyBinary()?.let { conflict = it }
+                    } else {
+                        assignment.uncheckedEnqueue(clause[0], clause)
                     }
-
-                    // The new clause may subsume the old one, rendering it useless
-                    // TODO: However, we don't know if this clause is learned or given,
-                    //   so we can't let it be deleted. On the other hand, we can't
-                    //   allow just adding it to the list of clauses to keep, because
-                    //   this may result in too many clauses being kept.
-                    //   This should be reworked with the new clause storage mechanism,
-                    //   and new flags for clauses. Won't fix for now.
-                    // TODO: this turns out to be more difficult than I expected and
-                    //   requires further investigation.
-                    // if (newBinary[0] in clause.lits) {
-                    //     clause.deleted = true
-                    //     clausesToKeep.removeLast()
-                    //     newBinary.learnt = clause.learnt
-                    // }
-
-                    attachClause(newBinary)
-
-                    // Make sure watch is not overwritten at the end of the loop
-                    if (lit == newBinary[0]) clausesToKeep.add(newBinary)
-
-                    assignment.uncheckedEnqueue(clause[0], newBinary)
-                    // again, we try to only use binary clauses first
-                    propagateOnlyBinary()?.let { conflict = it }
                 } else {
                     watchers[clause[firstNotFalse]].add(clause)
                     clause.lits.swap(firstNotFalse, 1)

@@ -39,6 +39,12 @@ internal class DiamondTests {
         private val dratTrimExecutable: Path = Paths.get("drat-trim")
         private val generateAndCheckDrat = System.getenv()["TEST_CHECK_UNSAT_PROOF"]?.let { it == "true" } ?: false
 
+        private val configurations = mapOf(
+            "Default" to Configuration(),
+            "No Flp" to Configuration(flp = null),
+            "Activity Based" to Configuration(clauseDbStrategy = Configuration.ClauseDbStrategy.Activity()),
+        )
+
         private const val ext = "cnf"
         private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
             .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
@@ -60,27 +66,37 @@ internal class DiamondTests {
         }
 
         @JvmStatic
-        private fun getAllNotBenchmarks(): List<Arguments> {
+        private fun getAllNotBenchmarkTests(): List<Arguments> {
             return Files.walk(testsPath)
                 .filter { isTestFile(it) }
                 .filter { !it.startsWith(benchmarksPath) }
-                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .map { path ->
+                    configurations.map { (cfgName, cfg) ->
+                        Arguments.of(cfg, path.toFile(), "$cfgName: ${path.relativeTo(testsPath)}")
+                    }
+                }
                 .toList()
+                .flatten()
         }
 
         @JvmStatic
-        private fun getAssumptionFiles(): List<Arguments> {
+        private fun getAssumptionTests(): List<Arguments> {
             return Files.walk(assumptionTestsPath)
                 .filter { isTestFile(it) }
-                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .map { path ->
+                    configurations.map { (cfgName, cfg) ->
+                        Arguments.of(cfg, path.toFile(), "$cfgName: ${path.relativeTo(testsPath)}")
+                    }
+                }
                 .toList()
+                .flatten()
         }
 
         @JvmStatic
-        private fun getBenchmarkFiles(): List<Arguments> {
+        private fun getBenchmarkTests(): List<Arguments> {
             return Files.walk(benchmarksPath)
                 .filter { isTestFile(it) }
-                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .map { Arguments.of(Configuration(), it.toFile(), it.relativeTo(testsPath).toString()) }
                 .toList()
         }
     }
@@ -105,18 +121,19 @@ internal class DiamondTests {
         }
     }
 
-    private fun runTest(cnfFile: File, cnf: CNF) {
+    private fun runTest(cfg: Configuration, cnfFile: File, cnf: CNF) {
         val (resultExpected, timeMiniSat) = measureTimeWithResult {
             solveWithMiniSat(cnf)
         }
 
-        val solver = CDCL(cnf)
-
         val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
-
-        if (generateAndCheckDrat) {
-            solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
+        val dratBuilder = if (generateAndCheckDrat) {
+            DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
+        } else {
+            NoOpDratBuilder()
         }
+
+        val solver = CDCL(cfg.copy(dratBuilder = dratBuilder), cnf)
 
         val (resultActual, timeKoSat) = measureTimeWithResult {
             solver.solve()
@@ -181,8 +198,8 @@ internal class DiamondTests {
         println("KoSat time: ${timeKoSat.roundMilliseconds()}")
     }
 
-    private fun runTestWithAssumptions(cnf: CNF, assumptionsSets: List<List<Int>>) {
-        val solver = CDCL(cnf)
+    private fun runTestWithAssumptions(cfg: Configuration, cnf: CNF, assumptionsSets: List<List<Int>>) {
+        val solver = CDCL(cfg, cnf)
 
         for (assumptions in assumptionsSets) {
             println("## Solving with assumptions: $assumptions")
@@ -225,24 +242,24 @@ internal class DiamondTests {
         }
     }
 
-    @ParameterizedTest(name = "{1}")
-    @MethodSource("getAllNotBenchmarks")
-    fun test(file: File, testName: String) {
+    @ParameterizedTest(name = "{2}")
+    @MethodSource("getAllNotBenchmarkTests")
+    fun test(cfg: Configuration, file: File, testName: String) {
         println("# Testing on: $file")
-        runTest(file, CNF.from(file.toOkioPath()))
+        runTest(cfg, file, CNF.from(file.toOkioPath()))
     }
 
     @ParameterizedTest(name = "{1}")
-    @MethodSource("getBenchmarkFiles")
+    @MethodSource("getBenchmarkTests")
     @Disabled
     fun testOnBenchmarks(file: File, testName: String) {
         println("# Testing on: $file")
-        runTest(file, CNF.from(file.toOkioPath()))
+        runTest(Configuration(), file, CNF.from(file.toOkioPath()))
     }
 
-    @ParameterizedTest(name = "{1}")
-    @MethodSource("getAssumptionFiles")
-    fun assumptionTest(file: File, testName: String) {
+    @ParameterizedTest(name = "{2}")
+    @MethodSource("getAssumptionTests")
+    fun assumptionTest(cfg: Configuration, file: File, testName: String) {
         val cnf = CNF.from(file.toOkioPath())
 
         val clauseCount = cnf.clauses.size
@@ -262,7 +279,7 @@ internal class DiamondTests {
             }
         }
 
-        runTestWithAssumptions(cnf, assumptionSets)
+        runTestWithAssumptions(cfg, cnf, assumptionSets)
 
         println()
     }

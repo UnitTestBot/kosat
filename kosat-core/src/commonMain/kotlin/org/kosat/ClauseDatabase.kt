@@ -1,17 +1,13 @@
 package org.kosat
 
-enum class ReduceStrategy {
-    ACTIVITY, LBD
-}
-
 class ClauseDatabase(private val solver: CDCL) {
     val clauses: MutableList<Clause> = mutableListOf()
     val learnts: MutableList<Clause> = mutableListOf()
 
-    private val clauseDecay: Double = 0.999
-    private var clauseInc: Double = 1.0
+    private val strategy get() = solver.cfg.clauseDbStrategy
 
-    private val reduceStrategy = ReduceStrategy.LBD
+    private var clauseInc: Double = 1.0
+    private var maxLearntsBeforeReduce: Int = strategy.maxLearntsBeforeReduceInitial
 
     fun add(clause: Clause) {
         if (clause.learnt) {
@@ -22,10 +18,12 @@ class ClauseDatabase(private val solver: CDCL) {
     }
 
     fun clauseDecayActivity() {
-        clauseInc *= 1.0 / clauseDecay
+        val activityCfg = strategy as? Configuration.ClauseDbStrategy.Activity ?: return
+        clauseInc *= 1.0 / activityCfg.decay
     }
 
     fun clauseBumpActivity(clause: Clause) {
+        if (strategy !is Configuration.ClauseDbStrategy.Activity) return
         if (!clause.learnt) return
 
         // Bump clause activity:
@@ -166,24 +164,20 @@ class ClauseDatabase(private val solver: CDCL) {
         }
     }
 
-    // TODO: Move to solver parameters
-    private var reduceMaxLearnts = 6000
-    private val reduceMaxLearntsIncrement = 500
-
     /**
      * Run the configured reduce if the number of learnt clauses is too high.
      */
     fun reduceIfNeeded() {
-        if (learnts.size > reduceMaxLearnts + solver.assignment.trail.size) {
-            reduceMaxLearnts += reduceMaxLearntsIncrement
+        if (learnts.size > maxLearntsBeforeReduce + solver.assignment.trail.size) {
+            maxLearntsBeforeReduce += strategy.maxLearntsBeforeReduceIncrement
 
             solver.statistics.dbReduces.inc { "Reducing DB" }
 
             simplify()
 
-            when (reduceStrategy) {
-                ReduceStrategy.ACTIVITY -> reduceBasedOnActivity()
-                ReduceStrategy.LBD -> reduceBasedOnLBD()
+            when (strategy) {
+                is Configuration.ClauseDbStrategy.Activity -> reduceBasedOnActivity()
+                is Configuration.ClauseDbStrategy.LBD -> reduceBasedOnLBD()
             }
 
             removeDeleted()
