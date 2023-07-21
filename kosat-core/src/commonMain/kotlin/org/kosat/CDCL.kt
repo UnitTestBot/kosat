@@ -898,48 +898,94 @@ class CDCL {
      * @return the learned clause.
      */
     private fun analyzeConflict(conflict: Clause): Clause {
+        // We analyze conflict by walking back on implication graph,
+        // starting with the literals in the conflict clause.
+        // (Technically, the literals of the conflict are added on
+        // the first iteration, and we start with nothing, but it
+        // is easier to think about it this way.)
+        // For every literal from the last decision level, we replace
+        // that literal with its reason, until only one literal from
+        // the last decision level is left. This literal is called
+        // the "Unique Implication Point" (UIP).
+
+        // Keep track of the variables we have "seen" during the analysis
+        // (see implementation below for details)
         val seen = BooleanArray(numberOfVariables) { false }
+
+        // The list of literals of the learnt
         val learntLits = mutableListOf<Lit>()
 
+        // How many literals from the last decision level we have seen,
+        // but not yet replaced with their reasons?
         var lastLevelLitCount = 0
+
+        // The next clause we are about to add to the cut
         var clauseToAdd = conflict
+
+        // The index of the last literal from the last decision level,
+        // not yet replaced with its reason
         var index = assignment.trail.lastIndex
 
         while (true) {
             for (lit in clauseToAdd.lits) {
                 if (seen[lit.variable]) continue
 
+                // Mark all the variables in the clause as seen, if not already
                 seen[lit.variable] = true
 
                 if (assignment.level(lit) == assignment.decisionLevel) {
+                    // If the literal is from the last decision level,
+                    // just count it here: we will replace it with its reason later
+                    // because every literal (except lit) in its reason
+                    // is before lit on the trail, and lit is already seen
                     lastLevelLitCount++
                 } else {
+                    // Literals from the previous decision levels are added to the learnt
                     learntLits.add(lit)
                 }
             }
 
+            // After we added all the literals from the clause to the learnt,
+            // we find the next literal from the last decision level to replace
+            // with its reason. We do this by walking back on the trail.
             while (!seen[assignment.trail[index].variable]) index--
+
+            // If only one literal from the last decision level is left,
+            // we have found the UIP.
             if (lastLevelLitCount == 1) break
 
+            // Otherwise, it must be replaced with its reason on the next iteration
             lastLevelLitCount--
             val lastLevelVar = assignment.trail[index].variable
             index--
             clauseToAdd = assignment.reason(lastLevelVar)!!
         }
 
+        // Add the UIP to the learnt in the correct phase.
         val uip = assignment.trail[index]
         learntLits.add(uip.neg)
 
+        // Some literals in the learnt can follow from their reasons,
+        // included in the learnt. We remove them here.
         learntLits.removeAll { lit ->
             val reason = assignment.reason(lit.variable) ?: return@removeAll false
+            // lit is redundant if all the literals in its reason are already seen
+            // (and, therefore, included in the learnt or follow from it)
             val redundant = reason.lits.all { it == lit.neg || seen[it.variable] }
             redundant
         }
 
+        // Sort the learnt by the decision level of the literals
+        // (highest level first), making sure UIP is the first literal,
+        // and the second max level literal is the second.
+        // This is required to have watchers work correctly during the
+        // next propagate (only the first two literals are watched).
+        learntLits.sortByDescending { assignment.level(it) }
+
         val learnt = Clause(learntLits, learnt = true)
 
-        learnt.lits.sortByDescending { assignment.level(it) }
-
+        // Sorting also helps to calculate the LBD of the learnt
+        // without additional memory.
         learnt.lbd = 1
         for (i in 0 until learnt.size - 1) {
             if (assignment.level(learnt[i]) != assignment.level(learnt[i + 1])) {
