@@ -83,20 +83,15 @@ internal class DiamondTests {
         private fun getAssumptionTests(): List<Arguments> {
             return Files.walk(assumptionTestsPath)
                 .filter { isTestFile(it) }
-                .map { path ->
-                    configurations.map { (cfgName, cfg) ->
-                        Arguments.of(cfg, path.toFile(), "$cfgName: ${path.relativeTo(testsPath)}")
-                    }
-                }
+                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
                 .toList()
-                .flatten()
         }
 
         @JvmStatic
         private fun getBenchmarkTests(): List<Arguments> {
             return Files.walk(benchmarksPath)
                 .filter { isTestFile(it) }
-                .map { Arguments.of(Configuration(), it.toFile(), it.relativeTo(testsPath).toString()) }
+                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
                 .toList()
         }
     }
@@ -198,10 +193,11 @@ internal class DiamondTests {
         println("KoSat time: ${timeKoSat.roundMilliseconds()}")
     }
 
-    private fun runTestWithAssumptions(cfg: Configuration, cnf: CNF, assumptionsSets: List<List<Int>>) {
-        val solver = CDCL(cfg, cnf)
+    private fun runTestWithAssumptions(cnf: CNF, assumptionsSets: List<List<Int>>) {
+        val configurations = configurations.values.toList()
+        val solver = CDCL(configurations[0], cnf)
 
-        for (assumptions in assumptionsSets) {
+        for ((assumptionTestNo, assumptions) in assumptionsSets.withIndex()) {
             println("## Solving with assumptions: $assumptions")
             val cnfWithAssumptions = CNF(cnf.clauses + assumptions.map { listOf(it) }, cnf.numVars)
 
@@ -239,6 +235,9 @@ internal class DiamondTests {
 
             println("MiniSat time: ${timeMiniSat.roundMilliseconds()}")
             println("KoSat time: ${timeKoSat.roundMilliseconds()}")
+
+            // Hot swapping configuration
+            solver.cfg = configurations[assumptionTestNo % configurations.size]
         }
     }
 
@@ -257,9 +256,9 @@ internal class DiamondTests {
         runTest(Configuration(), file, CNF.from(file.toOkioPath()))
     }
 
-    @ParameterizedTest(name = "{2}")
+    @ParameterizedTest(name = "{1}")
     @MethodSource("getAssumptionTests")
-    fun assumptionTest(cfg: Configuration, file: File, testName: String) {
+    fun assumptionTest(file: File, testName: String) {
         val cnf = CNF.from(file.toOkioPath())
 
         val clauseCount = cnf.clauses.size
@@ -269,7 +268,7 @@ internal class DiamondTests {
             return
         }
 
-        val assumptionSets = List(5) { i ->
+        val assumptionSets = List(15) { i ->
             val random = Random(i)
 
             List(i) {
@@ -279,7 +278,7 @@ internal class DiamondTests {
             }
         }
 
-        runTestWithAssumptions(cfg, cnf, assumptionSets)
+        runTestWithAssumptions(cnf, assumptionSets)
 
         println()
     }

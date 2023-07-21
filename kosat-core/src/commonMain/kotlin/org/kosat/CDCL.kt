@@ -23,7 +23,7 @@ fun solveCnf(cnf: CnfRequest): List<Boolean>? {
  * CDCL (Conflict-Driven Clause Learning) solver instance
  * for solving Boolean satisfiability (SAT) problem.
  */
-class CDCL(val cfg: Configuration) {
+class CDCL(var cfg: Configuration) {
     /**
      * Clause database.
      */
@@ -514,7 +514,7 @@ class CDCL(val cfg: Configuration) {
                 if (assignment.value(a) == LBool.UNDEF) probes.add(a.neg)
                 if (probes.size >= cfg.flp!!.maxProbes) break
                 if (assignment.value(b) == LBool.UNDEF) probes.add(b.neg)
-                if (probes.size >= cfg.flp.maxProbes) break
+                if (probes.size >= cfg.flp!!.maxProbes) break
             }
         }
 
