@@ -71,7 +71,7 @@ fun readCnfRequests(dimacs: String) = sequence {
 
 fun processCnfRequests(requests: Sequence<CnfRequest>) = buildString {
     for (cnf in requests) {
-        appendLine("v Start processing CNF request with ${cnf.vars} variables and ${cnf.clauses.size} clauses")
+        appendLine("c Start processing CNF request with ${cnf.vars} variables and ${cnf.clauses.size} clauses")
 
         val model = solveCnf(cnf)
 

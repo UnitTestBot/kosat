@@ -2,6 +2,7 @@ plugins {
     kotlin("multiplatform") version Versions.kotlin apply false
     with(Plugins.GradleDownload) { id(id) version (version) }
     with(Plugins.GradleVersions) { id(id) version (version) }
+    with(Plugins.Shadow) { id(id) version (version) } apply false
     // with(Plugins.GitVersioning) { id(id) version (version) }
     `maven-publish`
     idea
