@@ -26,7 +26,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Set up ld cache
+      - name: Setup ld cache
         run: sudo ldconfig $(realpath libs)
 
       - name: Check dependencies
@@ -34,7 +34,16 @@ jobs:
           ldd kosat-core/src/jvmTest/resources/lib/linux64/*.so
 
       - name: Build project using Gradle
-        run: ./gradlew build -x test -x jsBrowserTest --stacktrace --scan
+        run: ./gradlew assemble --stacktrace --scan
+
+      - name: Install drat-trim
+        run: |
+          git clone https://github.com/marijnheule/drat-trim
+          cd drat-trim
+          make drat-trim
+          echo "$(realpath .)" >> $GITHUB_PATH
 
       - name: Run tests
-        run: ./gradlew cleanTest test --no-build-cache --stacktrace
+        run: ./gradlew check --no-build-cache --stacktrace
+        env:
+          DRAT_TRIM_EXECUTABLE: drat-trim

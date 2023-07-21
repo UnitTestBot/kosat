@@ -1,8 +1,6 @@
-import de.undercouch.gradle.tasks.download.DownloadAction
-
 plugins {
     kotlin("multiplatform") version Versions.kotlin apply false
-    id("de.undercouch.download") version "4.1.1"
+    with(Plugins.GradleDownload) { id(id) version (version) }
     with(Plugins.GradleVersions) { id(id) version (version) }
     // with(Plugins.GitVersioning) { id(id) version (version) }
     `maven-publish`
@@ -29,9 +27,6 @@ idea {
         isDownloadJavadoc = true
     }
 }
-
-fun Task.download(action: DownloadAction.() -> Unit) =
-    download.configure(delegateClosureOf(action))
 
 val osArch: String = run {
     val osName = System.getProperty("os.name")
@@ -63,7 +58,7 @@ tasks.register("downloadLibs") {
 
         fun downloadLibs(names: List<String>, dest: File) {
             ensureDirExists(dest)
-            download {
+            download.run {
                 src(names.map { urlTemplate.format(it) })
                 dest(dest)
                 tempAndMove(true)

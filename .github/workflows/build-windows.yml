@@ -30,18 +30,32 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Install drat-trim
+        run: |
+          git clone https://github.com/marijnheule/drat-trim
+          cd drat-trim
+          git apply -v ../patches/0001-Add-getc_unlocked-on-Windows.patch
+          make drat-trim
+          echo "$(realpath .)" >> $GITHUB_PATH
+
+      - name: Build project using Gradle
+        run: ./gradlew assemble --stacktrace --scan
+
       - name: Setup dependent native libraries
         run: |
           ./gradlew :downloadLibs
           cp libs/*.dll C:/Windows/
           ldd kosat-core/src/jvmTest/resources/lib/win64/*.dll
 
-      - name: Build project using Gradle
-        run: ./gradlew build -x test -x jsBrowserTest --stacktrace --scan
-
       - name: Run tests
-        run: ./gradlew cleanTest test --no-build-cache --stacktrace
+        run: ./gradlew check --no-build-cache --stacktrace
+        env:
+          DRAT_TRIM_EXECUTABLE: drat-trim
 
       # Note: on Windows, you must stop the Gradle daemon at the end of CI process in order to release the lock on Gradle caches. Otherwise, cache-upload post-action step will fail, and your build cache won't be updated.
       - name: Stop Gradle daemon
         run: ./gradlew --stop
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3

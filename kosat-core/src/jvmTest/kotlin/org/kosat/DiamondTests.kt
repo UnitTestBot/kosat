@@ -1,13 +1,14 @@
 package org.kosat
 
 import com.github.lipen.satlib.solver.MiniSatSolver
+import korlibs.time.DateTime
 import korlibs.time.measureTimeWithResult
 import korlibs.time.roundMilliseconds
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import okio.buffer
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Disabled
-import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -17,7 +18,6 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.time.LocalDateTime
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.relativeTo
@@ -26,57 +26,63 @@ import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
 import kotlin.test.assertContains
-import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
-import kotlin.test.assertTrue
 
-// Lazy messages are not in JUnit
-// and interpolating strings where we have to is too expensive
-private fun assertTrue(value: Boolean, lazyMessage: () -> String) {
-    if (!value) println(lazyMessage())
-    assertTrue(value)
-}
+private const val timeFormat = "yyyy-MM-dd_HH-mm-ss"
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class DiamondTests {
-    private val workingDir = Paths.get("").toAbsolutePath()
-    private val testsPath = workingDir.resolve("src/jvmTest/resources")
-    private val assumptionTestsPath = testsPath.resolve("testCover")
-    private val benchmarksPath = testsPath.resolve("benchmarks")
+    companion object {
+        private val workingDir = Paths.get("").toAbsolutePath()
+        private val testsPath = workingDir.resolve("src/jvmTest/resources")
+        private val assumptionTestsPath = testsPath.resolve("testCover")
+        private val benchmarksPath = testsPath.resolve("benchmarks")
 
-    private val format = "cnf"
+        private val dratTrimExecutable: Path? = System.getenv()["DRAT_TRIM_EXECUTABLE"]?.let { Paths.get(it) }
+        private val generateDrat = dratTrimExecutable != null
 
-    private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
-        .resolve("dratProofs/${LocalDateTime.now()}")
+        private const val ext = "cnf"
+        private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
+            .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
 
-    init {
-        dratProofsPath.toFile().mkdirs()
-    }
+        init {
+            if (generateDrat) {
+                dratProofsPath.toFile().mkdirs()
+                System.err.println(
+                    "DRAT proofs will be generated to $dratProofsPath " +
+                            "and verified using $dratTrimExecutable"
+                )
+            } else {
+                System.err.println("DRAT proofs will not be generated")
+            }
+        }
 
-    private fun isTestFile(path: Path): Boolean {
-        return path.isRegularFile() && path.extension == format
-    }
+        private fun isTestFile(path: Path): Boolean {
+            return path.isRegularFile() && path.extension == ext
+        }
 
-    private fun getAllNotBenchmarks(): List<Arguments> {
-        return Files.walk(testsPath)
-            .filter { isTestFile(it) }
-            .filter { !it.startsWith(benchmarksPath) }
-            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
-            .toList()
-    }
+        @JvmStatic
+        private fun getAllNotBenchmarks(): List<Arguments> {
+            return Files.walk(testsPath)
+                .filter { isTestFile(it) }
+                .filter { !it.startsWith(benchmarksPath) }
+                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .toList()
+        }
 
-    private fun getAssumptionFiles(): List<Arguments> {
-        return Files.walk(assumptionTestsPath)
-            .filter { isTestFile(it) }
-            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
-            .toList()
-    }
+        @JvmStatic
+        private fun getAssumptionFiles(): List<Arguments> {
+            return Files.walk(assumptionTestsPath)
+                .filter { isTestFile(it) }
+                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .toList()
+        }
 
-    private fun getBenchmarkFiles(): List<Arguments> {
-        return Files.walk(benchmarksPath)
-            .filter { isTestFile(it) }
-            .map { Arguments { arrayOf(it.toFile(), it.relativeTo(testsPath).toString()) } }
-            .toList()
+        @JvmStatic
+        private fun getBenchmarkFiles(): List<Arguments> {
+            return Files.walk(benchmarksPath)
+                .filter { isTestFile(it) }
+                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .toList()
+        }
     }
 
     private fun solveWithMiniSat(cnf: CNF): SolveResult {
@@ -107,39 +113,54 @@ internal class DiamondTests {
         val solver = CDCL(cnf)
 
         val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
-        solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
+
+        if (generateDrat) {
+            solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
+        }
 
         val (resultActual, timeKoSat) = measureTimeWithResult {
             solver.solve()
         }
 
-        assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different.")
+        Assertions.assertEquals(resultExpected, resultActual) { "MiniSat and KoSat results are different." }
+
+        println("MiniSat and KoSat results are the same: $resultActual")
 
         if (resultActual == SolveResult.UNSAT) {
-            val command = "drat-trim ${cnfFile.absolutePath} $dratPath -U -f"
+            if (!generateDrat) {
+                println(
+                    "Path to DRAT-TRIM in environment variable DRAT_TRIM_EXECUTABLE is not set. " +
+                            "Skipping DRAT-trim test."
+                )
+            } else {
+                val command = "$dratTrimExecutable ${cnfFile.absolutePath} $dratPath -U -f"
 
-            println("DRAT-TRIM command: $command")
+                println("DRAT-TRIM command: $command")
 
-            val validator = Runtime.getRuntime().exec(command)
+                val validator = Runtime.getRuntime().exec(command)
 
-            val stdout = validator.inputStream.bufferedReader().readLines().filter { it.isNotBlank() }
+                val stdout = validator.inputStream.bufferedReader().readLines().filter { it.isNotBlank() }
 
-            validator.waitFor()
+                validator.waitFor()
 
-            println("DRAT-TRIM stdout:")
-            println(stdout.joinToString("\n\t", prefix = "\t"))
-            println("DRAT-TRIM stdout end")
+                println("DRAT-TRIM stdout:")
+                println(stdout.joinToString("\n\t", prefix = "\t"))
+                println("DRAT-TRIM stdout end")
 
-            assertContains(stdout, "s VERIFIED")
+                assertContains(stdout, "s VERIFIED")
 
-            assertNotEquals(
-                80,
-                validator.exitValue(),
-                "DRAT-TRIM exited with code 80 " +
-                        "(possibly because of a termination due to warning if ran with -W flag)",
-            )
+                Assertions.assertNotEquals(
+                    80,
+                    validator.exitValue()
+                ) {
+                    "DRAT-TRIM exited with code 80 " +
+                            "(possibly because of a termination due to warning if ran with -W flag)"
+                }
+            }
         } else {
-            dratPath.toFile().renameTo(dratPath.parent!!.resolve("sats/${dratPath.name}").toFile())
+            if (generateDrat) {
+                dratPath.toFile().renameTo(dratPath.parent!!.resolve("sats/${dratPath.name}").toFile())
+            }
 
             val model = solver.getModel()
 
@@ -152,7 +173,7 @@ internal class DiamondTests {
                     }
                 }
 
-                assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
             }
         }
 
@@ -175,7 +196,8 @@ internal class DiamondTests {
                 solver.solve(assumptions.map { Lit.fromDimacs(it) })
             }
 
-            assertEquals(resultExpected, resultActual, "MiniSat and KoSat results are different")
+            Assertions.assertEquals(resultExpected, resultActual) { "MiniSat and KoSat results are different" }
+            println("MiniSat and KoSat results are the same: $resultActual")
 
             if (resultActual == SolveResult.SAT) {
                 val model = solver.getModel()
@@ -189,12 +211,12 @@ internal class DiamondTests {
                         }
                     }
 
-                    assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                    Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
                 }
 
                 for (assumption in assumptions) {
                     val assumptionValue = model[abs(assumption) - 1] == (assumption.sign == 1)
-                    assertTrue(assumptionValue) { "Assumption $assumption is not satisfied. Model: $model" }
+                    Assertions.assertTrue(assumptionValue) { "Assumption $assumption is not satisfied. Model: $model" }
                 }
             }
 
