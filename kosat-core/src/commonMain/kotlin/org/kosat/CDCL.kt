@@ -984,6 +984,7 @@ class CDCL {
         check(learnt.lits.drop(1).toSet() == otherLearnt.lits.drop(1).toSet())
         check(learnt.size == otherLearnt.size)
         check(learnt.size <= 1 || assignment.level(learnt.lits[1].variable) == assignment.level(otherLearnt.lits[1].variable))
+        check(learnt.lbd == otherLearnt.lbd)
 
         return learnt
     }
@@ -1021,11 +1022,13 @@ class CDCL {
         val uip = assignment.trail[index]
         learntLits.add(uip.neg)
 
-        val learnt = Clause(learntLits.filter { possiblyImpliedLit ->
-            assignment.reason(possiblyImpliedLit.variable)?.lits?.any {
-                it != possiblyImpliedLit.neg && marks[it] != currentMark
-            } ?: true
-        }.toMutableList(), learnt = true)
+        learntLits.removeAll { lit ->
+            val reason = assignment.reason(lit.variable) ?: return@removeAll false
+            val redundant = reason.lits.all { it == lit.neg || seen[it.variable] }
+            redundant
+        }
+
+        val learnt = Clause(learntLits, learnt = true)
 
         learnt.lits.sortByDescending { assignment.level(it) }
 
