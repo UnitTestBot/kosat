@@ -9,7 +9,7 @@ import org.kosat.cnf.CNF
  * assignments of literals otherwise
  */
 fun solveCnf(cnf: CnfRequest): List<Boolean>? {
-    val clauses = (cnf.clauses.map { Clause.fromDimacs(it) }).toMutableList()
+    val clauses = cnf.clauses.map { Clause.fromDimacs(it) }.toMutableList()
     val solver = CDCL(clauses, cnf.vars)
     val result = solver.solve()
     return if (result == SolveResult.SAT) {
@@ -19,6 +19,10 @@ fun solveCnf(cnf: CnfRequest): List<Boolean>? {
     }
 }
 
+/**
+ * CDCL (Conflict-Driven Clause Learning) solver instance
+ * for solving Boolean satisfiability (SAT) problem.
+ */
 class CDCL {
     /**
      * Clause database.
@@ -65,19 +69,6 @@ class CDCL {
     private val flpMaxProbes = 1000
 
     /**
-     * Used in analyzeConflict() to simplify clauses by
-     * removing literals implied by their reasons.
-     */
-    private val minimizeMarks = mutableListOf<Int>()
-
-    /**
-     * @see [minimizeMarks]
-     */
-    private var currentMinimizationMark = 0
-
-    // ---- Heuristics ---- //
-
-    /**
      * The branching heuristic, used to choose the next decision variable.
      */
     private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
@@ -88,8 +79,6 @@ class CDCL {
      */
     private val restarter = Restarter(this)
 
-    // ---- Public Interface ---- //
-
     /**
      * Create a new solver instance with no clauses.
      */
@@ -97,9 +86,10 @@ class CDCL {
 
     /**
      * Create a new solver instance with given clauses.
+     *
      * @param initialClauses the initial clauses.
      * @param initialVarsNumber the number of variables in the problem, if known.
-     * Can help to avoid resizing of internal data structures.
+     *        Can help to avoid resizing of internal data structures.
      */
     constructor(
         initialClauses: Iterable<Clause>,
@@ -137,10 +127,6 @@ class CDCL {
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
 
-        // Used for lemma minimization in analyzeConflict()
-        minimizeMarks.add(0)
-        minimizeMarks.add(0)
-
         return numberOfVariables
     }
 
@@ -154,36 +140,65 @@ class CDCL {
     fun newClause(clause: Clause) {
         check(assignment.decisionLevel == 0)
 
-        // early return when already UNSAT
+        // Return early when already UNSAT
         if (!ok) return
 
-        // add not mentioned variables from new clause
+        // Add not mentioned variables from the new clause
         val maxVar = clause.lits.maxOfOrNull { it.variable.index } ?: 0
         while (numberOfVariables < maxVar) {
             newVariable()
         }
 
-        // don't add clause if it already had true literal
-        if (clause.lits.any { value(it) == LBool.TRUE }) {
-            return
-        }
-
-        // delete all falsified literals from new clause
+        // Remove falsified literals from the new clause
         clause.lits.removeAll { value(it) == LBool.FALSE }
 
-        // if the clause contains x and -x then it is useless
-        if (clause.lits.any { it.neg in clause.lits }) {
-            return
-        }
+        // If the clause contains complementary literals, ignore it as useless,
+        // otherwise removes duplicate literals in it.
+        if (sortDedupAndCheckComplimentary(clause.lits)) return
 
         when (clause.size) {
+            // Empty clause is an immediate UNSAT
             0 -> finishWithUnsat()
-            1 -> assignment.uncheckedEnqueue(clause[0], null)
+
+            // Enqueue the literal from a unit clauses.
+            1 -> {
+                // Note that this enqueue can't cause a conflict
+                // because if the negation of the literal is in the clause,
+                // it is already removed above.
+                check(assignment.value(clause[0]) != LBool.FALSE)
+
+                if (assignment.value(clause[0]) == LBool.UNDEF) {
+                    assignment.uncheckedEnqueue(clause[0], null)
+                }
+            }
+
             else -> attachClause(clause)
         }
     }
 
-    // ---- Trail ---- //
+    /**
+     * Takes a list of literals, sorts it and removes duplicates in place,
+     * then checks if the list contains a literal and its negation
+     * and returns true if so.
+     */
+    private fun sortDedupAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
+        lits.sortBy { it.inner }
+
+        var i = 0
+        for (j in 1 until lits.size) {
+            if (lits[i] == lits[j].neg) return true
+            if (lits[i] != lits[j]) {
+                i++
+                lits[i] = lits[j]
+            }
+        }
+
+        while (lits.size > i + 1) {
+            lits.removeLast()
+        }
+
+        return false
+    }
 
     fun backtrack(level: Int) {
         while (assignment.trail.isNotEmpty() && assignment.level(assignment.trail.last().variable) > level) {
@@ -205,30 +220,26 @@ class CDCL {
      */
     private var polarity: MutableList<LBool> = mutableListOf()
 
-    // ---- Solve ---- //
-
     /**
      * The assumptions given to an incremental solver.
      */
-    private var assumptions: List<Lit> = emptyList()
+    private var assumptions: MutableList<Lit> = mutableListOf()
 
     /**
-     * Solve the problem with the given assumptions.
+     * Solves the CNF problem using the CDCL algorithm.
+     *
+     * @return The [result][SolveResult] of the solving process:
+     *   [SolveResult.SAT], [SolveResult.UNSAT], or [SolveResult.UNKNOWN].
      */
     fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
-        assumptions = currentAssumptions
+        assumptions = currentAssumptions.toMutableList()
 
         // If given clauses are already cause UNSAT, no need to do anything
         if (!ok) return finishWithUnsat()
 
-        // Check if the assumptions are trivially unsatisfiable
-        // Set can be pretty expensive, but it's a one-time cost
-        val assumptionSet = assumptions.toSet()
-        for (assumption in assumptions) {
-            if (assumption.neg in assumptionSet) {
-                return finishWithAssumptionsUnsat()
-            }
-        }
+        // Check if the assumptions are trivially unsatisfiable,
+        // and remove duplicates along the way.
+        if (sortDedupAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
 
         // Clean up from the previous solve
         if (assignment.decisionLevel > 0) backtrack(0)
@@ -253,79 +264,104 @@ class CDCL {
         return search()
     }
 
-    // ---- Search ---- //
-
+    /**
+     * The main CDCL search loop.
+     *
+     * @return the result of the search.
+     */
     private fun search(): SolveResult {
-        var numberOfConflicts = 0
-        var numberOfDecisions = 0
-
-        // main loop
         while (true) {
-            val conflictClause = propagate()
-            if (conflictClause != null) {
-                // CONFLICT
-                numberOfConflicts++
+            check(assignment.qhead == assignment.trail.size)
 
-                // in case there is a conflict in CNF and trail is already in 0 state
-                if (assignment.decisionLevel == 0) {
-                    // println("KoSat conflicts:   $numberOfConflicts")
-                    // println("KoSat decisions:   $numberOfDecisions")
-                    return finishWithUnsat()
-                }
-
-                // build new clause by conflict clause
-                val lemma = analyzeConflict(conflictClause)
-
-                // compute lbd "score" for lemma
-                lemma.lbd = lemma.lits.distinctBy { assignment.level(it.variable) }.size
-
-                // return to decision level where lemma would be propagated
-                val level = if (lemma.size > 1) assignment.level(lemma[1].variable) else 0
-                backtrack(level)
-                // if lemma.size == 1 we just add it to 0 decision level of trail
-                if (lemma.size == 1) {
-                    assignment.uncheckedEnqueue(lemma[0], null)
-                } else {
-                    attachClause(lemma)
-                    assignment.uncheckedEnqueue(lemma[0], lemma)
-                    db.clauseBumpActivity(lemma)
-                }
-
-                variableSelector.update(lemma)
-                db.clauseDecayActivity()
-
-                restarter.numberOfConflictsAfterRestart++
-            } else {
-                // NO CONFLICT
-                require(assignment.qhead == assignment.trail.size)
-
-                // If (the problem is already) SAT, return the current assignment
-                if (assignment.trail.size == numberOfVariables) {
-                    // println("KoSat conflicts:   $numberOfConflicts")
-                    // println("KoSat decisions:   $numberOfDecisions")
-                    return finishWithSatIfAssumptionsOk()
-                }
-
-                db.reduceIfNeeded()
-                restarter.restartIfNeeded()
-
-                // try to guess variable
-                assignment.newDecisionLevel()
-                var nextDecisionLiteral = variableSelector.nextDecision(assignment)
-                numberOfDecisions++
-
-                // in case there is assumption propagated to false
-                if (nextDecisionLiteral == null) {
-                    return finishWithAssumptionsUnsat()
-                }
-
-                // phase saving heuristic
-                if (assignment.decisionLevel > assumptions.size && polarity[nextDecisionLiteral.variable] == LBool.FALSE) {
-                    nextDecisionLiteral = nextDecisionLiteral.neg
-                }
-
-                assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+            // Check if all variables are assigned, indicating satisfiability,
+            // (unless assumptions are falsified)
+            if (assignment.trail.size == numberOfVariables) {
+                return finishWithSatIfAssumptionsOk()
             }
+
+            // At this point, the state of the solver is predictable and coherent,
+            // the trail is propagated, the clauses are satisfied,
+            // it is safe to backtrack, make a decision, remove or add clauses, etc.
+            // We use this opportunity to do some "maintenance".
+            // For example, it is safe to shrink clauses
+            // (by removing the falsified literals from them),
+            // because it won't cause a clause becoming empty or unit.
+
+            db.reduceIfNeeded()
+            restarter.restartIfNeeded()
+
+            check(assignment.qhead == assignment.trail.size)
+
+            // And after that, we are ready to make a decision.
+            assignment.newDecisionLevel()
+            var nextDecisionLiteral = variableSelector.nextDecision(assignment)
+
+            // We always choose the assumption literals first, then the rest.
+            // If there are no non-assumed literals left, the problem is
+            // UNSAT under given assumptions.
+            nextDecisionLiteral ?: return finishWithAssumptionsUnsat()
+
+            // TODO: currently, to check if the literal is assumed or guessed, we check
+            //       the decision level. This is not precise (some assumptions can be deduced)
+            //       and error-prone.
+            // Use the phase from the search before, if possible (so called "Phase Saving")
+            if (assignment.decisionLevel > assumptions.size && polarity[nextDecisionLiteral.variable] == LBool.FALSE) {
+                nextDecisionLiteral = nextDecisionLiteral.neg
+            }
+
+            // Enqueue the decision literal, expect it to propagate at the next iteration.
+            assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+
+            // Propagate the decision,
+            // in case there is a conflict, backtrack, and repeat
+            // (until the conflict is resolved).
+            val shouldContinue = propagateAnalyzeBacktrack()
+
+            // If the conflict on level 0 is reached, the problem is UNSAT.
+            if (!shouldContinue) return finishWithUnsat()
+        }
+    }
+
+    /**
+     * [propagate]. If the conflict is found, [analyzeConflict], [backtrack],
+     * and with the literal learned from the conflict, repeat the process.
+     *
+     * If level 0 conflict is eventually found, return false
+     * (setting the solver in UNSAT state is left to the caller).
+     * Otherwise, if no conflict is found and the decision has to be made,
+     * return true.
+     */
+    private fun propagateAnalyzeBacktrack(): Boolean {
+        while (true) {
+            val conflict = propagate() ?: return true
+
+            // If there is a conflict on level 0, the problem is UNSAT
+            if (assignment.decisionLevel == 0) return false
+
+            // Construct a new clause by analyzing conflict
+            val learnt = analyzeConflict(conflict)
+
+            // Return to decision level where learnt would be propagated
+            val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
+            backtrack(level)
+
+            // Attach learnt to the solver
+            if (learnt.size == 1) {
+                assignment.uncheckedEnqueue(learnt[0], null)
+            } else {
+                attachClause(learnt)
+                // Failure Driven Assertion: at level we backtracked to,
+                // the learnt will be propagated and will result in a literal
+                // added to the trail. We do that here.
+                assignment.uncheckedEnqueue(learnt[0], learnt)
+                db.clauseBumpActivity(learnt)
+            }
+
+            // Update the heuristics
+            variableSelector.update(learnt)
+            db.clauseDecayActivity()
+
+            restarter.numberOfConflictsAfterRestart++
         }
     }
 
@@ -393,8 +429,6 @@ class CDCL {
         return cachedModel!!
     }
 
-    // ---- Preprocessing ---- //
-
     /**
      * Preprocessing is ran before the main loop of the solver,
      * allowing to spend some time simplifying the problem
@@ -420,7 +454,11 @@ class CDCL {
 
         dratBuilder.addComment("Post-Preprocessing cleanup")
 
+        // Remove satisfied clauses and shrink the clauses by
+        // removing falsified literals
         db.simplify()
+
+        // Remove deleted clauses which may have occurred during preprocessing
         db.removeDeleted()
 
         dratBuilder.addComment("Finished preprocessing")
@@ -749,8 +787,6 @@ class CDCL {
         return Clause(mutableListOf(lca.neg, clause[0]), true)
     }
 
-    // ---- CDCL functions ---- //
-
     /**
      * Add [clause] into the database and attach watchers for it.
      */
@@ -775,18 +811,17 @@ class CDCL {
     }
 
     /**
-     * Propagate all the literals in the trail that are
-     * not yet propagated. If a conflict is found, return
-     * the clause that caused it.
+     * Propagate all the literals in the trail that are not yet propagated. If
+     * a conflict is found, return the clause that caused it.
      *
-     * This function takes every literal on the trail that
-     * has not been propagated (that is, all literals for
-     * which `qhead <= index < trail.size`) and applies
-     * the unit propagation rule to it, possibly leading
-     * to deducing new literals. The new literals are added
-     * to the trail, and the process is repeated until no
-     * more literals can be propagated, or a conflict
-     * is found.
+     * This function takes every literal on the trail that has not been
+     * propagated (that is, all literals for which `qhead <= index < trail.size`)
+     * and applies the unit propagation rule to it, possibly leading to deducing
+     * new literals. The new literals are added to the trail, and the process is
+     * repeated until no more literals can be propagated, or a conflict is found.
+     *
+     * @return the conflict clause if a conflict is found, or `null` if no
+     * conflict occurs.
      */
     private fun propagate(): Clause? {
         check(ok)
@@ -861,88 +896,114 @@ class CDCL {
 
     /**
      * Analyzes the conflict clause returned by [propagate]
-     * and returns a new clause that can be learnt.
-     * Post-conditions:
-     *      - first element in clause has max (current) propagate level
-     *      - second element in clause has second max propagate level
+     * and returns a new clause that can be learned.
+     *
+     * This function analyzes the conflict clause by walking back on
+     * the trail and replacing all but one literal in the conflict clause
+     * by their reasons. The learned clause is then simplified by removing
+     * redundant literals.
+     *
+     * @param conflict the conflict clause.
+     * @return the learned clause.
      */
     private fun analyzeConflict(conflict: Clause): Clause {
-        var numberOfActiveVariables = 0
-        val lemma = mutableSetOf<Lit>()
+        // We analyze conflict by walking back on implication graph,
+        // starting with the literals in the conflict clause.
+        // (Technically, the literals of the conflict are added on
+        // the first iteration, and we start with nothing, but it
+        // is easier to think about it this way.)
+        // For every literal from the last decision level, we replace
+        // that literal with its reason, until only one literal from
+        // the last decision level is left. This literal is called
+        // the "Unique Implication Point" (UIP).
+
+        // Keep track of the variables we have "seen" during the analysis
+        // (see implementation below for details)
         val seen = BooleanArray(numberOfVariables)
 
-        conflict.lits.forEach { lit ->
-            if (assignment.level(lit.variable) == assignment.decisionLevel) {
+        // The list of literals of the learnt
+        val learntLits = mutableListOf<Lit>()
+
+        // How many literals from the last decision level we have seen,
+        // but not yet replaced with their reasons?
+        var lastLevelLitCount = 0
+
+        // The next clause we are about to add to the cut
+        var clauseToAdd = conflict
+
+        // The index of the last literal from the last decision level,
+        // not yet replaced with its reason
+        var index = assignment.trail.lastIndex
+
+        while (true) {
+            db.clauseBumpActivity(clauseToAdd)
+
+            for (lit in clauseToAdd.lits) {
+                if (seen[lit.variable]) continue
+
+                // Mark all the variables in the clause as seen, if not already
                 seen[lit.variable] = true
-                numberOfActiveVariables++
-            } else {
-                lemma.add(lit)
-            }
-        }
 
-        var lastLevelWalkIndex = assignment.trail.lastIndex
-
-        // The UIP is the only literal in the current decision level
-        // of the conflict clause. To build it, we walk back on the
-        // last level of the trail and replace all but one literal
-        // in the conflict clause by their reason.
-        while (numberOfActiveVariables > 1) {
-            val v = assignment.trail[lastLevelWalkIndex--].variable
-            if (!seen[v]) continue
-
-            // The null assertion is safe because we only traverse
-            // the last level, and every variable on this level
-            // has a reason except for the decision variable,
-            // which will not be visited because even if it is seen,
-            // it is the last seen variable in order of the trail.
-            val reason = assignment.reason(v)!!
-
-            db.clauseBumpActivity(reason)
-
-            reason.lits.forEach { u ->
-                val current = u.variable
-                if (assignment.level(current) != assignment.decisionLevel) {
-                    lemma.add(u)
-                } else if (current != v && !seen[current]) {
-                    seen[current] = true
-                    numberOfActiveVariables++
+                if (assignment.level(lit) == assignment.decisionLevel) {
+                    // If the literal is from the last decision level,
+                    // just count it here: we will replace it with its reason later
+                    // because every literal (except lit) in its reason
+                    // is before lit on the trail, and lit is already seen
+                    lastLevelLitCount++
+                } else {
+                    // Literals from the previous decision levels are added to the learnt
+                    learntLits.add(lit)
                 }
             }
 
-            seen[v] = false
-            numberOfActiveVariables--
+            // After we added all the literals from the clause to the learnt,
+            // we find the next literal from the last decision level to replace
+            // with its reason. We do this by walking back on the trail.
+            while (!seen[assignment.trail[index].variable]) index--
+
+            // If only one literal from the last decision level is left,
+            // we have found the UIP.
+            if (lastLevelLitCount == 1) break
+
+            // Otherwise, it must be replaced with its reason on the next iteration
+            lastLevelLitCount--
+            val lastLevelVar = assignment.trail[index].variable
+            index--
+            clauseToAdd = assignment.reason(lastLevelVar)!!
         }
 
-        var newClause: Clause
+        // Add the UIP to the learnt in the correct phase.
+        val uip = assignment.trail[index]
+        learntLits.add(uip.neg)
 
-        assignment.trail.last { seen[it.variable] }.let { lit ->
-            val v = lit.variable
-            lemma.add(if (value(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
-
-            // Simplify clause by removing redundant literals which follow from their reasons
-            currentMinimizationMark++
-            lemma.forEach { minimizeMarks[it] = currentMinimizationMark }
-            newClause = Clause(
-                lemma.filter { possiblyImpliedLit ->
-                    assignment.reason(possiblyImpliedLit.variable)?.lits?.any {
-                        minimizeMarks[it] != currentMinimizationMark
-                    } ?: true
-                }.toMutableList(),
-                learnt = true,
-            )
-
-            val uipIndex = newClause.lits.indexOfFirst { it.variable == v }
-            // move UIP vertex to 0 position
-            newClause.lits.swap(uipIndex, 0)
-            seen[v] = false
+        // Some literals in the learnt can follow from their reasons,
+        // included in the learnt. We remove them here.
+        learntLits.removeAll { lit ->
+            val reason = assignment.reason(lit.variable) ?: return@removeAll false
+            // lit is redundant if all the literals in its reason are already seen
+            // (and, therefore, included in the learnt or follow from it)
+            val redundant = reason.lits.all { it == lit.neg || seen[it.variable] }
+            redundant
         }
-        // move last defined literal to 1 position
-        if (newClause.size > 1) {
-            val secondMax = newClause.lits.drop(1).indices.maxByOrNull {
-                assignment.level(newClause[it + 1].variable)
-            } ?: 0
-            newClause.lits.swap(1, secondMax + 1)
+
+        // Sort the learnt by the decision level of the literals
+        // (highest level first), making sure UIP is the first literal,
+        // and the second max level literal is the second.
+        // This is required to have watchers work correctly during the
+        // next propagate (only the first two literals are watched).
+        learntLits.sortByDescending { assignment.level(it) }
+
+        val learnt = Clause(learntLits, learnt = true)
+
+        // Sorting also helps to calculate the LBD of the learnt
+        // without additional memory.
+        learnt.lbd = 1
+        for (i in 0 until learnt.size - 1) {
+            if (assignment.level(learnt[i]) != assignment.level(learnt[i + 1])) {
+                learnt.lbd++
+            }
         }
-        return newClause
+
+        return learnt
     }
 }

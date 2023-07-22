@@ -68,7 +68,7 @@ class ClauseDatabase(private val solver: CDCL) {
      * in the remaining clauses.
      */
     fun simplify() {
-        outer@for (clause in clauses + learnts) {
+        outer@ for (clause in clauses + learnts) {
             if (clause.deleted) continue
 
             for (lit in clause.lits) {

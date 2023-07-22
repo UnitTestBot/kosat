@@ -58,5 +58,5 @@ class CNF(
 }
 
 fun determineNumberOfVariables(clauses: List<List<Int>>): Int {
-    return clauses.maxOfOrNull { clause -> clause.maxOfOrNull{ lit -> abs(lit) } ?: 0 } ?: 0
+    return clauses.maxOfOrNull { clause -> clause.maxOfOrNull { lit -> abs(lit) } ?: 0 } ?: 0
 }

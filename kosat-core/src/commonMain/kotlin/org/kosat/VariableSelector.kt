@@ -10,7 +10,7 @@ abstract class VariableSelector {
     abstract fun build(clauses: List<Clause>)
     abstract fun nextDecision(assignment: Assignment): Lit?
     abstract fun addVariable()
-    abstract fun update(lemma: Clause)
+    abstract fun update(learnt: Clause)
     abstract fun backTrack(variable: Var)
 }
 
@@ -172,8 +172,8 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         }
     }
 
-    override fun update(lemma: Clause) {
-        lemma.lits.forEach { lit ->
+    override fun update(learnt: Clause) {
+        learnt.lits.forEach { lit ->
             val v = lit.variable
             activity[v] += activityInc
             if (activityPQ.index[v] != -1) {
@@ -251,7 +251,7 @@ class FixedOrder : VariableSelector() {
     override fun addVariable() {
     }
 
-    override fun update(lemma: Clause) {
+    override fun update(learnt: Clause) {
     }
 
     override fun backTrack(variable: Var) {
@@ -269,8 +269,8 @@ class VsidsWithoutQueue(private var numberOfVariables: Int = 0) : VariableSelect
     // list of activity for variables
     private val activity = mutableListOf<Double>()
 
-    override fun update(lemma: Clause) {
-        lemma.lits.forEach { lit ->
+    override fun update(learnt: Clause) {
+        learnt.lits.forEach { lit ->
             val v = lit.variable
             activity[v] += activityInc
         }
