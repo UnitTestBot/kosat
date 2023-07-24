@@ -118,12 +118,12 @@ data class Statistic(
     /**
      * Increment the statistic by 1, optionally printing a message.
      *
-     * @param reasonToLog A function that returns a string to log,
+     * @param message A function that returns a string to log,
      *        or null if nothing should be logged.
      */
-    inline fun inc(crossinline reasonToLog: () -> String?) {
+    inline fun inc(crossinline message: () -> String?) {
         overall++
-        if (logging) reasonToLog()?.let { println(it) }
+        if (logging) message()?.let { println(it) }
     }
 
     /**
