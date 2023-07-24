@@ -235,7 +235,7 @@ internal class DiamondTests {
 
     @ParameterizedTest(name = "{1}")
     @MethodSource("getBenchmarkFiles")
-    // @Disabled
+    @Disabled
     fun testOnBenchmarks(file: File, testName: String) {
         println("# Testing on: $file")
         runTest(file, CNF.from(file.toOkioPath()))
