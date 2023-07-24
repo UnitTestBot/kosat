@@ -13,7 +13,7 @@ class BudgetTest {
     @Test
     fun testConflictBudget() {
         val cfg = Configuration(
-            withinBudget = { stats ->
+            shouldTerminate = { stats ->
                 stats.conflicts.thisSolve < 100
             }
         )
@@ -41,7 +41,7 @@ class BudgetTest {
     @Test
     fun testPropagateBudget() {
         val cfg = Configuration(
-            withinBudget = { stats ->
+            shouldTerminate = { stats ->
                 stats.propagations.thisSolve < 1000
             }
         )
@@ -55,7 +55,7 @@ class BudgetTest {
     @Test
     fun testRestartBudget() {
         val cfg = Configuration(
-            withinBudget = { stats ->
+            shouldTerminate = { stats ->
                 stats.restarts.thisSolve < 10
             }
         )

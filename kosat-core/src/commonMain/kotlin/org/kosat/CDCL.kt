@@ -301,7 +301,7 @@ class CDCL(var cfg: Configuration) {
 
             // We can even terminate the search entirely if we are out of budget
             // (for example, if we are running on a time limit).
-            if (!cfg.withinBudget(statistics)) {
+            if (!cfg.shouldTerminate(statistics)) {
                 return SolveResult.UNKNOWN
             }
 

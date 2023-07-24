@@ -25,11 +25,12 @@ data class Configuration(
     val dratBuilder: AbstractDratBuilder = NoOpDratBuilder(),
 
     /**
-     * The function that determines whether the solver is within the budget.
-     * Can also be used to implement asynchronous termination, if required.
+     * The function that determines if the solver should terminate because
+     * it ran out of time, reached the maximum number of conflicts, or
+     * used all its budget according to some other custom metric.
      * @see CDCL.search
      */
-    val withinBudget: (Statistics) -> Boolean = { true },
+    val shouldTerminate: (Statistics) -> Boolean = { true },
 ) {
     /**
      * Configuration of the failed literal probing.
