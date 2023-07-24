@@ -665,11 +665,7 @@ class CDCL {
                 if (clause.deleted) continue
                 if (clause.size != 2) continue
 
-                val other = if (clause[0].variable == lit.variable) {
-                    clause[1]
-                } else {
-                    clause[0]
-                }
+                val other = clause.otherWatch(lit.neg)
 
                 when (value(other)) {
                     // if the other literal is true, the
@@ -772,13 +768,11 @@ class CDCL {
                 if (assignment.trailIndex(lcaVar) > assignment.trailIndex(litVar)) {
                     check(assignment.reason(lcaVar)!!.size == 2)
                     val (a, b) = assignment.reason(lcaVar)!!.lits
-                    // TODO: this can be done with xor,
-                    //   will fix after merging feature/assignment
-                    lca = if (a == lca) b.neg else a.neg
+                    lca = lca.differentAmong2(a, b).neg
                 } else {
                     check(assignment.reason(litVar)!!.size == 2)
                     val (a, b) = assignment.reason(litVar)!!.lits
-                    lit = if (a == lit) b.neg else a.neg
+                    lit = lit.differentAmong2(a, b).neg
                 }
             }
         }

@@ -64,6 +64,11 @@ value class Lit(val inner: Int) {
         return if (isPos) v else -v
     }
 
+    fun differentAmong2(lit1: Lit, lit2: Lit): Lit {
+        check(this == lit1 || this == lit2)
+        return Lit(inner xor lit1.inner xor lit2.inner)
+    }
+
     companion object {
         fun fromDimacs(lit: Int): Lit {
             val v = abs(lit) - 1 // 0-based variables index
