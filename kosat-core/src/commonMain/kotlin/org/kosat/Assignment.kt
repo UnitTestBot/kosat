@@ -18,6 +18,9 @@ class Assignment(private val solver: CDCL) {
     val value: MutableList<LBool> = mutableListOf()
     val varData: MutableList<VarState> = mutableListOf()
     val trail: MutableList<Lit> = mutableListOf()
+    val numberOfVariables get() = value.size
+    private var numberOfSubstitutions = 0
+    val numberOfActiveVariables get() = numberOfVariables - numberOfSubstitutions
 
     var decisionLevel: Int = 0
     var qhead: Int = 0
@@ -29,6 +32,28 @@ class Assignment(private val solver: CDCL) {
 
     fun value(lit: Lit): LBool {
         return value[lit.variable] xor lit.isNeg
+    }
+
+    fun valueAfterSubstitution(v: Var): LBool {
+        val substitution = varData[v].substitution
+        return if (substitution != null) {
+            value(substitution)
+        } else {
+            value(v)
+        }
+    }
+
+    fun valueAfterSubstitution(lit: Lit): LBool {
+        return valueAfterSubstitution(lit.variable) xor lit.isNeg
+    }
+
+    fun markSubstituted(variable: Var, substitution: Lit) {
+        check(varData[variable].substitution == null)
+        varData[variable].substitution = substitution
+    }
+
+    fun fixNestedSubstitutions() {
+
     }
 
     // fun assign(v: Var, value: LBool) {

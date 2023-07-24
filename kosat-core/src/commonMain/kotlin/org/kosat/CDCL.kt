@@ -1,6 +1,7 @@
 package org.kosat
 
 import org.kosat.cnf.CNF
+import kotlin.math.min
 
 /**
  * Solves [cnf] and returns
@@ -55,12 +56,6 @@ class CDCL {
     val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
     /**
-     * The number of variables.
-     */
-    var numberOfVariables: Int = 0
-        private set
-
-    /**
      * The maximum amount of probes expected to be returned
      * by [generateProbes].
      *
@@ -71,7 +66,7 @@ class CDCL {
     /**
      * The branching heuristic, used to choose the next decision variable.
      */
-    private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
+    private val variableSelector: VariableSelector = VSIDS(assignment.numberOfVariables)
 
     /**
      * The restart strategy, used to decide when to restart the search.
@@ -95,12 +90,12 @@ class CDCL {
         initialClauses: Iterable<Clause>,
         initialVarsNumber: Int = 0,
     ) {
-        while (numberOfVariables < initialVarsNumber) {
+        while (assignment.numberOfVariables < initialVarsNumber) {
             newVariable()
         }
 
         initialClauses.forEach { newClause(it) }
-        polarity = MutableList(numberOfVariables + 1) { LBool.UNDEF }
+        polarity = MutableList(assignment.numberOfVariables) { LBool.UNDEF }
     }
 
     constructor(cnf: CNF) : this(cnf.clauses.map { Clause.fromDimacs(it) }, cnf.numVars)
@@ -111,9 +106,7 @@ class CDCL {
      * The [newClause] technically adds variables automatically,
      * but sometimes not all variables have to be mentioned in the clauses.
      */
-    fun newVariable(): Int {
-        numberOfVariables++
-
+    fun newVariable() {
         // Watch
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
@@ -126,8 +119,6 @@ class CDCL {
 
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
-
-        return numberOfVariables
     }
 
     fun value(lit: Lit): LBool {
@@ -145,7 +136,7 @@ class CDCL {
 
         // Add not mentioned variables from the new clause
         val maxVar = clause.lits.maxOfOrNull { it.variable.index } ?: 0
-        while (numberOfVariables < maxVar) {
+        while (assignment.numberOfVariables < maxVar) {
             newVariable()
         }
 
@@ -232,7 +223,9 @@ class CDCL {
      *   [SolveResult.SAT], [SolveResult.UNSAT], or [SolveResult.UNKNOWN].
      */
     fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
-        assumptions = currentAssumptions.toMutableList()
+        assumptions = currentAssumptions.map {
+            assignment.varData[it.variable].substitution?.xor(it.isNeg) ?: it
+        }.toMutableList()
 
         // If given clauses are already cause UNSAT, no need to do anything
         if (!ok) return finishWithUnsat()
@@ -244,10 +237,6 @@ class CDCL {
         // Clean up from the previous solve
         if (assignment.decisionLevel > 0) backtrack(0)
         cachedModel = null
-
-        // If the problem is trivially SAT, simply return the result
-        // (and check for assumption satisfiability)
-        if (db.clauses.isEmpty()) return finishWithSatIfAssumptionsOk()
 
         // Check for an immediate level 0 conflict
         propagate()?.let { return finishWithUnsat() }
@@ -275,7 +264,7 @@ class CDCL {
 
             // Check if all variables are assigned, indicating satisfiability,
             // (unless assumptions are falsified)
-            if (assignment.trail.size == numberOfVariables) {
+            if (assignment.trail.size == assignment.numberOfActiveVariables) {
                 return finishWithSatIfAssumptionsOk()
             }
 
@@ -414,16 +403,17 @@ class CDCL {
     fun getModel(): List<Boolean> {
         if (cachedModel != null) return cachedModel!!
 
-        cachedModel = assignment.value.map {
-            when (it) {
-                LBool.TRUE, LBool.UNDEF -> true
-                LBool.FALSE -> false
-            }
-        }.toMutableList()
+        cachedModel = mutableListOf()
 
         for (assumption in assumptions) {
-            check(value(assumption) != LBool.FALSE)
-            cachedModel!![assumption.variable] = assumption.isPos
+            check(assignment.value(assumption) == LBool.TRUE)
+        }
+
+        for (varIndex in 0 until assignment.numberOfVariables) {
+            cachedModel!!.add(when (assignment.valueAfterSubstitution(Var(varIndex))) {
+                LBool.TRUE, LBool.UNDEF -> true
+                LBool.FALSE -> false
+            })
         }
 
         return cachedModel!!
@@ -442,13 +432,20 @@ class CDCL {
         require(assignment.qhead == assignment.trail.size)
 
         dratBuilder.addComment("Preprocessing")
+
+        dratBuilder.addComment("Preprocessing: Equivalent literal substitution")
+
+        for (i in 1..10) {
+            equivalentLiteralSubstitution()?.let { return it }
+        }
+
         dratBuilder.addComment("Preprocessing: Failed literal probing")
 
         failedLiteralProbing()?.let { return it }
 
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
-        if (assignment.trail.size == numberOfVariables) {
+        if (assignment.trail.size == assignment.numberOfVariables) {
             return finishWithSatIfAssumptionsOk()
         }
 
@@ -462,6 +459,144 @@ class CDCL {
         db.removeDeleted()
 
         dratBuilder.addComment("Finished preprocessing")
+
+        return null
+    }
+
+    private fun impliedLiterals(lit: Lit): List<Lit> {
+        check(value(lit) == LBool.UNDEF)
+        val implied = mutableListOf<Lit>()
+
+        for (watched in watchers[lit.neg]) {
+            if (watched.deleted) continue
+            if (watched.size != 2) continue
+
+            val other = watched.otherWatch(lit.neg)
+
+            check(value(other) != LBool.FALSE)
+            if (value(other) != LBool.UNDEF) continue
+            implied.add(other)
+        }
+
+        return implied
+    }
+
+    private fun equivalentLiteralSubstitution(): SolveResult? {
+        check(assignment.decisionLevel == 0)
+
+        db.simplify()
+
+        val marks = MutableList(assignment.numberOfVariables * 2) { 0 }
+        val num = MutableList(assignment.numberOfVariables * 2) { 0 }
+        val stack = mutableListOf<Lit>()
+        var counter = 0
+
+        fun dfs(v: Lit): Int? {
+            check(value(v) == LBool.UNDEF)
+            check(marks[v] == 0)
+
+            marks[v] = 1
+            stack.add(v)
+
+            counter++
+            num[v] = counter
+            var lowest = counter
+
+            for (u in impliedLiterals(v)) {
+                if (marks[u] == 0) {
+                    val otherLowest = dfs(u) ?: return null
+                    lowest = min(otherLowest, lowest)
+                } else if (marks[u] != 4) {
+                    lowest = min(lowest, num[u])
+                }
+            }
+
+            marks[v] = 2
+
+            if (lowest == num[v]) {
+                val scc = mutableListOf<Lit>()
+                while (true) {
+                    val u = stack.removeLast()
+                    marks[u] = 3
+                    scc.add(u)
+                    if (u == v) {
+                        for (w in scc) {
+                            if (marks[w.neg] == 3) {
+                                dratBuilder.addComment("Found UNSAT due to complement literals being in the same SCC")
+                                dratBuilder.addClause(Clause(mutableListOf(w)))
+                                dratBuilder.addClause(Clause(mutableListOf(w.neg)))
+                                return null
+                            }
+                            marks[w] = 4
+                        }
+                        break
+                    }
+                    assignment.varData[u.variable].substitution = v xor u.isNeg
+                }
+            }
+
+            return lowest
+        }
+
+        for (varIndex in 0 until assignment.numberOfVariables) {
+            val variable = Var(varIndex)
+            val lit = variable.posLit
+
+            if (
+                assignment.varData[variable].substitution != null ||
+                (marks[lit] != 0 || marks[lit.neg] != 0) ||
+                value(lit) != LBool.UNDEF
+            ) continue
+
+            check(marks[lit] == 0)
+            dfs(lit) ?: return finishWithUnsat()
+        }
+
+        for (varIndex in 0 until assignment.numberOfVariables) {
+            val variable = Var(varIndex)
+            val substitution = assignment.varData[variable].substitution ?: continue
+            val secondSubstitution = assignment.varData[substitution.variable].substitution ?: continue
+            assignment.varData[variable].substitution = secondSubstitution xor substitution.isNeg
+        }
+
+        for (clause in db.clauses + db.learnts) {
+            if (clause.deleted) continue
+
+            val willChange = clause.lits.any { assignment.varData[it.variable].substitution != null }
+            if (!willChange) continue
+
+            val newLits = clause.lits.map {
+                assignment.varData[it.variable].substitution?.xor(it.isNeg) ?: it
+            }.toMutableList()
+
+            val useless = sortDedupAndCheckComplimentary(newLits)
+
+            if (!useless) {
+                val newClause = Clause(newLits, clause.learnt)
+                if (newClause.size == 1 || !clause.learnt) dratBuilder.addClause(newClause)
+                if (newClause.size == 1) {
+                    if (!assignment.enqueue(newClause[0], null)) {
+                        return finishWithUnsat()
+                    }
+                } else {
+                    attachClause(newClause)
+                }
+            }
+
+            markDeleted(clause)
+        }
+
+        propagate()?.let { return finishWithUnsat() }
+
+        assumptions = assumptions.map {
+            assignment.varData[it.variable].substitution?.xor(it.isNeg) ?: it
+        }.toMutableList()
+
+        if (sortDedupAndCheckComplimentary(assumptions)) {
+            return finishWithAssumptionsUnsat()
+        }
+
+        variableSelector.initAssumptions(assumptions)
 
         return null
     }
@@ -913,7 +1048,7 @@ class CDCL {
 
         // Keep track of the variables we have "seen" during the analysis
         // (see implementation below for details)
-        val seen = BooleanArray(numberOfVariables)
+        val seen = BooleanArray(assignment.numberOfVariables)
 
         // The list of literals of the learnt
         val learntLits = mutableListOf<Lit>()

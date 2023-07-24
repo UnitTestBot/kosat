@@ -214,8 +214,10 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
             return null
         }
         // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { assignment.value(it) == LBool.UNDEF }
-            ?: getMaxActivityVariable(assignment).posLit
+        return assumptions.firstOrNull {
+            assignment.value(it) == LBool.UNDEF &&
+                assignment.varData[it.variable].substitution == null
+        } ?: getMaxActivityVariable(assignment).posLit
     }
 
     override fun backTrack(variable: Var) {

@@ -69,6 +69,10 @@ value class Lit(val inner: Int) {
         return Lit(inner xor lit1.inner xor lit2.inner)
     }
 
+    infix fun xor(b: Boolean): Lit {
+        return Lit(inner xor b.toInt())
+    }
+
     companion object {
         fun fromDimacs(lit: Int): Lit {
             val v = abs(lit) - 1 // 0-based variables index
