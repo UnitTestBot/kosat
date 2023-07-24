@@ -144,8 +144,8 @@ class CDCL {
         clause.lits.removeAll { value(it) == LBool.FALSE }
 
         // If the clause contains complementary literals, ignore it as useless,
-        // otherwise removes duplicate literals in it.
-        if (sortDedupAndCheckComplimentary(clause.lits)) return
+        // perform substitution otherwise
+        if (simplifyAndCheckComplimentary(clause.lits)) return
 
         when (clause.size) {
             // Empty clause is an immediate UNSAT
@@ -168,11 +168,16 @@ class CDCL {
     }
 
     /**
-     * Takes a list of literals, sorts it and removes duplicates in place,
+     * Takes a list of literals, applies every variable substitution
+     * (see [VarState.substitution]), sorts it and removes duplicates in place,
      * then checks if the list contains a literal and its negation
      * and returns true if so.
      */
-    private fun sortDedupAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
+    private fun simplifyAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
+        for (i in 0 until lits.size) {
+            lits[i] = assignment.substitute(lits[i])
+        }
+
         lits.sortBy { it.inner }
 
         var i = 0
@@ -223,16 +228,14 @@ class CDCL {
      *   [SolveResult.SAT], [SolveResult.UNSAT], or [SolveResult.UNKNOWN].
      */
     fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
-        assumptions = currentAssumptions.map {
-            assignment.varData[it.variable].substitution?.xor(it.isNeg) ?: it
-        }.toMutableList()
+        assumptions = currentAssumptions.toMutableList()
 
         // If given clauses are already cause UNSAT, no need to do anything
         if (!ok) return finishWithUnsat()
 
         // Check if the assumptions are trivially unsatisfiable,
-        // and remove duplicates along the way.
-        if (sortDedupAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
+        // performing substitutions along the way if required
+        if (simplifyAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
 
         // Clean up from the previous solve
         if (assignment.decisionLevel > 0) backtrack(0)
@@ -435,7 +438,7 @@ class CDCL {
 
         dratBuilder.addComment("Preprocessing: Equivalent literal substitution")
 
-        for (i in 1..10) {
+        for (i in 1..1) {
             equivalentLiteralSubstitution()?.let { return it }
         }
 
@@ -529,9 +532,11 @@ class CDCL {
                             }
                             marks[w] = 4
                         }
+                        for (w in scc) {
+                            if (w != v) assignment.markSubstituted(w, v)
+                        }
                         break
                     }
-                    assignment.varData[u.variable].substitution = v xor u.isNeg
                 }
             }
 
@@ -543,7 +548,7 @@ class CDCL {
             val lit = variable.posLit
 
             if (
-                assignment.varData[variable].substitution != null ||
+                assignment.isSubstituted(variable) ||
                 (marks[lit] != 0 || marks[lit.neg] != 0) ||
                 value(lit) != LBool.UNDEF
             ) continue
@@ -552,26 +557,18 @@ class CDCL {
             dfs(lit) ?: return finishWithUnsat()
         }
 
-        for (varIndex in 0 until assignment.numberOfVariables) {
-            val variable = Var(varIndex)
-            val substitution = assignment.varData[variable].substitution ?: continue
-            val secondSubstitution = assignment.varData[substitution.variable].substitution ?: continue
-            assignment.varData[variable].substitution = secondSubstitution xor substitution.isNeg
-        }
+        assignment.fixNestedSubstitutions()
 
         for (clause in db.clauses + db.learnts) {
             if (clause.deleted) continue
 
-            val willChange = clause.lits.any { assignment.varData[it.variable].substitution != null }
+            val willChange = clause.lits.any { assignment.isSubstituted(it.variable) }
             if (!willChange) continue
 
-            val newLits = clause.lits.map {
-                assignment.varData[it.variable].substitution?.xor(it.isNeg) ?: it
-            }.toMutableList()
+            val newLits = clause.lits.toMutableList()
+            val containsComplementary = simplifyAndCheckComplimentary(newLits)
 
-            val useless = sortDedupAndCheckComplimentary(newLits)
-
-            if (!useless) {
+            if (!containsComplementary) {
                 val newClause = Clause(newLits, clause.learnt)
                 if (newClause.size == 1 || !clause.learnt) dratBuilder.addClause(newClause)
                 if (newClause.size == 1) {
@@ -588,11 +585,7 @@ class CDCL {
 
         propagate()?.let { return finishWithUnsat() }
 
-        assumptions = assumptions.map {
-            assignment.varData[it.variable].substitution?.xor(it.isNeg) ?: it
-        }.toMutableList()
-
-        if (sortDedupAndCheckComplimentary(assumptions)) {
+        if (simplifyAndCheckComplimentary(assumptions)) {
             return finishWithAssumptionsUnsat()
         }
 

@@ -47,13 +47,31 @@ class Assignment(private val solver: CDCL) {
         return valueAfterSubstitution(lit.variable) xor lit.isNeg
     }
 
-    fun markSubstituted(variable: Var, substitution: Lit) {
-        check(varData[variable].substitution == null)
-        varData[variable].substitution = substitution
+    fun markSubstituted(lit: Lit, substitution: Lit) {
+        check(varData[lit.variable].substitution == null)
+        varData[lit.variable].substitution = substitution xor lit.isNeg
     }
 
     fun fixNestedSubstitutions() {
+        for (varIndex in 0 until numberOfVariables) {
+            val variable = Var(varIndex)
+            val substitution = varData[variable].substitution ?: continue
+            val secondSubstitution = varData[substitution.variable].substitution ?: continue
+            varData[variable].substitution = secondSubstitution xor substitution.isNeg
+        }
+    }
 
+    fun substitute(lit: Lit): Lit {
+        val substitution = varData[lit.variable].substitution
+        return if (substitution != null) {
+            substitution xor lit.isNeg
+        } else {
+            lit
+        }
+    }
+
+    fun isSubstituted(v: Var): Boolean {
+        return varData[v].substitution != null
     }
 
     // fun assign(v: Var, value: LBool) {
