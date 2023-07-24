@@ -9,6 +9,9 @@ data class VarState(
 
     /** Index of the variable in the trail */
     var trailIndex: Int = -1,
+
+    /** A literal which is used to substitute this variable after Equivalent Literal Substitution */
+    var substitution: Lit? = null,
 )
 
 class Assignment(private val solver: CDCL) {
