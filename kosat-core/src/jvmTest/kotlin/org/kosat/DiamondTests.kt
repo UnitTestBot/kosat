@@ -41,7 +41,8 @@ internal class DiamondTests {
 
         private val configurations = mapOf(
             "Default" to Configuration(),
-            "No Flp" to Configuration(flp = null),
+            "No FLP" to Configuration(flp = null),
+            "No HBR" to Configuration(flp = Configuration.FailedLiteralPropagation(hyperBinaryResolution = false)),
             "Activity Based" to Configuration(clauseDbStrategy = Configuration.ClauseDbStrategy.Activity()),
         )
 
