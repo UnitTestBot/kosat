@@ -5,47 +5,55 @@ package org.kosat
  * and for logging them if required.
  */
 class Statistics {
+    private val allStatistics: MutableList<Statistic> = mutableListOf()
+
+    private fun statistic(logging: Boolean): Statistic {
+        val stat = Statistic(logging)
+        allStatistics.add(stat)
+        return stat
+    }
+
     /** Amount of conflicts occurred */
-    var conflicts = Statistic(false)
+    var conflicts = statistic(false)
 
     /** Amount of decisions made */
-    var decisions = Statistic(false)
+    var decisions = statistic(false)
 
     /** Amount of propagations made */
-    var propagations = Statistic(false)
+    var propagations = statistic(false)
 
     /** Amount of literals propagated (can be multiple per propagation) */
-    var propagatedLiterals = Statistic(false)
+    var propagatedLiterals = statistic(false)
 
     /** Amount of learned clauses */
-    var learned = Statistic(false)
+    var learned = statistic(false)
 
     /** Amount of deleted clauses (both learned and given) */
-    var deleted = Statistic(false)
+    var deleted = statistic(false)
 
     /** Amount of restarts */
-    var restarts = Statistic(false)
+    var restarts = statistic(false)
 
     /** Amount of clauses shrunk by removing falsified literals */
-    var shrunkClauses = Statistic(false)
+    var shrunkClauses = statistic(false)
 
     /** Amount of clauses removed because they are satisfied by level 0 assignment */
-    var satisfiedClauses = Statistic(false)
+    var satisfiedClauses = statistic(false)
 
     /** Amount of reductions of the clause database */
-    var dbReduces = Statistic(false)
+    var dbReduces = statistic(false)
 
     /** Amount of probes in failed literal probing tried */
-    var flpProbes = Statistic(false)
+    var flpProbes = statistic(false)
 
     /** Amount of propagations in FLP */
-    var flpPropagations = Statistic(false)
+    var flpPropagations = statistic(false)
 
     /** Amount of clauses derived by hyper binary resolution */
-    var flpHyperBinaries = Statistic(false)
+    var flpHyperBinaries = statistic(false)
 
     /** Amount of unit clauses derived from failed probes propagated */
-    var flpUnitClauses = Statistic(false)
+    var flpUnitClauses = statistic(false)
 
     /**
      * Start counting statistics this restart from 0.
@@ -53,21 +61,9 @@ class Statistics {
      * This should be done when the solver is restarted.
      */
     fun restart() {
-        conflicts.resetThisRestart()
-        decisions.resetThisRestart()
-        propagations.resetThisRestart()
-        propagatedLiterals.resetThisRestart()
-        learned.resetThisRestart()
-        deleted.resetThisRestart()
-        restarts.resetThisRestart()
-        shrunkClauses.resetThisRestart()
-        satisfiedClauses.resetThisRestart()
-        dbReduces.resetThisRestart()
-
-        flpProbes.resetThisRestart()
-        flpPropagations.resetThisRestart()
-        flpHyperBinaries.resetThisRestart()
-        flpUnitClauses.resetThisRestart()
+        for (stat in allStatistics) {
+            stat.resetThisRestart()
+        }
 
         restarts.inc { "Restarting" }
     }
@@ -78,21 +74,9 @@ class Statistics {
      * This should be done when the solver is started.
      */
     fun resetThisSolve() {
-        conflicts.resetThisSolve()
-        decisions.resetThisSolve()
-        propagations.resetThisSolve()
-        propagatedLiterals.resetThisSolve()
-        learned.resetThisSolve()
-        deleted.resetThisSolve()
-        restarts.resetThisSolve()
-        shrunkClauses.resetThisSolve()
-        satisfiedClauses.resetThisSolve()
-        dbReduces.resetThisSolve()
-
-        flpProbes.resetThisSolve()
-        flpPropagations.resetThisSolve()
-        flpHyperBinaries.resetThisSolve()
-        flpUnitClauses.resetThisSolve()
+        for (stat in allStatistics) {
+            stat.resetThisSolve()
+        }
     }
 }
 
