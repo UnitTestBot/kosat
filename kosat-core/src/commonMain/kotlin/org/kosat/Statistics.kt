@@ -89,13 +89,16 @@ data class Statistic(
 ) {
     /** Overall value of the statistic, from the creation of the solver */
     var overall: Int = 0
+
     /** Value of the statistic at the last restart */
     private var valueLastRestart: Int = 0
+
     /** Value of the statistic at the last call to [CDCL.solve] */
     private var valueLastSolve: Int = 0
 
     /** Value of the statistic this restart */
     val thisRestart get() = overall - valueLastRestart
+
     /** Value of the statistic this solve */
     val thisSolve get() = overall - valueLastSolve
 
