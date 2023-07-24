@@ -48,7 +48,6 @@ class Assignment(private val solver: CDCL) {
     }
 
     fun markSubstituted(lit: Lit, substitution: Lit) {
-        check(varData[lit.variable].substitution == null)
         varData[lit.variable].substitution = substitution xor lit.isNeg
     }
 
@@ -61,7 +60,7 @@ class Assignment(private val solver: CDCL) {
         }
     }
 
-    fun substitute(lit: Lit): Lit {
+    fun getSubstitutionOf(lit: Lit): Lit {
         val substitution = varData[lit.variable].substitution
         return if (substitution != null) {
             substitution xor lit.isNeg

@@ -64,6 +64,12 @@ class CDCL {
     private val flpMaxProbes = 1000
 
     /**
+     * Amount of [equivalentLiteralSubstitution] rounds before and after
+     * [failedLiteralProbing] to perform.
+     */
+    private val elsRounds = 5;
+
+    /**
      * The branching heuristic, used to choose the next decision variable.
      */
     private val variableSelector: VariableSelector = VSIDS(assignment.numberOfVariables)
@@ -175,7 +181,7 @@ class CDCL {
      */
     private fun simplifyAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
         for (i in 0 until lits.size) {
-            lits[i] = assignment.substitute(lits[i])
+            lits[i] = assignment.getSubstitutionOf(lits[i])
         }
 
         lits.sortBy { it.inner }
@@ -438,13 +444,20 @@ class CDCL {
 
         dratBuilder.addComment("Preprocessing: Equivalent literal substitution")
 
-        for (i in 1..1) {
+        for (i in 0 until elsRounds) {
             equivalentLiteralSubstitution()?.let { return it }
         }
 
         dratBuilder.addComment("Preprocessing: Failed literal probing")
 
         failedLiteralProbing()?.let { return it }
+
+        dratBuilder.addComment("Preprocessing: Equivalent literal substitution (post FLP)")
+
+        for (i in 0 until elsRounds) {
+            equivalentLiteralSubstitution()?.let { return it }
+        }
+
 
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
@@ -493,6 +506,7 @@ class CDCL {
         val num = MutableList(assignment.numberOfVariables * 2) { 0 }
         val stack = mutableListOf<Lit>()
         var counter = 0
+        var totalSubstituted = 0
 
         fun dfs(v: Lit): Int? {
             check(value(v) == LBool.UNDEF)
@@ -535,6 +549,7 @@ class CDCL {
                         for (w in scc) {
                             if (w != v) assignment.markSubstituted(w, v)
                         }
+                        totalSubstituted += scc.size - 1
                         break
                     }
                 }
@@ -553,9 +568,10 @@ class CDCL {
                 value(lit) != LBool.UNDEF
             ) continue
 
-            check(marks[lit] == 0)
             dfs(lit) ?: return finishWithUnsat()
         }
+
+        if (totalSubstituted == 0) return null
 
         assignment.fixNestedSubstitutions()
 
@@ -595,17 +611,9 @@ class CDCL {
     }
 
     /**
-     * Literal probing is only useful if the probe can lead
+     * Literal probing is only useful if the probe can
      * lead to derivation of something by itself. We can
      * generate list of possibly useful probes ahead of time.
-     *
-     * TODO: Right now, this implementation is very naive.
-     *       If there is a cycle in binary implication graph,
-     *       we will generate a lot of useless probes that will
-     *       propagate in exactly the same way and possibly
-     *       produce a lot of duplicate/implied binary clauses.
-     *       This will be fixed with the implementation of
-     *       Equivalent Literal Substitution (ELS).
      *
      *  @return list of literals to try probing with
      */
@@ -618,13 +626,19 @@ class CDCL {
             if (clause.size == 2) {
                 val (a, b) = clause.lits
                 if (assignment.value(a) == LBool.UNDEF) probes.add(a.neg)
-                if (probes.size >= flpMaxProbes) break
                 if (assignment.value(b) == LBool.UNDEF) probes.add(b.neg)
-                if (probes.size >= flpMaxProbes) break
             }
         }
 
-        return probes.toMutableList()
+        for (clause in db.clauses) {
+            if (clause.size == 2) {
+                val (a, b) = clause.lits
+                probes.remove(a)
+                probes.remove(b)
+            }
+        }
+
+        return probes.take(flpMaxProbes).toMutableList()
     }
 
     /**

@@ -100,6 +100,7 @@ internal class DiamondTests {
             }
             println("MiniSat conflicts: ${backend.numberOfConflicts}")
             println("Minisat decisions: ${backend.numberOfDecisions}")
+            println("MiniSat result: $result")
 
             result
         }
@@ -234,7 +235,7 @@ internal class DiamondTests {
 
     @ParameterizedTest(name = "{1}")
     @MethodSource("getBenchmarkFiles")
-    @Disabled
+    // @Disabled
     fun testOnBenchmarks(file: File, testName: String) {
         println("# Testing on: $file")
         runTest(file, CNF.from(file.toOkioPath()))
