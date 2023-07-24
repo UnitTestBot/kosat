@@ -25,12 +25,13 @@ data class Configuration(
     val dratBuilder: AbstractDratBuilder = NoOpDratBuilder(),
 
     /**
-     * The function that determines if the solver should terminate because
-     * it ran out of time, reached the maximum number of conflicts, or
-     * used all its budget according to some other custom metric.
+     * The function that determines if the solver should terminate
+     * or continue the search because it ran out of time, reached
+     * the maximum number of conflicts, or used all its budget
+     * according to some other custom metric.
      * @see CDCL.search
      */
-    val shouldTerminate: (Statistics) -> Boolean = { true },
+    val withinBudget: (Statistics) -> Boolean = { true },
 ) {
     /**
      * Configuration of the failed literal probing.
