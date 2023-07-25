@@ -1050,10 +1050,6 @@ class CDCL {
 
             check(value(lit) == LBool.TRUE)
 
-            if (value(lit) == LBool.FALSE) {
-                return assignment.reason(lit.variable)
-            }
-
             // Checking the list of clauses watching the negation of the literal.
             // In those clauses, both of the watched literals might be false,
             // which can either lead to a conflict (all literals in clause are false),
