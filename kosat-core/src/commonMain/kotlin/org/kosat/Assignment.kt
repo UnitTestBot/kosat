@@ -32,7 +32,7 @@ class Assignment(private val solver: CDCL) {
      * @return the value of the variable, assuming that it is not substituted.
      */
     fun value(v: Var): LBool {
-        check(varData[v].substitution == null)
+        require(varData[v].substitution == null)
         return value[v]
     }
 
@@ -44,7 +44,7 @@ class Assignment(private val solver: CDCL) {
         //       however, there are too many moving pieces at the moment
         //       and enabling this will require a lot of additional
         //       isSubstituted checks.
-        // check(varData[lit.variable].substitution == null)
+        // require(varData[lit.variable].substitution == null)
         return value[lit.variable] xor lit.isNeg
     }
 
