@@ -674,9 +674,7 @@ class CDCL {
                 // so we have to add the rest manually
                 if (newClause.size == 1 || !clause.learnt) dratBuilder.addClause(newClause)
                 if (newClause.size == 1) {
-                    if (!assignment.enqueue(newClause[0], null)) {
-                        return finishWithUnsat()
-                    }
+                    check(assignment.enqueue(newClause[0], null))
                 } else {
                     attachClause(newClause)
                 }
