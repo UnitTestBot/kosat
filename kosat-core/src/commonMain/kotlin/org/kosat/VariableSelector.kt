@@ -215,8 +215,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         }
         // if there is undefined assumption pick it, other way pick best choice
         return assumptions.firstOrNull {
-            assignment.varData[it.variable].substitution == null &&
-                assignment.value(it) == LBool.UNDEF
+            assignment.value(it) == LBool.UNDEF
         } ?: getMaxActivityVariable(assignment).posLit
     }
 
@@ -231,7 +230,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         while (true) {
             require(activityPQ.size > 0)
             val v = activityPQ.pop()
-            if (assignment.value(Var(v)) == LBool.UNDEF) {
+            if (assignment.varData[Var(v)].substitution == null && assignment.value(Var(v)) == LBool.UNDEF) {
                 return Var(v)
             }
         }

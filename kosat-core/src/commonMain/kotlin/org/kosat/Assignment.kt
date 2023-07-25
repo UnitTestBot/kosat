@@ -65,8 +65,7 @@ class Assignment(private val solver: CDCL) {
      * Marks the literal as substituted by the given literal.
      */
     fun markSubstituted(lit: Lit, substitution: Lit) {
-        // FIXME:
-        // if (varData[lit.variable].substitution == null) numberOfSubstitutions++
+        if (varData[lit.variable].substitution == null) numberOfSubstitutions++
         varData[lit.variable].substitution = substitution xor lit.isNeg
     }
 
