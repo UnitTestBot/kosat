@@ -702,23 +702,25 @@ class CDCL {
         val probes = mutableSetOf<Lit>()
 
         for (clause in db.clauses) {
+            if (clause.deleted) continue
+            if (clause.size == 2) continue
+
             // (A | B) <==> (-A -> B) <==> (-B -> A)
-            // Both -A and -B can be used as probes
-            if (clause.size == 2) {
-                val (a, b) = clause.lits
-                if (assignment.value(a) == LBool.UNDEF) probes.add(a.neg)
-                if (assignment.value(b) == LBool.UNDEF) probes.add(b.neg)
-            }
+            // Both -A and -B can be used as probes, there is little need
+            // to choose both, however.
+            val (a, b) = clause.lits
+            probes.add(if (a.inner < b.inner) a.neg else b.neg)
         }
 
         // Remove probes that follow from binary clauses,
         // leaving only roots of the binary implication graph
         for (clause in db.clauses) {
-            if (clause.size == 2) {
-                val (a, b) = clause.lits
-                probes.remove(a)
-                probes.remove(b)
-            }
+            if (clause.deleted) continue
+            if (clause.size != 2) continue
+
+            val (a, b) = clause.lits
+            probes.remove(a)
+            probes.remove(b)
         }
 
         return probes.take(flpMaxProbes).toMutableList()

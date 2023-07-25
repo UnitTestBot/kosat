@@ -20,6 +20,8 @@ class Assignment(private val solver: CDCL) {
     val trail: MutableList<Lit> = mutableListOf()
     val numberOfVariables get() = value.size
     private var numberOfSubstitutions = 0
+
+    /** The number of not substituted variables */
     val numberOfActiveVariables get() = numberOfVariables - numberOfSubstitutions
 
     var decisionLevel: Int = 0
@@ -156,6 +158,7 @@ class Assignment(private val solver: CDCL) {
 
     fun uncheckedEnqueue(lit: Lit, reason: Clause?) {
         require(value(lit) == LBool.UNDEF)
+        require(varData[lit.variable].substitution == null)
 
         if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(mutableListOf(lit)))
 
