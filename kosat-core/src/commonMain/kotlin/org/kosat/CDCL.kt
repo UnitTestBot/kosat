@@ -127,7 +127,7 @@ class CDCL {
         polarity.add(LBool.UNDEF)
     }
 
-    fun value(lit: Lit): LBool {
+    private fun value(lit: Lit): LBool {
         return assignment.value(lit)
     }
 
