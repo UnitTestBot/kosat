@@ -106,20 +106,12 @@ class Assignment(private val solver: CDCL) {
         return varData[v].substitution != null
     }
 
-    // fun assign(v: Var, value: LBool) {
-    //     value[v] = value
-    // }
-
     fun unassign(v: Var) {
         value[v] = LBool.UNDEF
         varData[v].reason = null
         varData[v].level = -1
         varData[v].trailIndex = -1
     }
-
-    // fun varData(v: Var): VarState {
-    //     return varData[v]
-    // }
 
     fun reason(v: Var): Clause? {
         return varData[v].reason
