@@ -26,14 +26,24 @@ class Assignment(private val solver: CDCL) {
     var qhead: Int = 0
     var qheadBinaryOnly: Int = 0
 
+    /**
+     * @return the value of the variable, assuming that it is not substituted.
+     */
     fun value(v: Var): LBool {
         return value[v]
     }
 
+    /**
+     * @return the value of the literal, assuming that it is not substituted.
+     */
     fun value(lit: Lit): LBool {
         return value[lit.variable] xor lit.isNeg
     }
 
+    /**
+     * @return the value of the variable, considering its substitution if
+     *         needed.
+     */
     fun valueAfterSubstitution(v: Var): LBool {
         val substitution = varData[v].substitution
         return if (substitution != null) {
@@ -43,23 +53,43 @@ class Assignment(private val solver: CDCL) {
         }
     }
 
+    /**
+     * @return the value of the literal, considering its substitution if
+     *         needed.
+     */
     fun valueAfterSubstitution(lit: Lit): LBool {
         return valueAfterSubstitution(lit.variable) xor lit.isNeg
     }
 
+    /**
+     * Marks the literal as substituted by the given literal.
+     */
     fun markSubstituted(lit: Lit, substitution: Lit) {
+        // FIXME:
+        // if (varData[lit.variable].substitution == null) numberOfSubstitutions++
         varData[lit.variable].substitution = substitution xor lit.isNeg
     }
 
+    /**
+     * If a literal is substituted by another literal, which is then substituted
+     * by another literal, then the first literal is substituted by the last
+     * literal. This function removes such nested substitutions, up to the
+     * depth of 2.
+     */
     fun fixNestedSubstitutions() {
         for (varIndex in 0 until numberOfVariables) {
             val variable = Var(varIndex)
             val substitution = varData[variable].substitution ?: continue
             val secondSubstitution = varData[substitution.variable].substitution ?: continue
+            check(varData[secondSubstitution.variable].substitution == null)
             varData[variable].substitution = secondSubstitution xor substitution.isNeg
         }
     }
 
+    /**
+     * @return the substitution of the literal, if it is substituted, or the
+     *         literal itself otherwise.
+     */
     fun getSubstitutionOf(lit: Lit): Lit {
         val substitution = varData[lit.variable].substitution
         return if (substitution != null) {
@@ -69,6 +99,9 @@ class Assignment(private val solver: CDCL) {
         }
     }
 
+    /**
+     * @return true if the variable is substituted.
+     */
     fun isSubstituted(v: Var): Boolean {
         return varData[v].substitution != null
     }

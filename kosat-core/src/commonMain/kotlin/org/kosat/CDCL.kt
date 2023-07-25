@@ -620,9 +620,11 @@ class CDCL {
                         }
 
                         // We can choose any literal from the SCC as a
-                        // representative, so we choose v
+                        // representative, so we choose the minimal one to
+                        // avoid re-substitution to a different literal later
+                        val repr = scc.minBy { it.inner }
                         for (w in scc) {
-                            if (w != v) assignment.markSubstituted(w, v)
+                            if (w != repr) assignment.markSubstituted(w, repr)
                         }
                         // Note that there is no need to add clauses to the proof
                         totalSubstituted += scc.size - 1
