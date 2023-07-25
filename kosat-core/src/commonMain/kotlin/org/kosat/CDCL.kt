@@ -151,7 +151,7 @@ class CDCL {
 
         // If the clause contains complementary literals, ignore it as useless,
         // perform substitution otherwise
-        if (simplifyAndCheckComplimentary(clause.lits)) return
+        if (substituteAndCheckComplimentary(clause.lits)) return
 
         when (clause.size) {
             // Empty clause is an immediate UNSAT
@@ -179,7 +179,7 @@ class CDCL {
      * then checks if the list contains a literal and its negation
      * and returns true if so.
      */
-    private fun simplifyAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
+    private fun substituteAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
         for (i in 0 until lits.size) {
             lits[i] = assignment.getSubstitutionOf(lits[i])
         }
@@ -241,7 +241,7 @@ class CDCL {
 
         // Check if the assumptions are trivially unsatisfiable,
         // performing substitutions along the way if required
-        if (simplifyAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
+        if (substituteAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
 
         // Clean up from the previous solve
         if (assignment.decisionLevel > 0) backtrack(0)
@@ -522,7 +522,7 @@ class CDCL {
 
         // We must update assumptions after ELS, because it can
         // substitute literals in assumptions, and even derive UNSAT.
-        if (simplifyAndCheckComplimentary(assumptions)) {
+        if (substituteAndCheckComplimentary(assumptions)) {
             return finishWithAssumptionsUnsat()
         }
 
@@ -664,7 +664,7 @@ class CDCL {
             if (!willChange) continue
 
             val newLits = clause.lits.toMutableList()
-            val containsComplementary = simplifyAndCheckComplimentary(newLits)
+            val containsComplementary = substituteAndCheckComplimentary(newLits)
             // Note that clause cannot become empty,
             // however, it can contain complementary literals.
             // We simply remove such clauses.
