@@ -64,6 +64,11 @@ class CDCL {
     private val flpMaxProbes = 1000
 
     /**
+     * Amount of probes to propagate in [secondLiteralProbing].
+     */
+    private val slpSecondProbesPerProbe = 3
+
+    /**
      * Amount of [equivalentLiteralSubstitution] rounds before and after
      * [failedLiteralProbing] to perform.
      */
@@ -761,6 +766,11 @@ class CDCL {
             assignment.decisionLevel++
             assignment.uncheckedEnqueue(probe, null)
             val conflict = propagateProbeAndLearnBinary()
+
+            if (conflict == null) {
+                secondLiteralProbing(probe, probesToTry)
+            }
+
             backtrack(0)
 
             if (conflict != null) {
@@ -1006,6 +1016,47 @@ class CDCL {
 
         requireNotNull(lca)
         return Clause(mutableListOf(lca.neg, clause[0]), true)
+    }
+
+    /**
+     * Similar to [failedLiteralProbing], we can try to probe two literals at
+     * once. We call this Second Literal Probing (SLP). If the probing fails,
+     * we can learn a new binary clause from the two literals we probed.
+     *
+     * This function is intended to be run inside failedLiteralProbing, when
+     * probe does not cause conflict.
+     */
+    private fun secondLiteralProbing(firstProbe: Lit, probesToTry: List<Lit>) {
+        require(assignment.decisionLevel == 1)
+
+        val firstProbeIndex = probesToTry.indexOf(firstProbe)
+
+        for (secondProbeNumber in 0 until slpSecondProbesPerProbe) {
+            // We don't know a good heuristic for choosing the second probe,
+            // so we just try some of them.
+            val secondProbe = probesToTry[(firstProbeIndex + secondProbeNumber + 1) % probesToTry.size]
+
+            // Despite being root of binary implication graph, the probe can
+            // already be assigned due to non-binary clause propagation at
+            // level 1. We skip such probes.
+            if (assignment.value(secondProbe) != LBool.UNDEF) continue
+
+            assignment.newDecisionLevel()
+            assignment.uncheckedEnqueue(secondProbe, null)
+
+            val conflict = propagate()
+
+            // If we found a conflict, this means that two probes cannot be
+            // assigned to true simultaneously. Therefore, we can learn a
+            // new binary clause from them.
+            if (conflict != null) {
+                attachClause(Clause(mutableListOf(firstProbe.neg, secondProbe.neg), true))
+            }
+
+            backtrack(1)
+        }
+
+        check(assignment.decisionLevel == 1)
     }
 
     /**
