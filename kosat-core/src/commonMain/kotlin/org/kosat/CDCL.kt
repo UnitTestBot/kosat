@@ -175,6 +175,8 @@ class CDCL {
                 }
             }
 
+            // Clauses of size >2 are added to the database.
+            // We don't add externally provided clauses to the proof.
             else -> attachClause(clause, addToDrat = false)
         }
     }
