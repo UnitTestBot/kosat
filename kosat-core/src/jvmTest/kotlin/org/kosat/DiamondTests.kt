@@ -6,6 +6,7 @@ import korlibs.time.measureTimeWithResult
 import korlibs.time.roundMilliseconds
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
+import okio.Sink
 import okio.Path.Companion.toPath
 import okio.buffer
 import org.junit.jupiter.api.Assertions
@@ -89,20 +90,18 @@ internal class DiamondTests {
     }
 
     private fun solveWithMiniSat(cnf: CNF): SolveResult {
-        MiniSatSolver().close()
-
-        return with(MiniSatSolver()) {
-            val lits = List(cnf.numVars) { newLiteral() }
+        return MiniSatSolver().use { minisat ->
+            val lits = List(cnf.numVars) { minisat.newLiteral() }
             for (clause in cnf.clauses) {
-                addClause(clause.map { it.sign * lits[abs(it) - 1] })
+                minisat.addClause(clause.map { it.sign * lits[abs(it) - 1] })
             }
-            val result = if (solve()) {
+            val result = if (minisat.solve()) {
                 SolveResult.SAT
             } else {
                 SolveResult.UNSAT
             }
-            println("MiniSat conflicts: ${backend.numberOfConflicts}")
-            println("Minisat decisions: ${backend.numberOfDecisions}")
+            println("MiniSat conflicts: ${minisat.backend.numberOfConflicts}")
+            println("Minisat decisions: ${minisat.backend.numberOfDecisions}")
             println("MiniSat result: $result")
 
             result
@@ -117,10 +116,18 @@ internal class DiamondTests {
         val solver = CDCL(cnf)
 
         val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
+        var dratSink: Sink? = null
+        var dratBufferedSink: okio.BufferedSink? = null
 
-        if (generateAndCheckDrat) {
-            solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
+        val dratBuilder = if (generateAndCheckDrat) {
+            dratSink = FileSystem.SYSTEM.sink(dratPath)
+            dratBufferedSink = dratSink.buffer()
+            DratBuilder(dratBufferedSink)
+        } else {
+            NoOpDratBuilder()
         }
+
+        solver.dratBuilder = dratBuilder
 
         val (resultActual, timeKoSat) = measureTimeWithResult {
             solver.solve()
@@ -180,6 +187,9 @@ internal class DiamondTests {
                 Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
             }
         }
+
+        dratSink?.close()
+        dratBufferedSink?.close()
 
         println("MiniSat time: ${timeMiniSat.roundMilliseconds()}")
         println("KoSat time: ${timeKoSat.roundMilliseconds()}")
