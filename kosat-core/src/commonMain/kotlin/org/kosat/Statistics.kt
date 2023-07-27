@@ -7,53 +7,53 @@ package org.kosat
 class Statistics {
     private val allStatistics: MutableList<Statistic> = mutableListOf()
 
-    private fun statistic(logging: Boolean): Statistic {
-        val stat = Statistic(logging)
+    private fun statistic(): Statistic {
+        val stat = Statistic()
         allStatistics.add(stat)
         return stat
     }
 
     /** Amount of conflicts occurred */
-    var conflicts = statistic(false)
+    var conflicts = statistic()
 
     /** Amount of decisions made */
-    var decisions = statistic(false)
+    var decisions = statistic()
 
     /** Amount of propagations made */
-    var propagations = statistic(false)
+    var propagations = statistic()
 
     /** Amount of literals propagated (can be multiple per propagation) */
-    var propagatedLiterals = statistic(false)
+    var propagatedLiterals = statistic()
 
     /** Amount of learned clauses */
-    var learned = statistic(false)
+    var learned = statistic()
 
     /** Amount of deleted clauses (both learned and given) */
-    var deleted = statistic(false)
+    var deleted = statistic()
 
     /** Amount of restarts */
-    var restarts = statistic(false)
+    var restarts = statistic()
 
     /** Amount of clauses shrunk by removing falsified literals */
-    var shrunkClauses = statistic(false)
+    var shrunkClauses = statistic()
 
     /** Amount of clauses removed because they are satisfied by level 0 assignment */
-    var satisfiedClauses = statistic(false)
+    var satisfiedClauses = statistic()
 
     /** Amount of reductions of the clause database */
-    var dbReduces = statistic(false)
+    var dbReduces = statistic()
 
     /** Amount of probes in failed literal probing tried */
-    var flpProbes = statistic(false)
+    var flpProbes = statistic()
 
     /** Amount of propagations in FLP */
-    var flpPropagations = statistic(false)
+    var flpPropagations = statistic()
 
     /** Amount of clauses derived by hyper binary resolution */
-    var flpHyperBinaries = statistic(false)
+    var flpHyperBinaries = statistic()
 
     /** Amount of unit clauses derived from failed probes propagated */
-    var flpUnitClauses = statistic(false)
+    var flpUnitClauses = statistic()
 
     /**
      * Start counting statistics this restart from 0.
@@ -65,7 +65,7 @@ class Statistics {
             stat.resetThisRestart()
         }
 
-        restarts.inc { "Restarting" }
+        restarts++
     }
 
     /**
@@ -83,10 +83,7 @@ class Statistics {
 /**
  * A convenience class for tracking a single statistic.
  */
-data class Statistic(
-    /** Whether to log changes in this statistic */
-    val logging: Boolean
-) {
+class Statistic {
     /** Overall value of the statistic, from the creation of the solver */
     var overall: Int = 0
 
@@ -103,14 +100,11 @@ data class Statistic(
     val thisSolve get() = overall - valueLastSolve
 
     /**
-     * Increment the statistic by 1, optionally printing a message.
-     *
-     * @param message A function that returns a string to log,
-     *        or null if nothing should be logged.
+     * Increment the statistic by 1.
      */
-    inline fun inc(crossinline message: () -> String?) {
+    operator fun inc(): Statistic {
         overall++
-        if (logging) message()?.let { println(it) }
+        return this
     }
 
     /**
@@ -122,7 +116,7 @@ data class Statistic(
     }
 
     /**
-     * Reset the statistic this solve to 0.
+     * Reset the statistic this [CDCL.solve] to 0.
      * @see [Statistics.resetThisSolve]
      */
     fun resetThisSolve() {

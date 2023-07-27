@@ -71,7 +71,7 @@ class ClauseDatabase(private val solver: CDCL) {
 
             for (lit in clause.lits) {
                 if (solver.assignment.fixed(lit) == LBool.TRUE) {
-                    solver.statistics.satisfiedClauses.inc { "Satisfied clause: $clause" }
+                    solver.statistics.satisfiedClauses++
                     solver.markDeleted(clause)
                     continue@outer
                 }
@@ -89,7 +89,7 @@ class ClauseDatabase(private val solver: CDCL) {
                 solver.assignment.fixed(it) == LBool.FALSE
             }
 
-            solver.statistics.shrunkClauses.inc { "Shrunk clause: $clauseBefore -> $clause" }
+            solver.statistics.shrunkClauses++
 
             if (clause.learnt) {
                 solver.dratBuilder.addClause(clause)
@@ -171,7 +171,7 @@ class ClauseDatabase(private val solver: CDCL) {
         if (learnts.size > maxLearntsBeforeReduce + solver.assignment.trail.size) {
             maxLearntsBeforeReduce += strategy.maxLearntsBeforeReduceIncrement
 
-            solver.statistics.dbReduces.inc { "Reducing DB" }
+            solver.statistics.dbReduces++
 
             simplify()
 

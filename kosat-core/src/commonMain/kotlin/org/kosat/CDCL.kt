@@ -327,7 +327,7 @@ class CDCL(var cfg: Configuration) {
             // Enqueue the decision literal, expect it to propagate at the next iteration.
             assignment.uncheckedEnqueue(nextDecisionLiteral, null)
 
-            statistics.decisions.inc { "Decision: $nextDecisionLiteral" }
+            statistics.decisions++
 
             // Propagate the decision,
             // in case there is a conflict, backtrack, and repeat
@@ -352,7 +352,7 @@ class CDCL(var cfg: Configuration) {
         while (true) {
             val conflict = propagate() ?: return true
 
-            statistics.conflicts.inc { "Conflict: $conflict" }
+            statistics.conflicts++
 
             // If there is a conflict on level 0, the problem is UNSAT
             if (assignment.decisionLevel == 0) return false
@@ -364,7 +364,7 @@ class CDCL(var cfg: Configuration) {
             val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
             backtrack(level)
 
-            statistics.learned.inc { "Learned: $learnt" }
+            statistics.learned++
 
             // Attach learnt to the solver
             if (learnt.size == 1) {
@@ -546,7 +546,7 @@ class CDCL(var cfg: Configuration) {
         val probesToTry = generateProbes()
 
         for (probe in probesToTry) {
-            statistics.flpProbes.inc { "FLP: Probing with $probe" }
+            statistics.flpProbes++
 
             // If we know that the probe is already assigned, skip it
             if (assignment.value(probe) != LBool.UNDEF) {
@@ -565,7 +565,7 @@ class CDCL(var cfg: Configuration) {
                     return finishWithUnsat()
                 }
 
-                statistics.flpUnitClauses.inc { "FLP: Discovered unit clause $probe" }
+                statistics.flpUnitClauses++
 
                 // Can we learn more while we are at level 0?
                 propagate()?.let {
@@ -590,7 +590,7 @@ class CDCL(var cfg: Configuration) {
      * then assign as a reason for the deduced literal.
      */
     private fun propagateProbeAndLearnBinary(): Clause? {
-        statistics.flpPropagations.inc { "FLP: Propagating" }
+        statistics.flpPropagations++
 
         require(assignment.decisionLevel == 1)
         assignment.qheadBinaryOnly = assignment.qhead
@@ -640,9 +640,7 @@ class CDCL(var cfg: Configuration) {
                         // so we can learn a new clause
                         val newBinary = hyperBinaryResolve(clause)
 
-                        statistics.flpHyperBinaries.inc {
-                            "FLP: Learned binary clause $newBinary through hyper binary resolution"
-                        }
+                        statistics.flpHyperBinaries++
 
                         // The new clause may subsume the old one, rendering it useless
                         // TODO: However, we don't know if this clause is learned or given,
@@ -843,7 +841,7 @@ class CDCL(var cfg: Configuration) {
     fun markDeleted(clause: Clause) {
         check(ok)
         clause.deleted = true
-        statistics.deleted.inc { "Deleted: $clause" }
+        statistics.deleted++
         if (clause.learnt) dratBuilder.deleteClause(clause)
     }
 
@@ -861,7 +859,7 @@ class CDCL(var cfg: Configuration) {
      * conflict occurs.
      */
     private fun propagate(): Clause? {
-        statistics.propagations.inc { "Propagating" }
+        statistics.propagations++
 
         check(ok)
 
@@ -870,7 +868,7 @@ class CDCL(var cfg: Configuration) {
         while (assignment.qhead < assignment.trail.size) {
             val lit = assignment.dequeue()!!
 
-            statistics.propagatedLiterals.inc { "Propagating $lit" }
+            statistics.propagatedLiterals++
 
             check(value(lit) == LBool.TRUE)
 
