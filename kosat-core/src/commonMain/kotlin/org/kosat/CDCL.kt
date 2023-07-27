@@ -169,7 +169,7 @@ class CDCL {
                 }
             }
 
-            else -> attachClause(clause)
+            else -> attachClause(clause, addToDrat = false)
         }
     }
 
@@ -419,10 +419,12 @@ class CDCL {
         }
 
         for (varIndex in 0 until assignment.numberOfVariables) {
-            cachedModel!!.add(when (assignment.valueAfterSubstitution(Var(varIndex))) {
-                LBool.TRUE, LBool.UNDEF -> true
-                LBool.FALSE -> false
-            })
+            cachedModel!!.add(
+                when (assignment.valueAfterSubstitution(Var(varIndex))) {
+                    LBool.TRUE, LBool.UNDEF -> true
+                    LBool.FALSE -> false
+                }
+            )
         }
 
         return cachedModel!!
@@ -672,9 +674,6 @@ class CDCL {
             // We simply remove such clauses.
             if (!containsComplementary) {
                 val newClause = Clause(newLits, clause.learnt)
-                // Only learnt, non-unit clauses are added to the proof automatically,
-                // so we have to add the rest manually
-                if (newClause.size == 1 || !clause.learnt) dratBuilder.addClause(newClause)
                 if (newClause.size == 1) {
                     check(assignment.enqueue(newClause[0], null))
                 } else {
@@ -838,25 +837,27 @@ class CDCL {
                     // so we can learn a new clause
                     val newBinary = hyperBinaryResolve(clause)
 
-                    // The new clause may subsume the old one, rendering it useless
-                    // TODO: However, we don't know if this clause is learned or given,
-                    //   so we can't let it be deleted. On the other hand, we can't
-                    //   allow just adding it to the list of clauses to keep, because
-                    //   this may result in too many clauses being kept.
-                    //   This should be reworked with the new clause storage mechanism,
-                    //   and new flags for clauses. Won't fix for now.
-                    // TODO: this turns out to be more difficult than I expected and
-                    //   requires further investigation.
-                    // if (newBinary[0] in clause.lits) {
-                    //     clause.deleted = true
-                    //     clausesToKeep.removeLast()
-                    //     newBinary.learnt = clause.learnt
-                    // }
+                    // Check that lit in either at index 0 of the clause and negated,
+                    // or not in the clause at all.
+                    check(
+                        newBinary[0] == lit.neg ||
+                            lit.variable != newBinary[0].variable && lit.variable != newBinary[1].variable
+                    )
 
-                    attachClause(newBinary)
+                    // The new clause may subsume the old one, rendering it useless
+                    if (newBinary[0] in clause.lits) {
+                        // We don't need to keep the clause in the watcher list
+                        clausesToKeep.removeLast()
+                        newBinary.learnt = clause.learnt
+                        attachClause(newBinary)
+                        markDeleted(clause)
+                    } else {
+                        // If not, simply add the new clause
+                        attachClause(newBinary)
+                    }
 
                     // Make sure watch is not overwritten at the end of the loop
-                    if (lit == newBinary[0]) clausesToKeep.add(newBinary)
+                    if (lit.neg == newBinary[0]) clausesToKeep.add(newBinary)
 
                     assignment.uncheckedEnqueue(clause[0], newBinary)
                     // again, we try to only use binary clauses first
@@ -1011,13 +1012,13 @@ class CDCL {
     /**
      * Add [clause] into the database and attach watchers for it.
      */
-    private fun attachClause(clause: Clause) {
+    private fun attachClause(clause: Clause, addToDrat: Boolean = true) {
         require(clause.size >= 2) { clause }
         check(ok)
         db.add(clause)
         watchers[clause[0]].add(clause)
         watchers[clause[1]].add(clause)
-        if (clause.learnt) dratBuilder.addClause(clause)
+        if (addToDrat) dratBuilder.addClause(clause)
     }
 
     /**
