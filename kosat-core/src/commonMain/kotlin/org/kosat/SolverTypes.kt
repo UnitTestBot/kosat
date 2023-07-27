@@ -64,6 +64,19 @@ value class Lit(val inner: Int) {
         return if (isPos) v else -v
     }
 
+    /**
+     * Returns a literal not equal to `this`, among two given literals,
+     * assuming that `this` is (at least) one of them.
+     */
+    fun differentAmong2(lit1: Lit, lit2: Lit): Lit {
+        check(this == lit1 || this == lit2)
+        return Lit(inner xor lit1.inner xor lit2.inner)
+    }
+
+    infix fun xor(b: Boolean): Lit {
+        return Lit(inner xor b.toInt())
+    }
+
     companion object {
         fun fromDimacs(lit: Int): Lit {
             val v = abs(lit) - 1 // 0-based variables index

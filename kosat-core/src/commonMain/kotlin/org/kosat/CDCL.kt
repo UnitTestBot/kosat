@@ -1,6 +1,7 @@
 package org.kosat
 
 import org.kosat.cnf.CNF
+import kotlin.math.min
 
 /**
  * Solves [cnf] and returns
@@ -55,12 +56,6 @@ class CDCL {
     val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
     /**
-     * The number of variables.
-     */
-    var numberOfVariables: Int = 0
-        private set
-
-    /**
      * The maximum amount of probes expected to be returned
      * by [generateProbes].
      *
@@ -69,9 +64,15 @@ class CDCL {
     private val flpMaxProbes = 1000
 
     /**
+     * Amount of [equivalentLiteralSubstitution] rounds before and after
+     * [failedLiteralProbing] to perform.
+     */
+    private val elsRounds = 5
+
+    /**
      * The branching heuristic, used to choose the next decision variable.
      */
-    private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
+    private val variableSelector: VariableSelector = VSIDS(assignment.numberOfVariables)
 
     /**
      * The restart strategy, used to decide when to restart the search.
@@ -95,12 +96,12 @@ class CDCL {
         initialClauses: Iterable<Clause>,
         initialVarsNumber: Int = 0,
     ) {
-        while (numberOfVariables < initialVarsNumber) {
+        while (assignment.numberOfVariables < initialVarsNumber) {
             newVariable()
         }
 
         initialClauses.forEach { newClause(it) }
-        polarity = MutableList(numberOfVariables + 1) { LBool.UNDEF }
+        polarity = MutableList(assignment.numberOfVariables) { LBool.UNDEF }
     }
 
     constructor(cnf: CNF) : this(cnf.clauses.map { Clause.fromDimacs(it) }, cnf.numVars)
@@ -111,9 +112,7 @@ class CDCL {
      * The [newClause] technically adds variables automatically,
      * but sometimes not all variables have to be mentioned in the clauses.
      */
-    fun newVariable(): Int {
-        numberOfVariables++
-
+    fun newVariable() {
         // Watch
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
@@ -126,11 +125,9 @@ class CDCL {
 
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
-
-        return numberOfVariables
     }
 
-    fun value(lit: Lit): LBool {
+    private fun value(lit: Lit): LBool {
         return assignment.value(lit)
     }
 
@@ -145,7 +142,7 @@ class CDCL {
 
         // Add not mentioned variables from the new clause
         val maxVar = clause.lits.maxOfOrNull { it.variable.index } ?: 0
-        while (numberOfVariables < maxVar) {
+        while (assignment.numberOfVariables < maxVar) {
             newVariable()
         }
 
@@ -153,8 +150,8 @@ class CDCL {
         clause.lits.removeAll { value(it) == LBool.FALSE }
 
         // If the clause contains complementary literals, ignore it as useless,
-        // otherwise removes duplicate literals in it.
-        if (sortDedupAndCheckComplimentary(clause.lits)) return
+        // perform substitution otherwise
+        if (substituteAndCheckComplimentary(clause.lits)) return
 
         when (clause.size) {
             // Empty clause is an immediate UNSAT
@@ -177,11 +174,16 @@ class CDCL {
     }
 
     /**
-     * Takes a list of literals, sorts it and removes duplicates in place,
+     * Takes a list of literals, applies every variable substitution
+     * (see [VarState.substitution]), sorts it and removes duplicates in place,
      * then checks if the list contains a literal and its negation
      * and returns true if so.
      */
-    private fun sortDedupAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
+    private fun substituteAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
+        for (i in 0 until lits.size) {
+            lits[i] = assignment.getSubstitutionOf(lits[i])
+        }
+
         lits.sortBy { it.inner }
 
         var i = 0
@@ -238,16 +240,12 @@ class CDCL {
         if (!ok) return finishWithUnsat()
 
         // Check if the assumptions are trivially unsatisfiable,
-        // and remove duplicates along the way.
-        if (sortDedupAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
+        // performing substitutions along the way if required
+        if (substituteAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
 
         // Clean up from the previous solve
         if (assignment.decisionLevel > 0) backtrack(0)
         cachedModel = null
-
-        // If the problem is trivially SAT, simply return the result
-        // (and check for assumption satisfiability)
-        if (db.clauses.isEmpty()) return finishWithSatIfAssumptionsOk()
 
         // Check for an immediate level 0 conflict
         propagate()?.let { return finishWithUnsat() }
@@ -275,7 +273,7 @@ class CDCL {
 
             // Check if all variables are assigned, indicating satisfiability,
             // (unless assumptions are falsified)
-            if (assignment.trail.size == numberOfVariables) {
+            if (assignment.trail.size == assignment.numberOfActiveVariables) {
                 return finishWithSatIfAssumptionsOk()
             }
 
@@ -414,16 +412,17 @@ class CDCL {
     fun getModel(): List<Boolean> {
         if (cachedModel != null) return cachedModel!!
 
-        cachedModel = assignment.value.map {
-            when (it) {
-                LBool.TRUE, LBool.UNDEF -> true
-                LBool.FALSE -> false
-            }
-        }.toMutableList()
+        cachedModel = mutableListOf()
 
         for (assumption in assumptions) {
-            check(value(assumption) != LBool.FALSE)
-            cachedModel!![assumption.variable] = assumption.isPos
+            check(assignment.value(assumption) == LBool.TRUE)
+        }
+
+        for (varIndex in 0 until assignment.numberOfVariables) {
+            cachedModel!!.add(when (assignment.valueAfterSubstitution(Var(varIndex))) {
+                LBool.TRUE, LBool.UNDEF -> true
+                LBool.FALSE -> false
+            })
         }
 
         return cachedModel!!
@@ -442,13 +441,29 @@ class CDCL {
         require(assignment.qhead == assignment.trail.size)
 
         dratBuilder.addComment("Preprocessing")
+
+        dratBuilder.addComment("Preprocessing: Equivalent literal substitution")
+
+        // Running ELS before FLP helps to get more binary clauses
+        // and remove cycles in the binary implication graph
+        // to make probes for FLP more effective
+        equivalentLiteralSubstitutionRounds()?.let { return it }
+
         dratBuilder.addComment("Preprocessing: Failed literal probing")
 
         failedLiteralProbing()?.let { return it }
 
+        dratBuilder.addComment("Preprocessing: Equivalent literal substitution (post FLP)")
+
+        // After FLP we might have gotten new binary clauses
+        // though hyper-binary resolution, so we run ELS again
+        // to substitute literals that are now equivalent
+        equivalentLiteralSubstitutionRounds()?.let { return it }
+
+
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
-        if (assignment.trail.size == numberOfVariables) {
+        if (assignment.trail.size == assignment.numberOfVariables) {
             return finishWithSatIfAssumptionsOk()
         }
 
@@ -467,17 +482,219 @@ class CDCL {
     }
 
     /**
-     * Literal probing is only useful if the probe can lead
+     * Returns the list of literals that are directly implied by
+     * the given literal though binary clauses.
+     *
+     * @see equivalentLiteralSubstitution
+     */
+    private fun binaryImplicationsFrom(lit: Lit): List<Lit> {
+        check(value(lit) == LBool.UNDEF)
+        val implied = mutableListOf<Lit>()
+
+        for (watched in watchers[lit.neg]) {
+            if (watched.deleted) continue
+            if (watched.size != 2) continue
+
+            val other = watched.otherWatch(lit.neg)
+
+            check(value(other) != LBool.FALSE)
+            if (value(other) != LBool.UNDEF) continue
+            implied.add(other)
+        }
+
+        return implied
+    }
+
+    /**
+     * Performs multiple rounds of [equivalentLiteralSubstitution].
+     *
+     * This is because ELS can be used to derive new binary clauses,
+     * which in turn can be used to derive new ELS substitutions.
+     */
+    private fun equivalentLiteralSubstitutionRounds(): SolveResult? {
+        // This simplify helps to increase the number of binary clauses
+        // and allows to not think about assigned literals in ELS itself.
+        db.simplify()
+
+        for (i in 0 until elsRounds) {
+            equivalentLiteralSubstitution()?.let { return it }
+        }
+
+        // We must update assumptions after ELS, because it can
+        // substitute literals in assumptions, and even derive UNSAT.
+        if (substituteAndCheckComplimentary(assumptions)) {
+            return finishWithAssumptionsUnsat()
+        }
+
+        variableSelector.initAssumptions(assumptions)
+
+        return null
+    }
+
+    /**
+     * Equivalent Literal Substitution (ELS) is a preprocessing technique
+     * that tries to find literals that are equivalent to each other.
+     *
+     * Consider clauses (-1, -2), (2, 3) and (-3, 1). In every satisfying
+     * assignment, 1 is equal to -2, and -2 is equal to 3. This means that
+     * we can substitute, for example, -2 and 3 with 1 in every clause,
+     * and the problem will generally remain the same.
+     *
+     * This function tries to find such literals and substitute them. To do
+     * this, it searches for strongly connected components in the binary
+     * implication graph, selects one representative literal from each
+     * component, and substitutes all other literals in the component with
+     * the representative.
+     */
+    private fun equivalentLiteralSubstitution(): SolveResult? {
+        require(assignment.decisionLevel == 0)
+
+        // To find strongly connected components, we use Tarjan's algorithm.
+        // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+
+        // Indicates that the literal is not visited yet
+        val markUnvisited = 0
+        // Indicates that the literal is in the stack (from Tarjan's algorithm)
+        val markInStack = 1
+        // Indicates that the literal got in the strongly connected component
+        // after stack unwinding, but not substituted yet
+        val markInScc = 2
+        // Indicates that the literal is processed, and possibly substituted
+        val markProcessed = 3
+
+        // Marks for each literal, as above
+        val marks = MutableList(assignment.numberOfVariables * 2) { markUnvisited }
+        // Tarjan's algorithm counter per literal
+        val num = MutableList(assignment.numberOfVariables * 2) { 0 }
+        var counter = 0
+
+        // Stack for Tarjan's algorithm
+        val stack = mutableListOf<Lit>()
+
+        // Total number of literals substituted
+        var totalSubstituted = 0
+
+        // Tarjan's algorithm, returns the lowest number of all reachable nodes
+        // from the given node, or null if the node is in a cycle with the
+        // negation of itself, and the problem is UNSAT
+        fun dfs(v: Lit): Int? {
+            check(value(v) == LBool.UNDEF)
+            check(marks[v] == 0)
+
+            marks[v] = markInStack
+            stack.add(v)
+
+            counter++
+            num[v] = counter
+            var lowest = counter
+
+            for (u in binaryImplicationsFrom(v)) {
+                if (marks[u] == markUnvisited) {
+                    val otherLowest = dfs(u) ?: return null
+                    lowest = min(otherLowest, lowest)
+                } else if (marks[u] != markProcessed) {
+                    lowest = min(lowest, num[u])
+                }
+            }
+
+            if (lowest == num[v]) {
+                val scc = mutableListOf<Lit>()
+                while (true) {
+                    val u = stack.removeLast()
+                    marks[u] = markInScc
+                    scc.add(u)
+                    if (u == v) {
+                        for (w in scc) {
+                            // If two complementary literals are in the same SCC,
+                            // the problem is UNSAT
+                            if (marks[w.neg] == markInScc) {
+                                dratBuilder.addComment(
+                                    "Discovered UNSAT due to complement literals being in the same SCC"
+                                )
+                                // Adding unit clauses is required for the proof
+                                dratBuilder.addClause(Clause(mutableListOf(w)))
+                                dratBuilder.addClause(Clause(mutableListOf(w.neg)))
+                                return null
+                            }
+                            marks[w] = markProcessed
+                        }
+
+                        // We can choose any literal from the SCC as a
+                        // representative, so we choose the minimal one to
+                        // avoid re-substitution to a different literal later
+                        val repr = scc.minBy { it.inner }
+                        for (w in scc) {
+                            if (w != repr) assignment.markSubstituted(w, repr)
+                        }
+                        // Note that there is no need to add clauses to the proof
+                        totalSubstituted += scc.size - 1
+                        break
+                    }
+                }
+            }
+
+            return lowest
+        }
+
+        // We perform substitution for all reachable SCCs from every positive
+        // literal. There is no need to do it for negative literals, because
+        // those will just produce the same substitutions (the binary
+        // implication graph is symmetrical), and we are likely to visit both
+        // positive and negative literals anyway.
+        for (varIndex in 0 until assignment.numberOfVariables) {
+            val variable = Var(varIndex)
+            val lit = variable.posLit
+
+            if (
+                assignment.isSubstituted(variable) ||
+                (marks[lit] != markUnvisited || marks[lit.neg] != markUnvisited) ||
+                value(lit) != LBool.UNDEF
+            ) continue
+
+            dfs(lit) ?: return finishWithUnsat()
+        }
+
+        if (totalSubstituted == 0) return null
+
+        assignment.fixNestedSubstitutions()
+
+        // Replace clauses which might have simplified due to substitution
+        for (clause in db.clauses + db.learnts) {
+            if (clause.deleted) continue
+
+            val willChange = clause.lits.any { assignment.isSubstituted(it.variable) }
+            if (!willChange) continue
+
+            val newLits = clause.lits.toMutableList()
+            val containsComplementary = substituteAndCheckComplimentary(newLits)
+            // Note that clause cannot become empty,
+            // however, it can contain complementary literals.
+            // We simply remove such clauses.
+            if (!containsComplementary) {
+                val newClause = Clause(newLits, clause.learnt)
+                // Only learnt, non-unit clauses are added to the proof automatically,
+                // so we have to add the rest manually
+                if (newClause.size == 1 || !clause.learnt) dratBuilder.addClause(newClause)
+                if (newClause.size == 1) {
+                    check(assignment.enqueue(newClause[0], null))
+                } else {
+                    attachClause(newClause)
+                }
+            }
+
+            markDeleted(clause)
+        }
+
+        // Propagate all the new unit clauses which might have been discovered.
+        propagate()?.let { return finishWithUnsat() }
+
+        return null
+    }
+
+    /**
+     * Literal probing is only useful if the probe can
      * lead to derivation of something by itself. We can
      * generate list of possibly useful probes ahead of time.
-     *
-     * TODO: Right now, this implementation is very naive.
-     *       If there is a cycle in binary implication graph,
-     *       we will generate a lot of useless probes that will
-     *       propagate in exactly the same way and possibly
-     *       produce a lot of duplicate/implied binary clauses.
-     *       This will be fixed with the implementation of
-     *       Equivalent Literal Substitution (ELS).
      *
      *  @return list of literals to try probing with
      */
@@ -485,18 +702,28 @@ class CDCL {
         val probes = mutableSetOf<Lit>()
 
         for (clause in db.clauses) {
+            if (clause.deleted) continue
+            if (clause.size == 2) continue
+
             // (A | B) <==> (-A -> B) <==> (-B -> A)
-            // Both -A and -B can be used as probes
-            if (clause.size == 2) {
-                val (a, b) = clause.lits
-                if (assignment.value(a) == LBool.UNDEF) probes.add(a.neg)
-                if (probes.size >= flpMaxProbes) break
-                if (assignment.value(b) == LBool.UNDEF) probes.add(b.neg)
-                if (probes.size >= flpMaxProbes) break
-            }
+            // Both -A and -B can be used as probes, there is little need
+            // to choose both, however.
+            val (a, b) = clause.lits
+            probes.add(if (a.inner < b.inner) a.neg else b.neg)
         }
 
-        return probes.toMutableList()
+        // Remove probes that follow from binary clauses,
+        // leaving only roots of the binary implication graph
+        for (clause in db.clauses) {
+            if (clause.deleted) continue
+            if (clause.size != 2) continue
+
+            val (a, b) = clause.lits
+            probes.remove(a)
+            probes.remove(b)
+        }
+
+        return probes.take(flpMaxProbes).toMutableList()
     }
 
     /**
@@ -665,11 +892,7 @@ class CDCL {
                 if (clause.deleted) continue
                 if (clause.size != 2) continue
 
-                val other = if (clause[0].variable == lit.variable) {
-                    clause[1]
-                } else {
-                    clause[0]
-                }
+                val other = clause.otherWatch(lit.neg)
 
                 when (value(other)) {
                     // if the other literal is true, the
@@ -772,13 +995,11 @@ class CDCL {
                 if (assignment.trailIndex(lcaVar) > assignment.trailIndex(litVar)) {
                     check(assignment.reason(lcaVar)!!.size == 2)
                     val (a, b) = assignment.reason(lcaVar)!!.lits
-                    // TODO: this can be done with xor,
-                    //   will fix after merging feature/assignment
-                    lca = if (a == lca) b.neg else a.neg
+                    lca = lca.differentAmong2(a, b).neg
                 } else {
                     check(assignment.reason(litVar)!!.size == 2)
                     val (a, b) = assignment.reason(litVar)!!.lits
-                    lit = if (a == lit) b.neg else a.neg
+                    lit = lit.differentAmong2(a, b).neg
                 }
             }
         }
@@ -832,10 +1053,6 @@ class CDCL {
             val lit = assignment.dequeue()!!
 
             check(value(lit) == LBool.TRUE)
-
-            if (value(lit) == LBool.FALSE) {
-                return assignment.reason(lit.variable)
-            }
 
             // Checking the list of clauses watching the negation of the literal.
             // In those clauses, both of the watched literals might be false,
@@ -919,7 +1136,7 @@ class CDCL {
 
         // Keep track of the variables we have "seen" during the analysis
         // (see implementation below for details)
-        val seen = BooleanArray(numberOfVariables)
+        val seen = BooleanArray(assignment.numberOfVariables)
 
         // The list of literals of the learnt
         val learntLits = mutableListOf<Lit>()

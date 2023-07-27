@@ -100,6 +100,7 @@ internal class DiamondTests {
             }
             println("MiniSat conflicts: ${backend.numberOfConflicts}")
             println("Minisat decisions: ${backend.numberOfDecisions}")
+            println("MiniSat result: $result")
 
             result
         }

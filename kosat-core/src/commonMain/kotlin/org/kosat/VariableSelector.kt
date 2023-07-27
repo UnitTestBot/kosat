@@ -214,8 +214,9 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
             return null
         }
         // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { assignment.value(it) == LBool.UNDEF }
-            ?: getMaxActivityVariable(assignment).posLit
+        return assumptions.firstOrNull {
+            assignment.value(it) == LBool.UNDEF
+        } ?: getMaxActivityVariable(assignment).posLit
     }
 
     override fun backTrack(variable: Var) {
@@ -229,7 +230,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         while (true) {
             require(activityPQ.size > 0)
             val v = activityPQ.pop()
-            if (assignment.value(Var(v)) == LBool.UNDEF) {
+            if (assignment.varData[Var(v)].substitution == null && assignment.value(Var(v)) == LBool.UNDEF) {
                 return Var(v)
             }
         }
