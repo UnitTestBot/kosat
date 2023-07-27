@@ -835,7 +835,7 @@ class CDCL {
                 } else if (firstNotFalse == -1) {
                     // we deduced this literal from a non-binary clause,
                     // so we can learn a new clause
-                    val newBinary = hyperBinaryResolve(clause)
+                    var newBinary = hyperBinaryResolve(clause)
 
                     // Check that lit in either at index 0 of the clause and negated,
                     // or not in the clause at all.
@@ -848,7 +848,7 @@ class CDCL {
                     if (newBinary[0] in clause.lits) {
                         // We don't need to keep the clause in the watcher list
                         clausesToKeep.removeLast()
-                        newBinary.learnt = clause.learnt
+                        newBinary = newBinary.copy(learnt = clause.learnt)
                         attachClause(newBinary)
                         markDeleted(clause)
                     } else {

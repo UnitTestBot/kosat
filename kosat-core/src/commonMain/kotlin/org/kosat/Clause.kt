@@ -2,7 +2,7 @@ package org.kosat
 
 data class Clause(
     val lits: MutableList<Lit>,
-    var learnt: Boolean = false,
+    val learnt: Boolean = false,
 ) {
     val size: Int get() = lits.size
     var deleted: Boolean = false
