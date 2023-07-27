@@ -56,7 +56,7 @@ data class Configuration(
      * The restart strategy.
      * @see Restarter
      */
-    sealed class Restarts {
+    sealed interface Restarts {
         /**
          * The Luby restart strategy.
          * @see Restarter
@@ -70,7 +70,7 @@ data class Configuration(
         ) : Restarts
     }
 
-    sealed class ClauseDbStrategy(
+    sealed interface ClauseDbStrategy {
         /**
          * The initial maximum number of learnt clauses.
          * @see ClauseDatabase.reduceIfNeeded
@@ -87,25 +87,19 @@ data class Configuration(
          * Use the clause activity to determine which clauses to remove.
          * @see ClauseDatabase.reduceBasedOnActivity
          */
-        class Activity(
-            maxLearntsBeforeReduceInitial: Int = 6000,
-            maxLearntsBeforeReduceIncrement: Int = 500,
-            val decay: Double = 0.999,
-        ) : ClauseDbStrategy(
-            maxLearntsBeforeReduceInitial,
-            maxLearntsBeforeReduceIncrement,
-        )
+        data class Activity(
+            override var maxLearntsBeforeReduceInitial: Int = 6000,
+            override var maxLearntsBeforeReduceIncrement: Int = 500,
+            var decay: Double = 0.999,
+        ) : ClauseDbStrategy
 
         /**
          * Use the LBD to determine which clauses to remove.
          * @see ClauseDatabase.reduceBasedOnLBD
          */
-        class LBD(
-            maxLearntsBeforeReduceInitial: Int = 6000,
-            maxLearntsBeforeReduceIncrement: Int = 500,
-        ) : ClauseDbStrategy(
-            maxLearntsBeforeReduceInitial,
-            maxLearntsBeforeReduceIncrement,
-        )
+        data class LBD(
+            override var maxLearntsBeforeReduceInitial: Int = 6000,
+            override var maxLearntsBeforeReduceIncrement: Int = 500,
+        ) : ClauseDbStrategy
     }
 }
