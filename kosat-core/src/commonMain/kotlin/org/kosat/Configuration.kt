@@ -7,22 +7,22 @@ data class Configuration(
     /**
      * The restart strategy.
      */
-    val restarts: Restarts = Restarts.Luby(),
+    var restarts: Restarts = Restarts.Luby(),
 
     /**
      * Configuration of the clause database
      */
-    val clauseDbStrategy: ClauseDbStrategy = ClauseDbStrategy.LBD(),
+    var clauseDbStrategy: ClauseDbStrategy = ClauseDbStrategy.LBD(),
 
     /**
      * Failed literal probing configuration.
      */
-    val flp: FailedLiteralPropagation? = FailedLiteralPropagation(),
+    var flp: FailedLiteralPropagation? = FailedLiteralPropagation(),
 
     /**
      * The DRAT proof builder.
      */
-    val dratBuilder: AbstractDratBuilder = NoOpDratBuilder(),
+    var dratBuilder: AbstractDratBuilder = NoOpDratBuilder(),
 
     /**
      * The function that determines if the solver should terminate
@@ -31,7 +31,7 @@ data class Configuration(
      * according to some other custom metric.
      * @see CDCL.search
      */
-    val withinBudget: (Statistics) -> Boolean = { true },
+    var withinBudget: (Statistics) -> Boolean = { true },
 ) {
     /**
      * Configuration of the failed literal probing.
@@ -42,14 +42,14 @@ data class Configuration(
          * The maximum number of probes allowed to propagate.
          * @see CDCL.generateProbes
          */
-        val maxProbes: Int = 1000,
+        var maxProbes: Int = 1000,
 
         /**
          * Whether to use perform hyper-binary resolution on
          * the failed literal and learn binary clauses.
          * @see CDCL.hyperBinaryResolve
          */
-        val hyperBinaryResolution: Boolean = true,
+        var hyperBinaryResolution: Boolean = true,
     )
 
     /**
@@ -66,8 +66,8 @@ data class Configuration(
              * The constant luby sequence is multiplied to.
              * @see Restarter.restartIfNeeded
              */
-            val conflictCountConstant: Double = 50.0,
-        ) : Restarts()
+            var conflictCountConstant: Double = 50.0,
+        ) : Restarts
     }
 
     sealed class ClauseDbStrategy(
@@ -75,14 +75,14 @@ data class Configuration(
          * The initial maximum number of learnt clauses.
          * @see ClauseDatabase.reduceIfNeeded
          */
-        val maxLearntsBeforeReduceInitial: Int,
+        val maxLearntsBeforeReduceInitial: Int
 
         /**
          * The maximum number of learnt clauses increment.
          * @see ClauseDatabase.reduceIfNeeded
          */
-        val maxLearntsBeforeReduceIncrement: Int,
-    ) {
+        val maxLearntsBeforeReduceIncrement: Int
+
         /**
          * Use the clause activity to determine which clauses to remove.
          * @see ClauseDatabase.reduceBasedOnActivity
