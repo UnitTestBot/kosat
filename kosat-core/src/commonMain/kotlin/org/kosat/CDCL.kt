@@ -127,6 +127,12 @@ class CDCL {
         polarity.add(LBool.UNDEF)
     }
 
+    /**
+     * Return a value of the given literal, assuming it is not substituted.
+     * It is a shortcut for [Assignment.value].
+     *
+     * @see Assignment.value
+     */
     private fun value(lit: Lit): LBool {
         return assignment.value(lit)
     }
