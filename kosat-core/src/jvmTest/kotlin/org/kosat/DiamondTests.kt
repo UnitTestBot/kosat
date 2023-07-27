@@ -6,6 +6,7 @@ import korlibs.time.measureTimeWithResult
 import korlibs.time.roundMilliseconds
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
+import okio.Sink
 import okio.buffer
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Disabled
@@ -98,20 +99,18 @@ internal class DiamondTests {
     }
 
     private fun solveWithMiniSat(cnf: CNF): SolveResult {
-        MiniSatSolver().close()
-
-        return with(MiniSatSolver()) {
-            val lits = List(cnf.numVars) { newLiteral() }
+        return MiniSatSolver().use { minisat ->
+            val lits = List(cnf.numVars) { minisat.newLiteral() }
             for (clause in cnf.clauses) {
-                addClause(clause.map { it.sign * lits[abs(it) - 1] })
+                minisat.addClause(clause.map { it.sign * lits[abs(it) - 1] })
             }
-            val result = if (solve()) {
+            val result = if (minisat.solve()) {
                 SolveResult.SAT
             } else {
                 SolveResult.UNSAT
             }
-            println("MiniSat conflicts: ${backend.numberOfConflicts}")
-            println("Minisat decisions: ${backend.numberOfDecisions}")
+            println("MiniSat conflicts: ${minisat.backend.numberOfConflicts}")
+            println("Minisat decisions: ${minisat.backend.numberOfDecisions}")
 
             result
         }
@@ -123,8 +122,13 @@ internal class DiamondTests {
         }
 
         val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
+        var dratSink: Sink? = null
+        var dratBufferedSink: okio.BufferedSink? = null
+
         val dratBuilder = if (generateAndCheckDrat) {
-            DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
+            dratSink = FileSystem.SYSTEM.sink(dratPath)
+            dratBufferedSink = dratSink.buffer()
+            DratBuilder(dratBufferedSink)
         } else {
             NoOpDratBuilder()
         }
@@ -189,6 +193,9 @@ internal class DiamondTests {
                 Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
             }
         }
+
+        dratSink?.close()
+        dratBufferedSink?.close()
 
         println("MiniSat time: ${timeMiniSat.roundMilliseconds()}")
         println("KoSat time: ${timeKoSat.roundMilliseconds()}")
