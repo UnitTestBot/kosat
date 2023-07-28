@@ -21,10 +21,6 @@ data class Clause(
         return lits.map { it.toDimacs() }
     }
 
-    fun otherWatch(lit: Lit): Lit {
-        return lit.differentAmong2(lits[0], lits[1])
-    }
-
     companion object {
         fun fromDimacs(clause: List<Int>): Clause {
             val lits = clause.map { Lit.fromDimacs(it) }.toMutableList()
