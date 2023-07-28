@@ -31,7 +31,7 @@ class CNF(
                         "Second header token must be 'cnf': \"$line\""
                     }
                     check(tokens.size == 4) {
-                        "Header should have exactly 3 tokens: \"$line\""
+                        "Header should have exactly 4 tokens: \"$line\""
                     }
                     numVars = tokens[2].toInt()
                 } else {
