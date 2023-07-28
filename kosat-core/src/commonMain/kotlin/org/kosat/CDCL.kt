@@ -505,7 +505,7 @@ class CDCL {
             if (watched.deleted) continue
             if (watched.size != 2) continue
 
-            val other = watched.otherWatch(lit.neg)
+            val other = Lit(watched[0].inner xor watched[1].inner xor lit.neg.inner)
 
             check(value(other) != LBool.FALSE)
             if (value(other) != LBool.UNDEF) continue
@@ -901,7 +901,7 @@ class CDCL {
                 if (clause.deleted) continue
                 if (clause.size != 2) continue
 
-                val other = clause.otherWatch(lit.neg)
+                val other = Lit(clause[0].inner xor clause[1].inner xor lit.neg.inner)
 
                 when (value(other)) {
                     // if the other literal is true, the
@@ -1004,11 +1004,11 @@ class CDCL {
                 if (assignment.trailIndex(lcaVar) > assignment.trailIndex(litVar)) {
                     check(assignment.reason(lcaVar)!!.size == 2)
                     val (a, b) = assignment.reason(lcaVar)!!.lits
-                    lca = lca.differentAmong2(a, b).neg
+                    lca = Lit(lca.inner xor a.inner xor b.inner).neg
                 } else {
                     check(assignment.reason(litVar)!!.size == 2)
                     val (a, b) = assignment.reason(litVar)!!.lits
-                    lit = lit.differentAmong2(a, b).neg
+                    lit = Lit(lit.inner xor a.inner xor b.inner).neg
                 }
             }
         }
