@@ -145,9 +145,9 @@ class ReconstructionStack {
 
             // If the clause is satisfied at level 0, we can just remove it from
             // the stack (see (*)). Note that this is totally safe. The clauses
-            // are guaranteed to contain a variable definition in some way, so
+            // are guaranteed to contain a variable "definition" in some way, so
             // removing a satisfied clauses does not affect the correctness of
-            // that definition. There must be an unsatisfied clause left, which
+            // its constraints. There must be an unsatisfied clause left, which
             // will be used to restore the variable and force its value.
             val satisfied = clause.lits.any { solver.assignment.isActiveAndTrue(it) }
 
