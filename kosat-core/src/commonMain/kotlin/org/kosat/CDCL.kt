@@ -55,6 +55,14 @@ class CDCL {
      */
     val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
+    /**
+     * The reconstruction stack, used to restore the solver state
+     * before adding new clauses or assumptions incrementally and
+     * to reconstruct the model after solving.
+     *
+     * @see getModel
+     * @see ReconstructionStack
+     */
     val reconstructionStack: ReconstructionStack = ReconstructionStack()
 
     /**

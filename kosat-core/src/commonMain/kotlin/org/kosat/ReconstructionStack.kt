@@ -104,10 +104,10 @@ class ReconstructionStack {
      * in the incremental solver, or due to given assumptions. In this case, we
      * need to restore that variable.
      *
-     * @param solver - the solver to restore
-     * @param newClauses - the clauses added to the solver from the last restore
+     * @param solver the solver to restore
+     * @param newClauses the clauses added to the solver from the last restore
      *        (not required on the first solve)
-     * @param assumptions - the assumptions added to the solver this solve.
+     * @param assumptions the assumptions added to the solver this solve.
      */
     fun restore(solver: CDCL, newClauses: List<Clause>, assumptions: List<Lit>) {
         require(solver.assignment.decisionLevel == 0)
