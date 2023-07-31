@@ -229,9 +229,9 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
     private fun getMaxActivityVariable(assignment: Assignment): Var {
         while (true) {
             require(activityPQ.size > 0)
-            val v = activityPQ.pop()
-            if (assignment.varData[Var(v)].substitution == null && assignment.value(Var(v)) == LBool.UNDEF) {
-                return Var(v)
+            val v = Var(activityPQ.pop())
+            if (assignment.isActive(v) && assignment.value(v) == LBool.UNDEF) {
+                return v
             }
         }
     }
