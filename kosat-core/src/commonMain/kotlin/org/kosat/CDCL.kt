@@ -83,6 +83,11 @@ class CDCL {
     private val restarter = Restarter(this)
 
     /**
+     * A list of clauses which were added since the last call to [solve].
+     */
+    private val newClauses = mutableListOf<Clause>()
+
+    /**
      * Create a new solver instance with no clauses.
      */
     constructor() : this(mutableListOf<Clause>())
@@ -160,6 +165,8 @@ class CDCL {
         // If the clause contains complementary literals, ignore it as useless,
         // perform substitution otherwise
         if (substituteAndCheckComplimentary(clause.lits)) return
+
+        newClauses.add(clause)
 
         when (clause.size) {
             // Empty clause is an immediate UNSAT
@@ -253,13 +260,12 @@ class CDCL {
         // Clean up from the previous solve
         if (assignment.decisionLevel > 0) backtrack(0)
         cachedModel = null
-        reconstructionStack.restore(this, emptyList(), assumptions)
+        reconstructionStack.restore(this, newClauses, assumptions)
         for (assumption in assumptions) assignment.freeze(assumption)
-        println("Level 0 assignments: ${assignment.trail}")
+        newClauses.clear()
 
         // Check for an immediate level 0 conflict
         propagate()?.let { return finishWithUnsat() }
-        println("Level 0 assignments after propagation: ${assignment.trail}")
 
         // Rebuild the variable selector
         // TODO: is there a way to not rebuild the selector every solve?
