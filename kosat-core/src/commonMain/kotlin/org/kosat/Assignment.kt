@@ -48,14 +48,14 @@ class Assignment(private val solver: CDCL) {
     }
 
     /**
-     * @return true, if the variable is active and assigned to true.
+     * @return true, if the literal is active and assigned to true.
      */
     fun isActiveAndTrue(lit: Lit): Boolean {
         return varData[lit.variable].active && value(lit) == LBool.TRUE
     }
 
     /**
-     * @return true, if the variable is active and assigned to false.
+     * @return true, if the literal is active and assigned to false.
      */
     fun isActiveAndFalse(lit: Lit): Boolean {
         return varData[lit.variable].active && value(lit) == LBool.FALSE
@@ -66,13 +66,13 @@ class Assignment(private val solver: CDCL) {
         return varData[lit.variable].frozen
     }
 
-    /** Marks active variable as [VarState.frozen] */
+    /** Marks active variable corresponding to [lit] as [VarState.frozen] */
     fun freeze(lit: Lit) {
         require(varData[lit.variable].active)
         varData[lit.variable].frozen = true
     }
 
-    /** Marks variable as not [VarState.frozen] */
+    /** Marks variable corresponding to [lit] as not [VarState.frozen] */
     fun unfreeze(lit: Lit) {
         varData[lit.variable].frozen = false
     }
