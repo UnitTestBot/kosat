@@ -74,10 +74,14 @@ class ReconstructionStack {
      * Reconstructs the model from the current assignment, assuming it is a
      * satisfying assignment.
      */
-    fun reconstruct(assignment: Assignment): MutableList<Boolean> {
+    fun reconstruct(assignment: Assignment): List<Boolean> {
         val model = MutableList(assignment.numberOfVariables) { varIndex ->
             val v = Var(varIndex)
-            assignment.isActiveAndTrue(v.posLit)
+            if (assignment.isActive(v)) {
+                assignment.value(v)
+            } else {
+                LBool.UNDEF
+            }
         }
 
         // To reconstruct the model, we need to go through the stack in reverse
@@ -87,13 +91,14 @@ class ReconstructionStack {
         // witness literal to true.
         for (stackIndex in stack.lastIndex downTo 0) {
             val (clause, witness) = stack[stackIndex]
-            val satisfied = clause.lits.any { model[it.variable] xor it.isNeg }
+            val satisfied = clause.lits.any { model[it.variable] xor it.isNeg == LBool.TRUE }
             if (!satisfied) {
-                model[witness.variable] = witness.isPos
+                check(model[witness.variable] == LBool.UNDEF)
+                model[witness.variable] = LBool.from(witness.isPos)
             }
         }
 
-        return model
+        return model.map { it == LBool.TRUE }
     }
 
     /**

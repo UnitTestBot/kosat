@@ -404,7 +404,7 @@ class CDCL {
      * the result of the first call to [getModel] and return the cached value
      * on subsequent calls. This is reset in [solve].
      */
-    private var cachedModel: MutableList<Boolean>? = null
+    private var cachedModel: List<Boolean>? = null
 
     /**
      * Return the assignment of variables. This function is meant to be used
