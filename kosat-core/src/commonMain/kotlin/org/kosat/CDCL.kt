@@ -164,7 +164,7 @@ class CDCL {
 
         // If the clause contains complementary literals, ignore it as useless,
         // perform substitution otherwise
-        if (substituteAndCheckComplimentary(clause.lits)) return
+        if (sortDedupAndCheckComplimentary(clause.lits)) return
 
         newClauses.add(clause)
 
@@ -188,30 +188,6 @@ class CDCL {
             // We don't add externally provided clauses to the proof.
             else -> attachClause(clause, addToDrat = false)
         }
-    }
-
-    /**
-     * Takes a list of literals, sorts it and removes duplicates in place,
-     * then checks if the list contains a literal and its negation
-     * and returns true if so.
-     */
-    private fun substituteAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
-        lits.sortBy { it.inner }
-
-        var i = 0
-        for (j in 1 until lits.size) {
-            if (lits[i] == lits[j].neg) return true
-            if (lits[i] != lits[j]) {
-                i++
-                lits[i] = lits[j]
-            }
-        }
-
-        while (lits.size > i + 1) {
-            lits.removeLast()
-        }
-
-        return false
     }
 
     fun backtrack(level: Int) {
@@ -255,7 +231,7 @@ class CDCL {
         if (!ok) return finishWithUnsat()
 
         // Check if the assumptions are trivially unsatisfiable
-        if (substituteAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
+        if (sortDedupAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
 
         // Clean up from the previous solve
         if (assignment.decisionLevel > 0) backtrack(0)
@@ -528,7 +504,7 @@ class CDCL {
 
         // We must update assumptions after ELS, because it can
         // substitute literals in assumptions, and even derive UNSAT.
-        if (substituteAndCheckComplimentary(assumptions)) {
+        if (sortDedupAndCheckComplimentary(assumptions)) {
             return finishWithAssumptionsUnsat()
         }
 
@@ -698,7 +674,7 @@ class CDCL {
             if (!willChange) continue
 
             val newLits = clause.lits.map { representatives[it.variable]?.xor(it.isNeg) ?: it }.toMutableList()
-            val containsComplementary = substituteAndCheckComplimentary(newLits)
+            val containsComplementary = sortDedupAndCheckComplimentary(newLits)
             // Note that clause cannot become empty,
             // however, it can contain complementary literals.
             // We simply remove such clauses.
@@ -1254,4 +1230,28 @@ class CDCL {
 
         return learnt
     }
+}
+
+/**
+ * Takes a list of literals, sorts it and removes duplicates in place,
+ * then checks if the list contains a literal and its negation
+ * and returns true if so.
+ */
+private fun sortDedupAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
+    lits.sortBy { it.inner }
+
+    var i = 0
+    for (j in 1 until lits.size) {
+        if (lits[i] == lits[j].neg) return true
+        if (lits[i] != lits[j]) {
+            i++
+            lits[i] = lits[j]
+        }
+    }
+
+    while (lits.size > i + 1) {
+        lits.removeLast()
+    }
+
+    return false
 }
