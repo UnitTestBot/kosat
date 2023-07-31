@@ -47,41 +47,55 @@ class Assignment(private val solver: CDCL) {
         return value[lit.variable] xor lit.isNeg
     }
 
+    /**
+     * @return true, if the variable is active and assigned to true.
+     */
     fun isActiveAndTrue(lit: Lit): Boolean {
         return varData[lit.variable].active && value(lit) == LBool.TRUE
     }
 
+    /**
+     * @return true, if the variable is active and assigned to false.
+     */
     fun isActiveAndFalse(lit: Lit): Boolean {
         return varData[lit.variable].active && value(lit) == LBool.FALSE
     }
 
+    /** @return whether the variable is [VarState.frozen] */
     fun isFrozen(lit: Lit): Boolean {
         return varData[lit.variable].frozen
     }
 
+    /** Marks active variable as [VarState.frozen] */
     fun freeze(lit: Lit) {
         require(varData[lit.variable].active)
         varData[lit.variable].frozen = true
     }
 
+    /** Marks variable as not [VarState.frozen] */
     fun unfreeze(lit: Lit) {
         varData[lit.variable].frozen = false
     }
 
+    /** @return whether the variable is [VarState.active] */
     fun isActive(v: Var): Boolean {
         return varData[v].active
     }
 
+    /** @return whether the variable corresponding to the [lit] is [VarState.active] */
     fun isActive(lit: Lit): Boolean = isActive(lit.variable)
 
+    /** Marks variable as [VarState.active] */
     fun markActive(v: Var) {
         if (varData[v].active) return
         numberOfInactiveVariables--
         varData[v].active = true
     }
 
+    /** Marks variable corresponding to the [lit] as [VarState.active] */
     fun markActive(lit: Lit) = markActive(lit.variable)
 
+    /** Marks variable as not [VarState.active] */
     fun markInactive(v: Var) {
         require(!varData[v].frozen)
         if (!varData[v].active) return
@@ -89,6 +103,7 @@ class Assignment(private val solver: CDCL) {
         varData[v].active = false
     }
 
+    /** Marks variable corresponding to the [lit] as not [VarState.active] */
     fun markInactive(lit: Lit) = markInactive(lit.variable)
 
     fun unassign(v: Var) {
