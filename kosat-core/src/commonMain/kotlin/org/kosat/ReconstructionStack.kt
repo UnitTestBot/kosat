@@ -76,9 +76,6 @@ class ReconstructionStack {
      * satisfying assignment.
      */
     fun reconstruct(assignment: Assignment): List<Boolean> {
-        println(assignment.value)
-        println(stack)
-
         val model = MutableList(assignment.numberOfVariables) { varIndex ->
             val v = Var(varIndex)
             assignment.isActiveAndTrue(v.posLit)

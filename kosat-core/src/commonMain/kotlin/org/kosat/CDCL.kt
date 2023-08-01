@@ -80,11 +80,10 @@ class CDCL {
     private val elsRounds = 5
 
     private val bveConfig = object {
-        val varsLimit = 1000
+        val varsLimit = 30
         val resolventSizeLimit = 50
-        val maxVarOccurrences = 200
-        val maxVarOccurrencesBothPolarities = 15
-        val maxNewResolvents = 16
+        val maxVarOccurrences = 30
+        val maxNewResolventsPerElimination = 16
     }
 
     /**
@@ -457,13 +456,7 @@ class CDCL {
         // to substitute literals that are now equivalent
         equivalentLiteralSubstitutionRounds()?.let { return it }
 
-        println("Clauses: ${db.clauses.filter { !it.deleted }}")
-        println("Trail: ${assignment.trail}")
-
         boundedVariableElimination()?.let { return it }
-
-        println("Clauses: ${db.clauses.filter { !it.deleted }}")
-        println("Trail: ${assignment.trail}")
 
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
@@ -1093,10 +1086,10 @@ class CDCL {
     }
 
     private fun bveTryEliminate(v: Var, occurrences: List<MutableList<Clause>>): SolveResult? {
-        val clausesToAdd = mutableListOf<Clause>()
+        val resolventsToAdd = mutableListOf<Clause>()
         val posOccurrences = occurrences[v.posLit]
         val negOccurrences = occurrences[v.negLit]
-        val limit: Int = bveConfig.maxNewResolvents + posOccurrences.size + negOccurrences.size
+        val limit: Int = bveConfig.maxNewResolventsPerElimination + posOccurrences.size + negOccurrences.size
 
         for (posClause in posOccurrences) {
             if (posClause.deleted) continue
@@ -1106,15 +1099,14 @@ class CDCL {
 
                 val resolvent = resolve(posClause, negClause, v) ?: continue
 
-                clausesToAdd.add(resolvent)
-                if (clausesToAdd.size > limit) return null
+                if (resolvent.size > bveConfig.resolventSizeLimit) return null
+
+                resolventsToAdd.add(resolvent)
+                if (resolventsToAdd.size > limit) return null
             }
         }
 
         assignment.markInactive(v)
-//
-        println("Eliminated $v")
-        println("Replacing clauses ${posOccurrences.filter { !it.deleted }} and ${negOccurrences.filter { !it.deleted }} with $clausesToAdd")
 
         for (clause in posOccurrences) {
             if (clause.deleted) continue
@@ -1128,22 +1120,22 @@ class CDCL {
             reconstructionStack.push(clause, v.negLit)
         }
 
-        check(clausesToAdd.all { it.size > 0 })
+        check(resolventsToAdd.all { it.size > 0 })
 
-        for (clause in clausesToAdd) {
-            if (clause.size == 1) continue
-            attachClause(clause)
-            for (lit in clause.lits) occurrences[lit].add(clause)
+        for (resolvent in resolventsToAdd) {
+            if (resolvent.size == 1) continue
+            attachClause(resolvent)
+            for (lit in resolvent.lits) occurrences[lit].add(resolvent)
         }
 
-        for (clause in clausesToAdd) {
-            if (clause.size != 1) continue
-            if (!assignment.enqueue(clause[0], null)) {
+        for (resolvent in resolventsToAdd) {
+            if (resolvent.size != 1) continue
+            if (!assignment.enqueue(resolvent[0], null)) {
                 return finishWithUnsat()
             }
         }
 
-        propagate()?.let { return finishWithUnsat() }
+        bvePropagate()?.let { return finishWithUnsat() }
 
         return null
     }
@@ -1164,6 +1156,63 @@ class CDCL {
         if (sortDedupAndCheckComplimentary(resolvent.lits)) return null
 
         return resolvent
+    }
+
+    private fun bvePropagate(): Clause? {
+        require(ok && assignment.decisionLevel == 0)
+
+        var conflict: Clause? = null
+
+        while (assignment.qhead < assignment.trail.size) {
+            val lit = assignment.dequeue()!!
+
+            check(value(lit) == LBool.TRUE)
+
+            var j = 0
+            val possiblyBrokenClauses = watchers[lit.neg]
+
+            for (i in 0 until possiblyBrokenClauses.size) {
+                val clause = possiblyBrokenClauses[i]
+                if (clause.deleted) continue
+                possiblyBrokenClauses[j++] = clause
+
+                if (conflict != null) continue
+
+                if (clause[0].variable == lit.variable) {
+                    clause.lits.swap(0, 1)
+                }
+
+                if (!assignment.isActive(clause[0]) || value(clause[0]) == LBool.TRUE) continue
+
+                var firstNotFalse = -1
+                for (ind in 2 until clause.size) {
+                    if (!assignment.isActive(clause[ind])) {
+                        j--
+                        break
+                    }
+                    if (value(clause[ind]) != LBool.FALSE) {
+                        firstNotFalse = ind
+                        break
+                    }
+                }
+
+                if (firstNotFalse == -1 && value(clause[0]) == LBool.FALSE) {
+                    conflict = clause
+                } else if (firstNotFalse == -1) {
+                    assignment.uncheckedEnqueue(clause[0], clause)
+                } else {
+                    watchers[clause[firstNotFalse]].add(clause)
+                    clause.lits.swap(firstNotFalse, 1)
+                    j--
+                }
+            }
+
+            possiblyBrokenClauses.retainFirst(j)
+
+            if (conflict != null) break
+        }
+
+        return conflict
     }
 
     /**
