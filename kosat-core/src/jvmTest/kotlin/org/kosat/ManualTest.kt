@@ -10,7 +10,7 @@ import kotlin.test.Test
 internal class ManualTest {
     @Test
     fun testManual() {
-        val path = "src/jvmTest/resources/testCover/small/eq1.cnf".toPath()
+        val path = "src/jvmTest/resources/testCover/small/98.cnf".toPath()
         val cnf = CNF.from(path)
         val clauses = cnf.clauses.map { lits ->
             Clause(lits.map { Lit.fromDimacs(it) }.toMutableList())

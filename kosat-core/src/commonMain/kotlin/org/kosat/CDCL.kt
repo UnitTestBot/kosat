@@ -457,7 +457,13 @@ class CDCL {
         // to substitute literals that are now equivalent
         equivalentLiteralSubstitutionRounds()?.let { return it }
 
+        println("Clauses: ${db.clauses.filter { !it.deleted }}")
+        println("Trail: ${assignment.trail}")
+
         boundedVariableElimination()?.let { return it }
+
+        println("Clauses: ${db.clauses.filter { !it.deleted }}")
+        println("Trail: ${assignment.trail}")
 
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
@@ -1051,8 +1057,8 @@ class CDCL {
                 if (cantEliminate[v] ||
                     !assignment.isActive(v) ||
                     assignment.isFrozen(v) ||
-                    occurrences[v.posLit].size + occurrences[v.negLit].size > bveConfig.maxVarOccurrences ||
-                    (occurrences[v.posLit].size == 0 && occurrences[v.negLit].size == 0)
+                    assignment.value(v) != LBool.UNDEF ||
+                    occurrences[v.posLit].size + occurrences[v.negLit].size > bveConfig.maxVarOccurrences
                 ) {
                     cantEliminate[v] = true
                     continue
@@ -1067,9 +1073,20 @@ class CDCL {
 
             val v = bestVariable
 
+            // println("Clauses: ${db.clauses.filter { !it.deleted }}")
+            // println("Trail: ${assignment.trail}")
+            // println("Eliminating $v")
+
             bveTryEliminate(v, occurrences)?.let { return it }
 
             cantEliminate[v] = true
+        }
+
+        for (learnt in db.learnts) {
+            if (learnt.deleted) continue
+            if (learnt.lits.any { !assignment.isActive(it) }) {
+                markDeleted(learnt)
+            }
         }
 
         return null
@@ -1094,31 +1111,39 @@ class CDCL {
             }
         }
 
-        println("Eliminated $v")
-        println("Replacing clauses $posOccurrences and $negOccurrences with $clausesToAdd")
-
         assignment.markInactive(v)
+//
+        println("Eliminated $v")
+        println("Replacing clauses ${posOccurrences.filter { !it.deleted }} and ${negOccurrences.filter { !it.deleted }} with $clausesToAdd")
 
         for (clause in posOccurrences) {
+            if (clause.deleted) continue
             markDeleted(clause)
             reconstructionStack.push(clause, v.posLit)
         }
 
         for (clause in negOccurrences) {
+            if (clause.deleted) continue
             markDeleted(clause)
             reconstructionStack.push(clause, v.negLit)
         }
 
-        for (clause in clausesToAdd) {
-            if (clause.size == 1) {
-                if (!assignment.enqueue(clause[0], null)) return finishWithUnsat()
-                propagate()?.let { return finishWithUnsat() }
-            } else {
-                attachClause(clause)
-            }
+        check(clausesToAdd.all { it.size > 0 })
 
+        for (clause in clausesToAdd) {
+            if (clause.size == 1) continue
+            attachClause(clause)
             for (lit in clause.lits) occurrences[lit].add(clause)
         }
+
+        for (clause in clausesToAdd) {
+            if (clause.size != 1) continue
+            if (!assignment.enqueue(clause[0], null)) {
+                return finishWithUnsat()
+            }
+        }
+
+        propagate()?.let { return finishWithUnsat() }
 
         return null
     }
@@ -1128,13 +1153,11 @@ class CDCL {
         require(!clauseWithPosLit.deleted && !clauseWithNegLit.deleted)
         val resolvent = Clause(mutableListOf())
 
-        for (lit in clauseWithPosLit.lits) {
+        for (lit in clauseWithPosLit.lits + clauseWithNegLit.lits) {
             if (lit.variable == pivot) continue
-            resolvent.lits.add(lit)
-        }
-
-        for (lit in clauseWithNegLit.lits) {
-            if (lit.variable == pivot) continue
+            val value = assignment.value(lit)
+            if (value == LBool.FALSE) continue
+            if (value == LBool.TRUE) return null
             resolvent.lits.add(lit)
         }
 
