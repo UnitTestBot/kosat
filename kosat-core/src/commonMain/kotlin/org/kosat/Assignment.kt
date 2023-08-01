@@ -62,9 +62,12 @@ class Assignment(private val solver: CDCL) {
     }
 
     /** @return whether the variable is [VarState.frozen] */
-    fun isFrozen(lit: Lit): Boolean {
-        return varData[lit.variable].frozen
+    fun isFrozen(v: Var): Boolean {
+        return varData[v].frozen
     }
+
+    /** @return whether the variable corresponding to the [lit] is [VarState.frozen] */
+    fun isFrozen(lit: Lit): Boolean = isFrozen(lit.variable)
 
     /** Marks active variable corresponding to [lit] as [VarState.frozen] */
     fun freeze(lit: Lit) {

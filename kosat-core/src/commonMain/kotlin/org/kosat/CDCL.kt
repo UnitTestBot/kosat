@@ -79,6 +79,14 @@ class CDCL {
      */
     private val elsRounds = 5
 
+    private val bveConfig = object {
+        val varsLimit = 1000
+        val resolventSizeLimit = 50
+        val maxVarOccurrences = 200
+        val maxVarOccurrencesBothPolarities = 15
+        val maxNewResolvents = 16
+    }
+
     /**
      * The branching heuristic, used to choose the next decision variable.
      */
@@ -449,6 +457,7 @@ class CDCL {
         // to substitute literals that are now equivalent
         equivalentLiteralSubstitutionRounds()?.let { return it }
 
+        boundedVariableElimination()?.let { return it }
 
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
@@ -1020,6 +1029,118 @@ class CDCL {
 
         requireNotNull(lca)
         return Clause(mutableListOf(lca.neg, clause[0]), true)
+    }
+
+    private fun boundedVariableElimination(): SolveResult? {
+        val occurrences = MutableList(assignment.numberOfVariables * 2) { mutableListOf<Clause>() }
+        val cantEliminate = MutableList(assignment.numberOfVariables) { false }
+
+        for (clause in db.clauses) {
+            if (clause.deleted) continue
+            for (lit in clause.lits) {
+                occurrences[lit].add(clause)
+            }
+        }
+
+        for (attemptNumber in 0 until bveConfig.varsLimit) {
+            var bestVariable: Var? = null
+
+            for (varIndex in 0 until assignment.numberOfVariables) {
+                val v = Var(varIndex)
+
+                if (cantEliminate[v] ||
+                    !assignment.isActive(v) ||
+                    assignment.isFrozen(v) ||
+                    occurrences[v.posLit].size + occurrences[v.negLit].size > bveConfig.maxVarOccurrences ||
+                    (occurrences[v.posLit].size == 0 && occurrences[v.negLit].size == 0)
+                ) {
+                    cantEliminate[v] = true
+                    continue
+                }
+
+                if (bestVariable == null || occurrences[v].size < occurrences[bestVariable].size) {
+                    bestVariable = v
+                }
+            }
+
+            if (bestVariable == null) break
+
+            val v = bestVariable
+
+            bveTryEliminate(v, occurrences)?.let { return it }
+
+            cantEliminate[v] = true
+        }
+
+        return null
+    }
+
+    private fun bveTryEliminate(v: Var, occurrences: List<MutableList<Clause>>): SolveResult? {
+        val clausesToAdd = mutableListOf<Clause>()
+        val posOccurrences = occurrences[v.posLit]
+        val negOccurrences = occurrences[v.negLit]
+        val limit: Int = bveConfig.maxNewResolvents + posOccurrences.size + negOccurrences.size
+
+        for (posClause in posOccurrences) {
+            if (posClause.deleted) continue
+
+            for (negClause in negOccurrences) {
+                if (negClause.deleted) continue
+
+                val resolvent = resolve(posClause, negClause, v) ?: continue
+
+                clausesToAdd.add(resolvent)
+                if (clausesToAdd.size > limit) return null
+            }
+        }
+
+        println("Eliminated $v")
+        println("Replacing clauses $posOccurrences and $negOccurrences with $clausesToAdd")
+
+        assignment.markInactive(v)
+
+        for (clause in posOccurrences) {
+            markDeleted(clause)
+            reconstructionStack.push(clause, v.posLit)
+        }
+
+        for (clause in negOccurrences) {
+            markDeleted(clause)
+            reconstructionStack.push(clause, v.negLit)
+        }
+
+        for (clause in clausesToAdd) {
+            if (clause.size == 1) {
+                if (!assignment.enqueue(clause[0], null)) return finishWithUnsat()
+                propagate()?.let { return finishWithUnsat() }
+            } else {
+                attachClause(clause)
+            }
+
+            for (lit in clause.lits) occurrences[lit].add(clause)
+        }
+
+        return null
+    }
+
+    private fun resolve(clauseWithPosLit: Clause, clauseWithNegLit: Clause, pivot: Var): Clause? {
+        require(!clauseWithPosLit.learnt && !clauseWithNegLit.learnt)
+        require(!clauseWithPosLit.deleted && !clauseWithNegLit.deleted)
+        val resolvent = Clause(mutableListOf())
+
+        for (lit in clauseWithPosLit.lits) {
+            if (lit.variable == pivot) continue
+            resolvent.lits.add(lit)
+        }
+
+        for (lit in clauseWithNegLit.lits) {
+            if (lit.variable == pivot) continue
+            resolvent.lits.add(lit)
+        }
+
+        if (sortDedupAndCheckComplimentary(resolvent.lits)) return null
+
+        return resolvent
     }
 
     /**
