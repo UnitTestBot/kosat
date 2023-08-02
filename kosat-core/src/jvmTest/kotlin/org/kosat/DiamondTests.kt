@@ -235,7 +235,7 @@ internal class DiamondTests {
 
     @ParameterizedTest(name = "{1}")
     @MethodSource("getBenchmarkFiles")
-    @Disabled
+    // @Disabled
     fun testOnBenchmarks(file: File, testName: String) {
         println("# Testing on: $file")
         runTest(file, CNF.from(file.toOkioPath()))
@@ -253,7 +253,7 @@ internal class DiamondTests {
             return
         }
 
-        val assumptionSets = List(5) { i ->
+        val assumptionSets = List(15) { i ->
             val random = Random(i)
 
             List(i) {

@@ -80,10 +80,19 @@ class CDCL {
     private val elsRounds = 5
 
     private val bveConfig = object {
-        val varsLimit = 30
-        val resolventSizeLimit = 50
-        val maxVarOccurrences = 30
-        val maxNewResolventsPerElimination = 16
+        val varsLimit = 5000
+        val resolventSizeLimit = 80
+        val maxVarOccurrences = 400
+        val maxNewResolventsPerElimination = 32
+    }
+
+    private val bveStats = object {
+        var eliminationAttempts = 0
+        var eliminatedVariables = 0
+        var resolventsAdded = 0
+        var clausesDeleted = 0
+        var tautologicalResolvents = 0
+        var resolventsTooBig = 0
     }
 
     /**
@@ -1030,35 +1039,101 @@ class CDCL {
         return Clause(mutableListOf(lca.neg, clause[0]), true)
     }
 
+    data class EliminationState(
+        val occurrences: List<MutableList<Clause>>,
+        val numberOfOccurrences: MutableList<Int>,
+    ) {
+        constructor(numberOfVariables: Int, clauses: List<Clause>) : this(
+            MutableList(numberOfVariables * 2) { mutableListOf() },
+            MutableList(numberOfVariables * 2) { 0 },
+        ) {
+            for (clause in clauses) {
+                if (clause.deleted) continue
+                for (lit in clause.lits) {
+                    occurrences[lit].add(clause)
+                    numberOfOccurrences[lit]++
+                }
+            }
+        }
+
+        fun expensiveDebugCheck(clauses: List<Clause>) {
+            val realOccurrences = MutableList(occurrences.size) { mutableListOf<Clause>() }
+            for (clause in clauses) {
+                if (clause.deleted) continue
+                for (lit in clause.lits) {
+                    realOccurrences[lit].add(clause)
+                }
+            }
+
+            for (lit in occurrences.indices) {
+                check(realOccurrences[lit].size == numberOfOccurrences[lit])
+                check(realOccurrences[lit].toSet() == occurrences[lit].filter { !it.deleted }.toSet())
+            }
+        }
+    }
+
+    private fun bveRemoveEliminatedClause(state: EliminationState, clause: Clause, pivot: Lit) {
+        require(!clause.deleted)
+        require(!clause.learnt)
+        bveStats.clausesDeleted++
+        reconstructionStack.push(clause, pivot)
+        for (lit in clause.lits) {
+            state.numberOfOccurrences[lit]--
+            markDeleted(clause)
+        }
+    }
+
+    private fun bveAddResolvent(state: EliminationState, resolvent: Clause): Boolean {
+        require(resolvent.size > 0)
+        bveStats.resolventsAdded++
+        if (resolvent.size == 1) {
+            if (!assignment.enqueue(resolvent[0], null)) {
+                return false
+            }
+        } else {
+            attachClause(resolvent)
+            for (lit in resolvent.lits) {
+                state.occurrences[lit].add(resolvent)
+                state.numberOfOccurrences[lit]++
+            }
+        }
+
+        return true
+    }
+
     private fun boundedVariableElimination(): SolveResult? {
-        val occurrences = MutableList(assignment.numberOfVariables * 2) { mutableListOf<Clause>() }
+        val state = EliminationState(assignment.numberOfVariables, db.clauses)
+
         val cantEliminate = MutableList(assignment.numberOfVariables) { false }
 
         for (clause in db.clauses) {
             if (clause.deleted) continue
             for (lit in clause.lits) {
-                occurrences[lit].add(clause)
+                state.occurrences[lit].add(clause)
             }
         }
 
         for (attemptNumber in 0 until bveConfig.varsLimit) {
             var bestVariable: Var? = null
+            var bestVariableTotalOccurrences = Int.MAX_VALUE
 
             for (varIndex in 0 until assignment.numberOfVariables) {
                 val v = Var(varIndex)
+                val totalOccurrences = state.numberOfOccurrences[v.posLit] + state.numberOfOccurrences[v.negLit]
 
                 if (cantEliminate[v] ||
                     !assignment.isActive(v) ||
                     assignment.isFrozen(v) ||
                     assignment.value(v) != LBool.UNDEF ||
-                    occurrences[v.posLit].size + occurrences[v.negLit].size > bveConfig.maxVarOccurrences
+                    totalOccurrences > bveConfig.maxVarOccurrences
                 ) {
                     cantEliminate[v] = true
                     continue
                 }
 
-                if (bestVariable == null || occurrences[v].size < occurrences[bestVariable].size) {
+                if (bestVariable == null || totalOccurrences < bestVariableTotalOccurrences) {
                     bestVariable = v
+                    bestVariableTotalOccurrences = totalOccurrences
                 }
             }
 
@@ -1070,7 +1145,9 @@ class CDCL {
             // println("Trail: ${assignment.trail}")
             // println("Eliminating $v")
 
-            bveTryEliminate(v, occurrences)?.let { return it }
+            bveStats.eliminationAttempts++
+
+            bveTryEliminate(state, v)?.let { return it }
 
             cantEliminate[v] = true
         }
@@ -1082,13 +1159,21 @@ class CDCL {
             }
         }
 
+        println("Eliminated ${bveStats.eliminatedVariables} variables")
+        println("Deleted ${bveStats.clausesDeleted} clauses")
+        println("Added ${bveStats.resolventsAdded} resolvents")
+        println("Tautological resolvents: ${bveStats.tautologicalResolvents}")
+        println("Resolvents too big: ${bveStats.resolventsTooBig}")
+        println("Elimination attempts: ${bveStats.eliminationAttempts}")
+
+
         return null
     }
 
-    private fun bveTryEliminate(v: Var, occurrences: List<MutableList<Clause>>): SolveResult? {
+    private fun bveTryEliminate(state: EliminationState, v: Var): SolveResult? {
         val resolventsToAdd = mutableListOf<Clause>()
-        val posOccurrences = occurrences[v.posLit]
-        val negOccurrences = occurrences[v.negLit]
+        val posOccurrences = state.occurrences[v.posLit]
+        val negOccurrences = state.occurrences[v.negLit]
         val limit: Int = bveConfig.maxNewResolventsPerElimination + posOccurrences.size + negOccurrences.size
 
         for (posClause in posOccurrences) {
@@ -1097,9 +1182,16 @@ class CDCL {
             for (negClause in negOccurrences) {
                 if (negClause.deleted) continue
 
-                val resolvent = resolve(posClause, negClause, v) ?: continue
+                val resolvent = resolve(posClause, negClause, v)
+                if (resolvent == null) {
+                    bveStats.tautologicalResolvents++
+                    continue
+                }
 
-                if (resolvent.size > bveConfig.resolventSizeLimit) return null
+                if (resolvent.size > bveConfig.resolventSizeLimit) {
+                    bveStats.resolventsTooBig++
+                    return null
+                }
 
                 resolventsToAdd.add(resolvent)
                 if (resolventsToAdd.size > limit) return null
@@ -1107,33 +1199,34 @@ class CDCL {
         }
 
         assignment.markInactive(v)
+        bveStats.eliminatedVariables++
 
         for (clause in posOccurrences) {
             if (clause.deleted) continue
-            markDeleted(clause)
-            reconstructionStack.push(clause, v.posLit)
+            bveRemoveEliminatedClause(state, clause, v.posLit)
         }
 
         for (clause in negOccurrences) {
             if (clause.deleted) continue
-            markDeleted(clause)
-            reconstructionStack.push(clause, v.negLit)
+            bveRemoveEliminatedClause(state, clause, v.negLit)
         }
 
         check(resolventsToAdd.all { it.size > 0 })
 
+        // TODO: this is a little ugly. Can we just add resolvents in whatever order?
         for (resolvent in resolventsToAdd) {
             if (resolvent.size == 1) continue
-            attachClause(resolvent)
-            for (lit in resolvent.lits) occurrences[lit].add(resolvent)
+            check(bveAddResolvent(state, resolvent))
         }
 
         for (resolvent in resolventsToAdd) {
             if (resolvent.size != 1) continue
-            if (!assignment.enqueue(resolvent[0], null)) {
+            if (!bveAddResolvent(state, resolvent)) {
                 return finishWithUnsat()
             }
         }
+
+        // state.expensiveDebugCheck(db.clauses)
 
         bvePropagate()?.let { return finishWithUnsat() }
 
@@ -1153,6 +1246,7 @@ class CDCL {
             resolvent.lits.add(lit)
         }
 
+        // TODO: can we not sort?
         if (sortDedupAndCheckComplimentary(resolvent.lits)) return null
 
         return resolvent
