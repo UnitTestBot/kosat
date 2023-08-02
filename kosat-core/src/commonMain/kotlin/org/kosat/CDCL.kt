@@ -1,7 +1,9 @@
 package org.kosat
 
+import okio.FileSystem
 import org.kosat.cnf.CNF
 import kotlin.math.min
+import kotlin.time.measureTime
 
 /**
  * Solves [cnf] and returns
@@ -80,11 +82,11 @@ class CDCL {
     private val elsRounds = 5
 
     private val bveConfig = object {
-        val varsLimit = 30000
+        val varsLimit = 10000
         val relativeEfficiencyThreshold = 0.5
         val minimumVarsToTry = 300
-        val resolventSizeLimit = 50
-        val maxVarOccurrences = 4000
+        val resolventSizeLimit = 64
+        val maxVarOccurrences = 400
         val maxNewResolventsPerElimination = 16
     }
 
@@ -1123,7 +1125,7 @@ class CDCL {
                 if (clause.deleted) continue
                 for (lit in clause.lits) {
                     occurrences[lit].add(clause)
-                    variableOrder.incKey(lit.variable, 1)
+                    variableOrder.incKey(lit.variable)
                 }
             }
         }
@@ -1234,7 +1236,6 @@ class CDCL {
         println("Resolvents too big: ${bveStats.resolventsTooBig}")
         println("Elimination attempts: ${bveStats.eliminationAttempts}")
 
-
         return null
     }
 
@@ -1244,11 +1245,19 @@ class CDCL {
         val negOccurrences = state.occurrences[v.negLit]
         val limit: Int = bveConfig.maxNewResolventsPerElimination + posOccurrences.size + negOccurrences.size
 
-        for (posClause in posOccurrences) {
+        val isPosOccurredClauseGate = MutableList(posOccurrences.size) { false }
+        val isNegOccurredClauseGate = MutableList(negOccurrences.size) { false }
+        var foundGate = false
+        if (!foundGate) foundGate = findOrGates(state, v.posLit, isPosOccurredClauseGate, isNegOccurredClauseGate)
+        if (!foundGate) foundGate = findOrGates(state, v.negLit, isNegOccurredClauseGate, isPosOccurredClauseGate)
+
+        for ((i, posClause) in posOccurrences.withIndex()) {
             if (posClause.deleted) continue
 
-            for (negClause in negOccurrences) {
+            for ((j, negClause) in negOccurrences.withIndex()) {
                 if (negClause.deleted) continue
+
+                if (foundGate && isPosOccurredClauseGate[i] == isNegOccurredClauseGate[j]) continue
 
                 val resolvent = resolve(posClause, negClause, v)
                 if (resolvent == null) {
@@ -1311,6 +1320,50 @@ class CDCL {
         return null
     }
 
+    private fun findOrGates(
+        state: EliminationState,
+        pivot: Lit,
+        posGatesMarks: MutableList<Boolean>,
+        negGatesMarks: MutableList<Boolean>,
+    ): Boolean {
+        val posOccurrences = state.occurrences[pivot]
+        val negOccurrences = state.occurrences[pivot.neg]
+        var foundAny = false
+
+        for (i in posOccurrences.indices) {
+            val clause = posOccurrences[i]
+            if (clause.deleted) continue
+            if (clause.size != 2) continue
+            val other = Lit(clause[0].inner xor clause[1].inner xor pivot.inner)
+            state.marks[other.neg] = i + 1
+        }
+
+        for (i in negOccurrences.indices) {
+            val clause = negOccurrences[i]
+            if (clause.deleted) continue
+            if (clause.lits.all { state.marks[it] != 0 || it == pivot.neg }) {
+                negGatesMarks[i] = true
+                foundAny = true
+                // println("Found gate: $clause, ${clause.lits.filter { it != pivot.neg }.map { state.marks[it] }.map { posOccurrences[it - 1] }}")
+                for (lit in clause.lits) {
+                    if (lit != pivot.neg)
+                        posGatesMarks[state.marks[lit] - 1] = true
+                }
+                break
+            }
+        }
+
+        for (i in posOccurrences.indices) {
+            val clause = posOccurrences[i]
+            if (clause.deleted) continue
+            if (clause.size != 2) continue
+            val other = Lit(clause[0].inner xor clause[1].inner xor pivot.inner)
+            state.marks[other.neg] = 0
+        }
+
+        return foundAny
+    }
+
     private fun removeBackwardSubsumed(state: EliminationState, clause: Clause): SolveResult? {
         // println("Removing backward subsumed clauses for $clause")
         val leastOccurrenceLit = clause.lits.minBy { state.occurrences[it].size }
@@ -1351,33 +1404,6 @@ class CDCL {
                 // TODO: still bad
                 bveRemoveEliminatedClause(state, otherClause, leastOccurrenceLit)
             }
-
-            /*
-            var strengtheningLiteral: Lit? = null
-
-            for (lit in otherClause.lits) {
-                if (state.marks[lit] == 0) {
-                    if (strengtheningLiteral != null) continue@outer
-                    if (state.marks[lit.neg] == 0) continue@outer
-                    strengtheningLiteral = lit.neg
-                }
-            }
-
-            if (strengtheningLiteral == null) {
-                bveRemoveEliminatedClause(state, otherClause, leastOccurrenceLit)
-            } else {
-                val strengthenedClause = Clause(otherClause.lits.filter { it != strengtheningLiteral }.toMutableList())
-                if (strengthenedClause.size == 1) {
-                    if (!assignment.enqueue(strengthenedClause[0], null)) {
-                        return finishWithUnsat()
-                    }
-                } else {
-                    attachClause(strengthenedClause)
-                }
-                attachClause(strengthenedClause)
-                markDeleted(clause)
-            }
-             */
         }
 
         for (lit in clause.lits) state.marks[lit] = 0

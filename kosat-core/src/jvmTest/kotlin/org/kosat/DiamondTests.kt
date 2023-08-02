@@ -6,6 +6,7 @@ import korlibs.time.measureTimeWithResult
 import korlibs.time.roundMilliseconds
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
+import okio.Path.Companion.toPath
 import okio.buffer
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Disabled
@@ -25,7 +26,9 @@ import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
+import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.time.measureTime
 
 private const val timeFormat = "yyyy-MM-dd_HH-mm-ss"
 
