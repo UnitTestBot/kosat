@@ -80,7 +80,7 @@ class CDCL {
     private val elsRounds = 5
 
     private val bveConfig = object {
-        val varsLimit = 10000
+        val varsLimit = 30000
         val relativeEfficiencyThreshold = 0.5
         val minimumVarsToTry = 300
         val resolventSizeLimit = 50
@@ -1113,6 +1113,7 @@ class CDCL {
     data class EliminationState(
         val occurrences: List<MutableList<Clause>>,
         val variableOrder: IntMinVariablePriorityQueue,
+        val marks: MutableList<Int> = MutableList(occurrences.size) { 0 },
     ) {
         constructor(numberOfVariables: Int, clauses: List<Clause>) : this(
             MutableList(numberOfVariables * 2) { mutableListOf() },
@@ -1147,6 +1148,7 @@ class CDCL {
     private fun bveRemoveEliminatedClause(state: EliminationState, clause: Clause, pivot: Lit) {
         require(!clause.deleted)
         require(!clause.learnt)
+        // println("Removing: $clause")
         bveStats.clausesDeleted++
         reconstructionStack.push(clause, pivot)
         for (lit in clause.lits) {
@@ -1158,6 +1160,7 @@ class CDCL {
     private fun bveAddResolvent(state: EliminationState, resolvent: Clause): Boolean {
         require(resolvent.size > 0)
         bveStats.resolventsAdded++
+        // println("Adding: $resolvent (trail: ${assignment.trail})")
         if (resolvent.size == 1) {
             if (!assignment.enqueue(resolvent[0], null)) {
                 return false
@@ -1278,22 +1281,108 @@ class CDCL {
 
         check(resolventsToAdd.all { it.size > 0 })
 
-        // TODO: this is a little ugly. Can we just add resolvents in whatever order?
         for (resolvent in resolventsToAdd) {
-            if (resolvent.size == 1) continue
-            check(bveAddResolvent(state, resolvent))
-        }
+            if (resolvent.lits.any { assignment.value(it) == LBool.TRUE }) continue
+            resolvent.lits.removeAll { assignment.value(it) == LBool.FALSE }
 
-        for (resolvent in resolventsToAdd) {
-            if (resolvent.size != 1) continue
-            if (!bveAddResolvent(state, resolvent)) {
-                return finishWithUnsat()
+            when (resolvent.size) {
+                0 -> {
+                    return finishWithUnsat()
+                }
+
+                1 -> {
+                    if (!assignment.enqueue(resolvent[0], null)) {
+                        return finishWithUnsat()
+                    }
+                    bvePropagate()?.let { return finishWithUnsat() }
+                }
+
+                else -> {
+                    check(bveAddResolvent(state, resolvent))
+                    removeBackwardSubsumed(state, resolvent)?.let { return it }
+                }
             }
         }
 
         // state.expensiveDebugCheck(db.clauses)
 
         bvePropagate()?.let { return finishWithUnsat() }
+
+        return null
+    }
+
+    private fun removeBackwardSubsumed(state: EliminationState, clause: Clause): SolveResult? {
+        // println("Removing backward subsumed clauses for $clause")
+        val leastOccurrenceLit = clause.lits.minBy { state.occurrences[it].size }
+        for (lit in clause.lits) state.marks[lit] = 1
+
+        val initialSize = state.occurrences[leastOccurrenceLit].size
+
+        outer@ for (i in 0 until initialSize) {
+            val otherClause = state.occurrences[leastOccurrenceLit][i]
+            if (otherClause === clause) continue
+            if (otherClause.deleted) continue
+            if (otherClause.size < clause.size) continue
+
+            var mismatch: Lit? = null
+
+            for (lit in otherClause.lits) {
+                if (state.marks[lit] == 0) {
+                    if (mismatch != null) continue@outer
+                    mismatch = lit
+                }
+            }
+
+            if (mismatch == null) {
+                // TODO: bad idea, no need to add this to the reconstruction stack!
+                bveRemoveEliminatedClause(state, otherClause, leastOccurrenceLit)
+            } else if (state.marks[mismatch.neg] != 0) {
+                // println("Strengthening $otherClause with $mismatch")
+                val strengthenedClause = Clause(otherClause.lits.filter { it != mismatch }.toMutableList())
+                if (strengthenedClause.size == 1) {
+                    if (!assignment.enqueue(strengthenedClause[0], null)) {
+                        return finishWithUnsat()
+                    }
+                    bvePropagate()?.let { return finishWithUnsat() }
+                } else {
+                    // TODO: not-so-bad idea, but still should be reconsidered
+                    bveAddResolvent(state, strengthenedClause)
+                }
+                // TODO: still bad
+                bveRemoveEliminatedClause(state, otherClause, leastOccurrenceLit)
+            }
+
+            /*
+            var strengtheningLiteral: Lit? = null
+
+            for (lit in otherClause.lits) {
+                if (state.marks[lit] == 0) {
+                    if (strengtheningLiteral != null) continue@outer
+                    if (state.marks[lit.neg] == 0) continue@outer
+                    strengtheningLiteral = lit.neg
+                }
+            }
+
+            if (strengtheningLiteral == null) {
+                bveRemoveEliminatedClause(state, otherClause, leastOccurrenceLit)
+            } else {
+                val strengthenedClause = Clause(otherClause.lits.filter { it != strengtheningLiteral }.toMutableList())
+                if (strengthenedClause.size == 1) {
+                    if (!assignment.enqueue(strengthenedClause[0], null)) {
+                        return finishWithUnsat()
+                    }
+                } else {
+                    attachClause(strengthenedClause)
+                }
+                attachClause(strengthenedClause)
+                markDeleted(clause)
+            }
+             */
+        }
+
+        for (lit in clause.lits) state.marks[lit] = 0
+
+        // println("Backward subsumption done")
 
         return null
     }
