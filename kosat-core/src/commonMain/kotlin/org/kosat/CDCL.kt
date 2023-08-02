@@ -80,10 +80,12 @@ class CDCL {
     private val elsRounds = 5
 
     private val bveConfig = object {
-        val varsLimit = 5000
-        val resolventSizeLimit = 80
-        val maxVarOccurrences = 400
-        val maxNewResolventsPerElimination = 32
+        val varsLimit = 10000
+        val relativeEfficiencyThreshold = 0.5
+        val minimumVarsToTry = 300
+        val resolventSizeLimit = 50
+        val maxVarOccurrences = 4000
+        val maxNewResolventsPerElimination = 16
     }
 
     private val bveStats = object {
@@ -1039,19 +1041,88 @@ class CDCL {
         return Clause(mutableListOf(lca.neg, clause[0]), true)
     }
 
+    class IntMinVariablePriorityQueue(var size: Int) {
+        private val keys: MutableList<Int> = MutableList(size) { 0 }
+        private val heap: MutableList<Var> = MutableList(size) { Var(it) }
+        private val indices: MutableList<Int?> = MutableList(size) { it }
+
+        fun contains(x: Var): Boolean = indices[x] != null
+
+        private fun parent(v: Int) = (v - 1) / 2
+        private fun left(v: Int) = 2 * v + 1
+        private fun right(v: Int) = 2 * v + 2
+
+        private fun swap(v: Int, u: Int) {
+            indices[heap[v]] = u
+            indices[heap[u]] = v
+            heap.swap(v, u)
+        }
+
+        private fun siftUp(x: Var) {
+            var v = indices[x]!!
+            var p = parent(v)
+            while (v > 0 && keys[heap[p]] < keys[heap[v]]) {
+                swap(v, p)
+                v = p
+                p = parent(v)
+            }
+        }
+
+        private fun siftDown(x: Var) {
+            var v = indices[x]!!
+            while (true) {
+                val l = left(v)
+                val r = right(v)
+                var smallest = v
+                if (l < size && keys[heap[l]] < keys[heap[smallest]]) smallest = l
+                if (r < size && keys[heap[r]] < keys[heap[smallest]]) smallest = r
+                if (smallest == v) break
+                swap(v, smallest)
+                v = smallest
+            }
+        }
+
+        fun getKey(x: Var): Int = keys[x]
+
+        fun incKey(x: Var, delta: Int = 1) {
+            require(delta >= 0)
+            if (!contains(x)) return
+            keys[x] += delta
+            siftUp(x)
+        }
+
+        fun decKey(x: Var, delta: Int = 1) {
+            require(delta >= 0)
+            if (!contains(x)) return
+            keys[x] -= delta
+            siftDown(x)
+        }
+
+        fun pop(): Var {
+            require(size > 0)
+            val result = heap[0]
+            swap(0, size - 1)
+            size--
+            siftDown(heap[0])
+            indices[result] = null
+            return result
+        }
+    }
+
+
     data class EliminationState(
         val occurrences: List<MutableList<Clause>>,
-        val numberOfOccurrences: MutableList<Int>,
+        val variableOrder: IntMinVariablePriorityQueue,
     ) {
         constructor(numberOfVariables: Int, clauses: List<Clause>) : this(
             MutableList(numberOfVariables * 2) { mutableListOf() },
-            MutableList(numberOfVariables * 2) { 0 },
+            IntMinVariablePriorityQueue(numberOfVariables),
         ) {
             for (clause in clauses) {
                 if (clause.deleted) continue
                 for (lit in clause.lits) {
                     occurrences[lit].add(clause)
-                    numberOfOccurrences[lit]++
+                    variableOrder.incKey(lit.variable, 1)
                 }
             }
         }
@@ -1065,8 +1136,9 @@ class CDCL {
                 }
             }
 
-            for (lit in occurrences.indices) {
-                check(realOccurrences[lit].size == numberOfOccurrences[lit])
+            for (litIndex in occurrences.indices) {
+                val lit = Lit(litIndex)
+                check(realOccurrences[lit].size + realOccurrences[lit.neg].size == variableOrder.getKey(lit.variable))
                 check(realOccurrences[lit].toSet() == occurrences[lit].filter { !it.deleted }.toSet())
             }
         }
@@ -1078,7 +1150,7 @@ class CDCL {
         bveStats.clausesDeleted++
         reconstructionStack.push(clause, pivot)
         for (lit in clause.lits) {
-            state.numberOfOccurrences[lit]--
+            state.variableOrder.decKey(lit.variable)
             markDeleted(clause)
         }
     }
@@ -1094,7 +1166,7 @@ class CDCL {
             attachClause(resolvent)
             for (lit in resolvent.lits) {
                 state.occurrences[lit].add(resolvent)
-                state.numberOfOccurrences[lit]++
+                state.variableOrder.incKey(lit.variable)
             }
         }
 
@@ -1103,8 +1175,6 @@ class CDCL {
 
     private fun boundedVariableElimination(): SolveResult? {
         val state = EliminationState(assignment.numberOfVariables, db.clauses)
-
-        val cantEliminate = MutableList(assignment.numberOfVariables) { false }
 
         for (clause in db.clauses) {
             if (clause.deleted) continue
@@ -1115,41 +1185,36 @@ class CDCL {
 
         for (attemptNumber in 0 until bveConfig.varsLimit) {
             var bestVariable: Var? = null
-            var bestVariableTotalOccurrences = Int.MAX_VALUE
 
-            for (varIndex in 0 until assignment.numberOfVariables) {
-                val v = Var(varIndex)
-                val totalOccurrences = state.numberOfOccurrences[v.posLit] + state.numberOfOccurrences[v.negLit]
+            while (state.variableOrder.size > 0) {
+                val v = state.variableOrder.pop()
 
-                if (cantEliminate[v] ||
-                    !assignment.isActive(v) ||
-                    assignment.isFrozen(v) ||
-                    assignment.value(v) != LBool.UNDEF ||
-                    totalOccurrences > bveConfig.maxVarOccurrences
+                if (assignment.isActive(v) &&
+                    !assignment.isFrozen(v) &&
+                    assignment.value(v) == LBool.UNDEF &&
+                    state.variableOrder.getKey(v) <= bveConfig.maxVarOccurrences
                 ) {
-                    cantEliminate[v] = true
-                    continue
-                }
-
-                if (bestVariable == null || totalOccurrences < bestVariableTotalOccurrences) {
                     bestVariable = v
-                    bestVariableTotalOccurrences = totalOccurrences
+                    break
                 }
             }
 
             if (bestVariable == null) break
 
-            val v = bestVariable
-
             // println("Clauses: ${db.clauses.filter { !it.deleted }}")
             // println("Trail: ${assignment.trail}")
-            // println("Eliminating $v")
+            // println("Eliminating $bestVariable")
 
             bveStats.eliminationAttempts++
 
-            bveTryEliminate(state, v)?.let { return it }
+            bveTryEliminate(state, bestVariable)?.let { return it }
 
-            cantEliminate[v] = true
+            if (bveStats.eliminationAttempts > bveConfig.minimumVarsToTry) {
+                val relEfficiency = bveStats.eliminatedVariables.toDouble() / bveStats.eliminationAttempts
+                if (relEfficiency < bveConfig.relativeEfficiencyThreshold) {
+                    break
+                }
+            }
         }
 
         for (learnt in db.learnts) {
