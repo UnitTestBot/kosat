@@ -1254,6 +1254,62 @@ class CDCL {
         if (!foundGate) foundGate = findOrGates(state, v.posLit, isPosOccurredClauseGate, isNegOccurredClauseGate)
         if (!foundGate) foundGate = findOrGates(state, v.negLit, isNegOccurredClauseGate, isPosOccurredClauseGate)
 
+        var expectedResolvents = 0
+
+        posClauseIter@ for ((i, posClause) in posOccurrences.withIndex()) {
+            if (posClause.deleted) continue
+
+            for (lit in posClause.lits) {
+                state.marks[lit] = 1
+            }
+
+            negClauseIter@ for ((j, negClause) in negOccurrences.withIndex()) {
+                if (negClause.deleted) continue
+                if (foundGate && isPosOccurredClauseGate[i] == isNegOccurredClauseGate[j]) continue
+                var expectedSize = posClause.lits.size
+
+                for (lit in negClause.lits) {
+                    if (state.marks[lit.neg] == 1) {
+                        if (lit == v.negLit) continue
+                        bveStats.tautologicalResolvents++
+                        continue@negClauseIter
+                    }
+
+                    if (state.marks[lit] == 0) expectedSize++
+
+                    if (expectedSize > bveConfig.resolventSizeLimit) {
+                        bveStats.resolventsTooBig++
+                        return null
+                    }
+                }
+
+                if (expectedSize < posClause.size && expectedSize < negClause.size) {
+                    bveAddResolvent(state, resolve(posClause, negClause, v)!!)
+                    bveRemoveEliminatedClause(state, posClause)
+                    bveRemoveEliminatedClause(state, negClause)
+                    continue@posClauseIter
+                }
+
+                if (expectedSize < posClause.size) {
+                    bveAddResolvent(state, resolve(posClause, negClause, v)!!)
+                    bveRemoveEliminatedClause(state, posClause)
+                    continue@posClauseIter
+                }
+
+                if (expectedSize < negClause.size) {
+                    bveAddResolvent(state, resolve(posClause, negClause, v)!!)
+                    bveRemoveEliminatedClause(state, negClause)
+                    continue@negClauseIter
+                }
+
+                expectedResolvents++
+            }
+
+            for (lit in posClause.lits) state.marks[lit] = 0
+        }
+
+        if (expectedResolvents > limit) return null
+
         for ((i, posClause) in posOccurrences.withIndex()) {
             if (posClause.deleted) continue
 
