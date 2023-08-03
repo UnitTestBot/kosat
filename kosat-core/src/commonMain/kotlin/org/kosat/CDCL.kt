@@ -1042,6 +1042,11 @@ class CDCL {
         return Clause(mutableListOf(lca.neg, clause[0]), true)
     }
 
+    /**
+     * Priority queue for variables, used in [boundedVariableElimination].
+     * It is a min-heap, where the key is the number of occurrences of the
+     * variable in the problem.
+     */
     class IntMinVariablePriorityQueue(var size: Int) {
         private val keys: MutableList<Int> = MutableList(size) { 0 }
         private val heap: MutableList<Var> = MutableList(size) { Var(it) }
@@ -1110,18 +1115,49 @@ class CDCL {
         }
     }
 
+    /**
+     * [boundedVariableElimination] requires a global mutable state, which is
+     * stored here.
+     */
+    class EliminationState(numberOfVariables: Int, clauses: List<Clause>) {
+        /**
+         * Occurrences of each literal in the problem: for every literal we
+         * store the clauses it is in. Some clauses may be deleted and should
+         * be ignored. The size of the occurrences list for each literal is not
+         * necessarily equal to the key in [variableOrder], because we don't
+         * count deleted clauses.
+         */
+        val occurrences: List<MutableList<Clause>> = MutableList(numberOfVariables * 2) { mutableListOf() }
 
-    data class EliminationState(
-        val occurrences: List<MutableList<Clause>>,
-        val variableOrder: IntMinVariablePriorityQueue,
-        var numberOfClauses: Int,
-        val marks: MutableList<Int> = MutableList(occurrences.size) { 0 },
-    ) {
-        constructor(numberOfVariables: Int, clauses: List<Clause>) : this(
-            MutableList(numberOfVariables * 2) { mutableListOf() },
-            IntMinVariablePriorityQueue(numberOfVariables),
-            clauses.size,
-        ) {
+        /**
+         * We use this queue for two purposes: to find the next variable to
+         * eliminate, and to count the number of "real" occurrences of each
+         * variable in not deleted clauses.
+         */
+        val variableOrder: IntMinVariablePriorityQueue = IntMinVariablePriorityQueue(numberOfVariables)
+
+        /**
+         * Number of not-deleted clauses in the problem. BVE creates and deletes
+         * a lot of clauses, which take a lot of memory. We need garbage
+         * collector to clean them up, which means we must remove references to
+         * deleted clauses from time to time. After eliminating a variable,
+         * we check if the number of clauses in the database (including deleted
+         * ones) is more than twice the number of not-deleted clauses, which we
+         * store here. If it is, we remove all deleted clauses from the
+         * [db], [watchers], and [occurrences] lists.
+         */
+        var numberOfClauses: Int = clauses.size
+
+        /**
+         * Those are arbitrary marks used throughout the algorithm. We try to
+         * not use such marks in the solver to improve readability, but here
+         * we pretty much have no choice: there are too many things to keep
+         * track of, and using hash-sets for them would mean tremendous slowdown
+         * and memory usage.
+         */
+        val marks: MutableList<Int> = MutableList(numberOfVariables * 2) { 0 }
+
+        init {
             for (clause in clauses) {
                 if (clause.deleted) {
                     numberOfClauses--
@@ -1136,10 +1172,15 @@ class CDCL {
         }
     }
 
-    private fun bveRemoveEliminatedClause(state: EliminationState, clause: Clause) {
+    /**
+     * In [boundedVariableElimination], we must keep track of occurrences list
+     * ([EliminationState.occurrences]), number of clauses, and other things.
+     * To simplify the code, we use this function to mark clauses as deleted
+     * during BVE.
+     */
+    private fun bveMarkDeleted(state: EliminationState, clause: Clause) {
         require(!clause.deleted)
         require(!clause.learnt)
-        // println("Removing: $clause")
         bveStats.clausesDeleted++
         state.numberOfClauses--
         markDeleted(clause)
@@ -1148,11 +1189,17 @@ class CDCL {
         }
     }
 
-    private fun bveAddResolvent(state: EliminationState, resolvent: Clause) {
+    /**
+     * In [boundedVariableElimination], we must keep track of occurrences list
+     * ([EliminationState.occurrences]), number of clauses, and other things.
+     * To simplify the code, we use this function to attach new clauses.
+     *
+     * Similar to [bveMarkDeleted], but for adding new clauses.
+     */
+    private fun bveAttachClause(state: EliminationState, resolvent: Clause) {
         require(resolvent.size > 0)
         bveStats.resolventsAdded++
         state.numberOfClauses++
-        // println("Adding: $resolvent (trail: ${assignment.trail})")
         attachClause(resolvent)
         for (lit in resolvent.lits) {
             state.occurrences[lit].add(resolvent)
@@ -1160,15 +1207,36 @@ class CDCL {
         }
     }
 
+    /**
+     * The [boundedVariableElimination] is a preprocessing technique that tries
+     * to eliminate variables from the problem. It is based on multiple
+     * observations, which are described in [bveTryEliminate], but the overall
+     * idea is to choose a variable which does not occur often, and remove it
+     * by replacing all the clauses it is in with resolvents of those clauses.
+     * Of course, there can be too many resolvents, so we limit the number of
+     * resolvents per elimination, as well as do other things to prevent the
+     * algorithm and subsequent solving from taking too much time.
+     */
     private fun boundedVariableElimination(): SolveResult? {
+        // This state will be used all throughout the BVE
         val state = EliminationState(assignment.numberOfVariables, db.clauses)
 
         for (attemptNumber in 0 until bveConfig.varsLimit) {
+
+            // We first need to find the next variable to eliminate. We do this
+            // by choosing the variable with the smallest number of occurrences
+            // among all active variables.
+
             var bestVariable: Var? = null
 
             while (state.variableOrder.size > 0) {
+                // Variable ordering based on binary heap provides fast access
+                // to the smallest element, significantly faster than simple
+                // linear search.
                 val v = state.variableOrder.pop()
 
+                // Not every variable can be eliminated though. We check for
+                // that here
                 if (assignment.isActive(v) &&
                     !assignment.isFrozen(v) &&
                     assignment.value(v) == LBool.UNDEF &&
@@ -1181,14 +1249,19 @@ class CDCL {
 
             if (bestVariable == null) break
 
-            // println("Clauses: ${db.clauses.filter { !it.deleted }}")
-            // println("Trail: ${assignment.trail}")
-            // println("Eliminating $bestVariable")
+            // Once we found a variable, we try to eliminate it. Note that
+            // during the elimination, we can learn a unit clause which may
+            // derive UNSAT.
 
             bveStats.eliminationAttempts++
-
             bveTryEliminate(state, bestVariable)?.let { return it }
 
+            // To check how efficient the elimination is, we check the ratio
+            // of eliminated variables to the number of elimination attempts,
+            // after we tried to eliminate a certain number of variables.
+            // If the ratio is too low, we stop the elimination, because
+            // if it didn't work at the beginning, when variables are supposedly
+            // easier to eliminate, it is unlikely to work later.
             if (bveStats.eliminationAttempts > bveConfig.minimumVarsToTry) {
                 val relEfficiency = bveStats.eliminatedVariables.toDouble() / bveStats.eliminationAttempts
                 if (relEfficiency < bveConfig.relativeEfficiencyThreshold) {
@@ -1196,6 +1269,11 @@ class CDCL {
                 }
             }
 
+            // This is the "garbage collection" routine we store number of
+            // clauses for. If there are too many deleted clauses, we remove
+            // them from the database, watchers, and occurrences list, allowing
+            // the garbage collector to clean them up. It is easy to run out of
+            // memory without this.
             if (db.clauses.size > state.numberOfClauses * 2) {
                 db.clauses.removeAll { it.deleted }
                 for (watches in watchers) watches.removeAll { it.deleted }
@@ -1203,6 +1281,10 @@ class CDCL {
             }
         }
 
+        // After the elimination is complete, we need to remove learnt clauses
+        // which now contain eliminated variables. We also need to shrink
+        // learnt clauses, because they may contain literals which are now
+        // falsified.
         for (learnt in db.learnts.toMutableList()) {
             if (learnt.deleted) continue
             if (learnt.lits.any { !assignment.isActive(it) || assignment.value(it) == LBool.TRUE }) {
@@ -1210,8 +1292,11 @@ class CDCL {
             } else {
                 val needsShrink = learnt.lits.any { assignment.value(it) == LBool.UNDEF }
                 if (!needsShrink) continue
+                // TODO: why does this never produce empty clauses, or unit
+                //  clauses? This is just the bug not covered by tests yet, right?
                 val learntCopy = learnt.copy()
                 learntCopy.lits.removeAll { assignment.value(it) == LBool.FALSE }
+                check(learntCopy.size >= 2)
                 attachClause(learntCopy)
                 markDeleted(learnt)
             }
@@ -1228,18 +1313,54 @@ class CDCL {
         return null
     }
 
-    private fun bveTryEliminate(state: EliminationState, v: Var): SolveResult? {
-        val resolventsToAdd = mutableListOf<Clause>()
-        val posOccurrences = state.occurrences[v.posLit]
-        val negOccurrences = state.occurrences[v.negLit]
-        val limit: Int = bveConfig.maxNewResolventsPerElimination + posOccurrences.size + negOccurrences.size
+    /**
+     * Try to eliminate a variable [pivot] from the problem. This is the core of
+     * [boundedVariableElimination], and also a hot spot of the preprocessing.
+     *
+     * The idea is to first find all clauses containing [pivot] variable. We
+     * then perform "variable elimination by distribution", described in
+     * the SatElite paper. This function can cause the problem to become UNSAT,
+     * in which case it returns [SolveResult.UNSAT].
+     *
+     * The implementation details and overall algorithm are explained in the
+     * function source code itself.
+     */
+    private fun bveTryEliminate(state: EliminationState, pivot: Var): SolveResult? {
+        require(assignment.isActive(pivot))
+        require(!assignment.isFrozen(pivot))
+        require(!assignment.value(pivot) == LBool.UNDEF)
 
+        // We first find all clauses containing the variable
+        val posOccurrences = state.occurrences[pivot.posLit]
+        val negOccurrences = state.occurrences[pivot.negLit]
+
+        // This is what makes variable elimination "bounded". By setting the
+        // limit for the number of resolvents, we can prevent the algorithm
+        // from generating too many clauses.
+        val limit: Int = bveConfig.maxNewResolventsPerElimination +
+            posOccurrences.count { !it.deleted } +
+            negOccurrences.count { !it.deleted }
+
+        // As observed in SatElite paper, there are special kinds of clause
+        // formations, called "gates", which, when resolved with other gates,
+        // produce a tauto
+        // (which are also logical resolvent. Those are valuable for the
+        // algorithm, so we try to find them here. Those lists store if the
+        // clause at the given index of the occurrences list is a gate.
         val isPosOccurredClauseGate = MutableList(posOccurrences.size) { false }
         val isNegOccurredClauseGate = MutableList(negOccurrences.size) { false }
         var foundGate = false
-        if (!foundGate) foundGate = findOrGates(state, v.posLit, isPosOccurredClauseGate, isNegOccurredClauseGate)
-        if (!foundGate) foundGate = findOrGates(state, v.negLit, isNegOccurredClauseGate, isPosOccurredClauseGate)
+        // We can only use a single gate, so we just use the first one we found
+        // Below we look for OR-gates. Those are constraints in the form
+        // x = (a1 | a2 | ... | aK), where x is the pivot literal, and a1, a2,
+        // ..., aK are other literals. This is also AND-gate for the negation
+        // of the literal, of course. See the implementation for more details.
+        if (!foundGate) foundGate = findOrGates(state, pivot.posLit, isPosOccurredClauseGate, isNegOccurredClauseGate)
+        if (!foundGate) foundGate = findOrGates(state, pivot.negLit, isNegOccurredClauseGate, isPosOccurredClauseGate)
         if (foundGate) bveStats.gatesFound++
+
+        // Finally, we perform the resolutions.
+        val resolventsToAdd = mutableListOf<Clause>()
 
         for (i in 0 until posOccurrences.size) {
             val posClause = posOccurrences[i]
@@ -1249,46 +1370,56 @@ class CDCL {
                 val negClause = negOccurrences[j]
                 if (negClause.deleted) continue
 
+                // As noted above, gates hold special meaning. Turns out
+                // resolving gate clause with another gate clause produces
+                // a tautological resolvent, so we skip those.
+                // Moreover, resolving non-gate clause with another non-gate
+                // clause produces a clause subsumed by the other resolvents,
+                // which only leaves us with the case of resolving a gate
+                // clause with a non-gate clause! See the SatElite paper for
+                // more details.
                 if (foundGate && isPosOccurredClauseGate[i] == isNegOccurredClauseGate[j]) continue
 
-                val resolvent = resolve(posClause, negClause, v)
+                // We perform the resolution here.
+                val resolvent = resolve(posClause, negClause, pivot)
+
+                // If it is tautological, we skip it.
                 if (resolvent == null) {
                     bveStats.tautologicalResolvents++
                     continue
                 }
 
+                // If it is too big, we can't eliminate the variable. This limit
+                // is added to prevent the algorithm from generating resolvents
+                // of exponential size and running out of memory.
                 if (resolvent.size > bveConfig.resolventSizeLimit) {
                     bveStats.resolventsTooBig++
                     return null
                 }
 
                 resolventsToAdd.add(resolvent)
+                // We also limit the number of resolvents we add per elimination
+                // to prevent the algorithm from generating too many clauses.
                 if (resolventsToAdd.size > limit) return null
             }
         }
 
-        assignment.markInactive(v)
+        // Finally, we eliminate the variable. Notice that the removal of the
+        // learnts with the eliminated variable is done outside the main loop of
+        // boundedVariableElimination, and performed later. We use the
+        // specialized propagate procedure to overcome that.
+        assignment.markInactive(pivot)
         bveStats.eliminatedVariables++
 
-        for (clause in posOccurrences) {
-            if (clause.deleted) continue
-            bveRemoveEliminatedClause(state, clause)
-            reconstructionStack.push(clause, v.posLit)
-        }
-
-        for (clause in negOccurrences) {
-            if (clause.deleted) continue
-            bveRemoveEliminatedClause(state, clause)
-            reconstructionStack.push(clause, v.negLit)
-        }
-
-        check(resolventsToAdd.all { it.size > 0 })
-
+        // We add resolvents to the database, removing falsified literals from
+        // them.
+        // TODO: doesn't this break watches?
         for (resolvent in resolventsToAdd) {
             if (resolvent.lits.any { assignment.value(it) == LBool.TRUE }) continue
             resolvent.lits.removeAll { assignment.value(it) == LBool.FALSE }
 
             when (resolvent.size) {
+                // FIXME: I BROKE IT NOOOOOOOOO
                 0 -> {
                     return finishWithUnsat()
                 }
@@ -1301,10 +1432,23 @@ class CDCL {
                 }
 
                 else -> {
-                    bveAddResolvent(state, resolvent)
+                    bveAttachClause(state, resolvent)
                     removeBackwardSubsumed(state, resolvent)?.let { return it }
                 }
             }
+        }
+
+        // Finally, we remove old clauses containing the variable.
+        for (clause in posOccurrences) {
+            if (clause.deleted) continue
+            bveMarkDeleted(state, clause)
+            reconstructionStack.push(clause, pivot.posLit)
+        }
+
+        for (clause in negOccurrences) {
+            if (clause.deleted) continue
+            bveMarkDeleted(state, clause)
+            reconstructionStack.push(clause, pivot.negLit)
         }
 
         return null
@@ -1377,7 +1521,7 @@ class CDCL {
             }
 
             if (mismatch == null) {
-                bveRemoveEliminatedClause(state, otherClause)
+                bveMarkDeleted(state, otherClause)
             } else if (state.marks[mismatch.neg] != 0) {
                 // println("Strengthening $otherClause with $mismatch")
                 val strengthenedClause = Clause(otherClause.lits.filter { it != mismatch }.toMutableList())
@@ -1387,9 +1531,9 @@ class CDCL {
                     }
                     bvePropagate()?.let { return finishWithUnsat() }
                 } else {
-                    bveAddResolvent(state, strengthenedClause)
+                    bveAttachClause(state, strengthenedClause)
                 }
-                bveRemoveEliminatedClause(state, otherClause)
+                bveMarkDeleted(state, otherClause)
             }
         }
 
