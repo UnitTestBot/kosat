@@ -1,9 +1,7 @@
 package org.kosat
 
-import okio.FileSystem
 import org.kosat.cnf.CNF
 import kotlin.math.min
-import kotlin.time.measureTime
 
 /**
  * Solves [cnf] and returns
@@ -82,10 +80,10 @@ class CDCL {
     private val elsRounds = 5
 
     private val bveConfig = object {
-        val varsLimit = 10000
+        val varsLimit = Int.MAX_VALUE
         val relativeEfficiencyThreshold = 0.5
-        val minimumVarsToTry = 300
-        val resolventSizeLimit = 64
+        val minimumVarsToTry = 30
+        val resolventSizeLimit = 16
         val maxVarOccurrences = 400
         val maxNewResolventsPerElimination = 16
     }
@@ -1115,14 +1113,20 @@ class CDCL {
     data class EliminationState(
         val occurrences: List<MutableList<Clause>>,
         val variableOrder: IntMinVariablePriorityQueue,
+        var numberOfClauses: Int,
         val marks: MutableList<Int> = MutableList(occurrences.size) { 0 },
     ) {
         constructor(numberOfVariables: Int, clauses: List<Clause>) : this(
             MutableList(numberOfVariables * 2) { mutableListOf() },
             IntMinVariablePriorityQueue(numberOfVariables),
+            clauses.size,
         ) {
             for (clause in clauses) {
-                if (clause.deleted) continue
+                if (clause.deleted) {
+                    numberOfClauses--
+                    continue
+                }
+
                 for (lit in clause.lits) {
                     occurrences[lit].add(clause)
                     variableOrder.incKey(lit.variable)
@@ -1147,46 +1151,32 @@ class CDCL {
         }
     }
 
-    private fun bveRemoveEliminatedClause(state: EliminationState, clause: Clause, pivot: Lit) {
+    private fun bveRemoveEliminatedClause(state: EliminationState, clause: Clause) {
         require(!clause.deleted)
         require(!clause.learnt)
         // println("Removing: $clause")
         bveStats.clausesDeleted++
-        reconstructionStack.push(clause, pivot)
+        state.numberOfClauses--
+        markDeleted(clause)
         for (lit in clause.lits) {
             state.variableOrder.decKey(lit.variable)
-            markDeleted(clause)
         }
     }
 
-    private fun bveAddResolvent(state: EliminationState, resolvent: Clause): Boolean {
+    private fun bveAddResolvent(state: EliminationState, resolvent: Clause) {
         require(resolvent.size > 0)
         bveStats.resolventsAdded++
+        state.numberOfClauses++
         // println("Adding: $resolvent (trail: ${assignment.trail})")
-        if (resolvent.size == 1) {
-            if (!assignment.enqueue(resolvent[0], null)) {
-                return false
-            }
-        } else {
-            attachClause(resolvent)
-            for (lit in resolvent.lits) {
-                state.occurrences[lit].add(resolvent)
-                state.variableOrder.incKey(lit.variable)
-            }
+        attachClause(resolvent)
+        for (lit in resolvent.lits) {
+            state.occurrences[lit].add(resolvent)
+            state.variableOrder.incKey(lit.variable)
         }
-
-        return true
     }
 
     private fun boundedVariableElimination(): SolveResult? {
         val state = EliminationState(assignment.numberOfVariables, db.clauses)
-
-        for (clause in db.clauses) {
-            if (clause.deleted) continue
-            for (lit in clause.lits) {
-                state.occurrences[lit].add(clause)
-            }
-        }
 
         for (attemptNumber in 0 until bveConfig.varsLimit) {
             var bestVariable: Var? = null
@@ -1220,11 +1210,24 @@ class CDCL {
                     break
                 }
             }
+
+            if (db.clauses.size > state.numberOfClauses * 2) {
+                db.clauses.removeAll { it.deleted }
+                for (watches in watchers) watches.removeAll { it.deleted }
+                for (occurrenceList in state.occurrences) occurrenceList.removeAll { it.deleted }
+            }
         }
 
-        for (learnt in db.learnts) {
+        for (learnt in db.learnts.toMutableList()) {
             if (learnt.deleted) continue
-            if (learnt.lits.any { !assignment.isActive(it) }) {
+            if (learnt.lits.any { !assignment.isActive(it) || assignment.value(it) == LBool.TRUE }) {
+                markDeleted(learnt)
+            } else {
+                val needsShrink = learnt.lits.any { assignment.value(it) == LBool.UNDEF }
+                if (!needsShrink) continue
+                val learntCopy = learnt.copy()
+                learntCopy.lits.removeAll { assignment.value(it) == LBool.FALSE }
+                attachClause(learntCopy)
                 markDeleted(learnt)
             }
         }
@@ -1280,12 +1283,14 @@ class CDCL {
 
         for (clause in posOccurrences) {
             if (clause.deleted) continue
-            bveRemoveEliminatedClause(state, clause, v.posLit)
+            bveRemoveEliminatedClause(state, clause)
+            reconstructionStack.push(clause, v.posLit)
         }
 
         for (clause in negOccurrences) {
             if (clause.deleted) continue
-            bveRemoveEliminatedClause(state, clause, v.negLit)
+            bveRemoveEliminatedClause(state, clause)
+            reconstructionStack.push(clause, v.negLit)
         }
 
         check(resolventsToAdd.all { it.size > 0 })
@@ -1307,15 +1312,13 @@ class CDCL {
                 }
 
                 else -> {
-                    check(bveAddResolvent(state, resolvent))
+                    bveAddResolvent(state, resolvent)
                     removeBackwardSubsumed(state, resolvent)?.let { return it }
                 }
             }
         }
 
         // state.expensiveDebugCheck(db.clauses)
-
-        bvePropagate()?.let { return finishWithUnsat() }
 
         return null
     }
@@ -1387,8 +1390,7 @@ class CDCL {
             }
 
             if (mismatch == null) {
-                // TODO: bad idea, no need to add this to the reconstruction stack!
-                bveRemoveEliminatedClause(state, otherClause, leastOccurrenceLit)
+                bveRemoveEliminatedClause(state, otherClause)
             } else if (state.marks[mismatch.neg] != 0) {
                 // println("Strengthening $otherClause with $mismatch")
                 val strengthenedClause = Clause(otherClause.lits.filter { it != mismatch }.toMutableList())
@@ -1398,11 +1400,9 @@ class CDCL {
                     }
                     bvePropagate()?.let { return finishWithUnsat() }
                 } else {
-                    // TODO: not-so-bad idea, but still should be reconsidered
                     bveAddResolvent(state, strengthenedClause)
                 }
-                // TODO: still bad
-                bveRemoveEliminatedClause(state, otherClause, leastOccurrenceLit)
+                bveRemoveEliminatedClause(state, otherClause)
             }
         }
 
