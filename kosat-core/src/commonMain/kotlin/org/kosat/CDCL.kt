@@ -1134,22 +1134,6 @@ class CDCL {
                 }
             }
         }
-
-        fun expensiveDebugCheck(clauses: List<Clause>) {
-            val realOccurrences = MutableList(occurrences.size) { mutableListOf<Clause>() }
-            for (clause in clauses) {
-                if (clause.deleted) continue
-                for (lit in clause.lits) {
-                    realOccurrences[lit].add(clause)
-                }
-            }
-
-            for (litIndex in occurrences.indices) {
-                val lit = Lit(litIndex)
-                check(realOccurrences[lit].size + realOccurrences[lit.neg].size == variableOrder.getKey(lit.variable))
-                check(realOccurrences[lit].toSet() == occurrences[lit].filter { !it.deleted }.toSet())
-            }
-        }
     }
 
     private fun bveRemoveEliminatedClause(state: EliminationState, clause: Clause) {
@@ -1257,10 +1241,12 @@ class CDCL {
         if (!foundGate) foundGate = findOrGates(state, v.negLit, isNegOccurredClauseGate, isPosOccurredClauseGate)
         if (foundGate) bveStats.gatesFound++
 
-        for ((i, posClause) in posOccurrences.withIndex()) {
+        for (i in 0 until posOccurrences.size) {
+            val posClause = posOccurrences[i]
             if (posClause.deleted) continue
 
-            for ((j, negClause) in negOccurrences.withIndex()) {
+            for (j in 0 until negOccurrences.size) {
+                val negClause = negOccurrences[j]
                 if (negClause.deleted) continue
 
                 if (foundGate && isPosOccurredClauseGate[i] == isNegOccurredClauseGate[j]) continue
@@ -1321,8 +1307,6 @@ class CDCL {
             }
         }
 
-        // state.expensiveDebugCheck(db.clauses)
-
         return null
     }
 
@@ -1336,7 +1320,7 @@ class CDCL {
         val negOccurrences = state.occurrences[pivot.neg]
         var foundAny = false
 
-        for (i in posOccurrences.indices) {
+        for (i in 0 until posOccurrences.size) {
             val clause = posOccurrences[i]
             if (clause.deleted) continue
             if (clause.size != 2) continue
@@ -1344,7 +1328,7 @@ class CDCL {
             state.marks[other.neg] = i + 1
         }
 
-        for (i in negOccurrences.indices) {
+        for (i in 0 until negOccurrences.size) {
             val clause = negOccurrences[i]
             if (clause.deleted) continue
             if (clause.lits.all { state.marks[it] != 0 || it == pivot.neg }) {
@@ -1359,7 +1343,7 @@ class CDCL {
             }
         }
 
-        for (i in posOccurrences.indices) {
+        for (i in 0 until posOccurrences.size) {
             val clause = posOccurrences[i]
             if (clause.deleted) continue
             if (clause.size != 2) continue
