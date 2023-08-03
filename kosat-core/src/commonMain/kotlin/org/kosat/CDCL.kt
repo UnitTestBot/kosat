@@ -95,6 +95,7 @@ class CDCL {
         var clausesDeleted = 0
         var tautologicalResolvents = 0
         var resolventsTooBig = 0
+        var gatesFound = 0
     }
 
     /**
@@ -1237,6 +1238,7 @@ class CDCL {
         println("Added ${bveStats.resolventsAdded} resolvents")
         println("Tautological resolvents: ${bveStats.tautologicalResolvents}")
         println("Resolvents too big: ${bveStats.resolventsTooBig}")
+        println("Gates found: ${bveStats.gatesFound}")
         println("Elimination attempts: ${bveStats.eliminationAttempts}")
 
         return null
@@ -1253,6 +1255,7 @@ class CDCL {
         var foundGate = false
         if (!foundGate) foundGate = findOrGates(state, v.posLit, isPosOccurredClauseGate, isNegOccurredClauseGate)
         if (!foundGate) foundGate = findOrGates(state, v.negLit, isNegOccurredClauseGate, isPosOccurredClauseGate)
+        if (foundGate) bveStats.gatesFound++
 
         for ((i, posClause) in posOccurrences.withIndex()) {
             if (posClause.deleted) continue
