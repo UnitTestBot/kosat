@@ -1339,7 +1339,7 @@ class CDCL {
 
     /**
      * Try to eliminate a variable [pivot] from the problem. This is the core of
-     * [boundedVariableElimination], and also a hot spot of the preprocessing.
+     * [boundedVariableElimination].
      *
      * The idea is to first find all clauses containing [pivot] variable. We
      * then perform "variable elimination by distribution", described in
@@ -1406,7 +1406,7 @@ class CDCL {
                 }
 
                 // We perform the resolution here.
-                val resolvent = resolve(state, posClause, negClause, pivot)
+                val resolvent = resolve(posClause, negClause, pivot)
 
                 // If it is tautological, we skip it.
                 if (resolvent == null) {
@@ -1610,49 +1610,41 @@ class CDCL {
     /**
      * The resolution procedure used by the [boundedVariableElimination].
      *
-     * Given two clauses, [clauseWithPosLit] and [clauseWithNegLit], which
+     * Given two clauses, [clause1] and [clause2], which
      * contain the same variable in opposite phases, this function returns the
      * resolvent of the two clauses, or null if the resolvent is a tautology,
      * or satisfied.
      *
      * It may return a unit clause, but it should never return an empty clause.
      */
-    private fun resolve(state: EliminationState, clauseWithPosLit: Clause, clauseWithNegLit: Clause, pivot: Var): Clause? {
-        require(!clauseWithPosLit.learnt && !clauseWithNegLit.learnt)
-        require(!clauseWithPosLit.deleted && !clauseWithNegLit.deleted)
-        val resolvent = Clause(mutableListOf())
+    private fun resolve(clause1: Clause, clause2: Clause, pivot: Var): Clause? {
+        require(!clause1.learnt && !clause2.learnt)
+        require(!clause1.deleted && !clause2.deleted)
+        val resolvent = mutableListOf<Lit>()
 
-        for (lit in clauseWithPosLit.lits) {
+        for (lit in clause1.lits) {
             if (lit.variable == pivot) continue
             val value = assignment.value(lit)
             if (value == LBool.FALSE) continue
-            if (value == LBool.TRUE) {
-                for (it in clauseWithPosLit.lits) state.marks[it] = 0
-                return null
-            }
+            if (value == LBool.TRUE) return null
 
-            resolvent.lits.add(lit)
-            state.marks[lit] = 1
+            resolvent.add(lit)
         }
 
-        for (lit in clauseWithNegLit.lits) {
+        for (lit in clause2.lits) {
             if (lit.variable == pivot) continue
             val value = assignment.value(lit)
             if (value == LBool.FALSE) continue
-            if (state.marks[lit] == 1) continue
-            if (state.marks[lit.neg] == 1 || value == LBool.TRUE) {
-                for (it in clauseWithPosLit.lits) state.marks[it] = 0
-                return null
-            }
+            if (value == LBool.TRUE) return null
 
-            resolvent.lits.add(lit)
+            resolvent.add(lit)
         }
 
-        for (lit in clauseWithPosLit.lits) {
-            state.marks[lit] = 0
+        if (sortDedupAndCheckComplimentary(resolvent)) {
+            return null
         }
 
-        return resolvent
+        return Clause(resolvent)
     }
 
     /**
