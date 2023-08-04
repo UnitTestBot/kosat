@@ -81,12 +81,11 @@ class ReconstructionStack {
             assignment.isActiveAndTrue(v.posLit)
         }
 
-        // TODO: remove LBools, fix docs
         // To reconstruct the model, we need to go through the stack in reverse
         // order, and for each clause, check if it is already satisfied by the
         // model.
-        // If not, it means that to satisfy the clause, we need to set the
-        // witness literal to true.
+        // If not, it means that to satisfy the clause, we need to flip the
+        // value of the witness literal.
         for (stackIndex in stack.lastIndex downTo 0) {
             val (clause, witness) = stack[stackIndex]
             val satisfied = clause.lits.any { model[it.variable] xor it.isNeg }
