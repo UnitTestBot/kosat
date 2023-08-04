@@ -86,6 +86,8 @@ class CDCL {
         val resolventSizeLimit = 16
         val maxVarOccurrences = 400
         val maxNewResolventsPerElimination = 16
+        val varScoreSumWeight = -1.0
+        val varScoreProdWeight = 1.0
     }
 
     private val bveStats = object {
@@ -1044,11 +1046,11 @@ class CDCL {
 
     /**
      * Priority queue for variables, used in [boundedVariableElimination].
-     * It is a min-heap, where the key is the number of occurrences of the
-     * variable in the problem.
+     * It is a min-heap, where the key is the score of the variable
+     * obtained by [bveVariableScore].
      */
-    class IntMinVariablePriorityQueue(var size: Int) {
-        private val keys: MutableList<Int> = MutableList(size) { 0 }
+    class VariableMinPriorityQueue(var size: Int) {
+        private val keys: MutableList<Double> = MutableList(size) { 0.0 }
         private val heap: MutableList<Var> = MutableList(size) { Var(it) }
         private val indices: MutableList<Int?> = MutableList(size) { it }
 
@@ -1088,19 +1090,12 @@ class CDCL {
             }
         }
 
-        fun getKey(x: Var): Int = keys[x]
+        fun getKey(x: Var): Double = keys[x]
 
-        fun incKey(x: Var, delta: Int = 1) {
-            require(delta >= 0)
+        fun setKey(x: Var, value: Double) {
             if (!contains(x)) return
-            keys[x] += delta
+            keys[x] = value
             siftUp(x)
-        }
-
-        fun decKey(x: Var, delta: Int = 1) {
-            require(delta >= 0)
-            if (!contains(x)) return
-            keys[x] -= delta
             siftDown(x)
         }
 
@@ -1119,22 +1114,26 @@ class CDCL {
      * [boundedVariableElimination] requires a global mutable state, which is
      * stored here.
      */
-    class EliminationState(numberOfVariables: Int, clauses: List<Clause>) {
+    class EliminationState(numberOfVariables: Int) {
         /**
          * Occurrences of each literal in the problem: for every literal we
          * store the clauses it is in. Some clauses may be deleted and should
          * be ignored. The size of the occurrences list for each literal is not
-         * necessarily equal to the key in [variableOrder], because we don't
-         * count deleted clauses.
+         * necessarily equal to the value in [occurrenceNumbers] because we
+         * don't count deleted clauses.
          */
         val occurrences: List<MutableList<Clause>> = MutableList(numberOfVariables * 2) { mutableListOf() }
 
         /**
-         * We use this queue for two purposes: to find the next variable to
-         * eliminate, and to count the number of "real" occurrences of each
-         * variable in not deleted clauses.
+         * This is the "real" amount of occurrences of each literal in the
+         * problem.
          */
-        val variableOrder: IntMinVariablePriorityQueue = IntMinVariablePriorityQueue(numberOfVariables)
+        val occurrenceNumbers: MutableList<Int> = MutableList(numberOfVariables * 2) { 0 }
+
+        /**
+         * We use this queue to find the next variable to eliminate.
+         */
+        val variableOrder: VariableMinPriorityQueue = VariableMinPriorityQueue(numberOfVariables)
 
         /**
          * Number of not-deleted clauses in the problem. BVE creates and deletes
@@ -1146,7 +1145,7 @@ class CDCL {
          * store here. If it is, we remove all deleted clauses from the
          * [db], [watchers], and [occurrences] lists.
          */
-        var numberOfClauses: Int = clauses.size
+        var numberOfClauses: Int = 0
 
         /**
          * Those are arbitrary marks used throughout the algorithm. We try to
@@ -1156,20 +1155,12 @@ class CDCL {
          * and memory usage.
          */
         val marks: MutableList<Int> = MutableList(numberOfVariables * 2) { 0 }
+    }
 
-        init {
-            for (clause in clauses) {
-                if (clause.deleted) {
-                    numberOfClauses--
-                    continue
-                }
-
-                for (lit in clause.lits) {
-                    occurrences[lit].add(clause)
-                    variableOrder.incKey(lit.variable)
-                }
-            }
-        }
+    private fun bveVariableScore(state: EliminationState, x: Var): Double {
+        val pos = state.occurrenceNumbers[x.posLit]
+        val neg = state.occurrenceNumbers[x.negLit]
+        return bveConfig.varScoreSumWeight * (pos + neg) + bveConfig.varScoreProdWeight * (pos * neg)
     }
 
     /**
@@ -1185,7 +1176,8 @@ class CDCL {
         state.numberOfClauses--
         markDeleted(clause)
         for (lit in clause.lits) {
-            state.variableOrder.decKey(lit.variable)
+            state.occurrenceNumbers[lit]--
+            state.variableOrder.setKey(lit.variable, bveVariableScore(state, lit.variable))
         }
     }
 
@@ -1203,7 +1195,8 @@ class CDCL {
         attachClause(clause)
         for (lit in clause.lits) {
             state.occurrences[lit].add(clause)
-            state.variableOrder.incKey(lit.variable)
+            state.occurrenceNumbers[lit]++
+            state.variableOrder.setKey(lit.variable, bveVariableScore(state, lit.variable))
         }
     }
 
@@ -1243,7 +1236,17 @@ class CDCL {
      */
     private fun boundedVariableElimination(): SolveResult? {
         // This state will be used all throughout the BVE
-        val state = EliminationState(assignment.numberOfVariables, db.clauses)
+        val state = EliminationState(assignment.numberOfVariables)
+
+        for (clause in db.clauses) {
+            if (clause.deleted) continue
+            state.numberOfClauses++
+            for (lit in clause.lits) {
+                state.occurrenceNumbers[lit]++
+                state.occurrences[lit].add(clause)
+                state.variableOrder.setKey(lit.variable, bveVariableScore(state, lit.variable))
+            }
+        }
 
         for (attemptNumber in 0 until bveConfig.varsLimit) {
 

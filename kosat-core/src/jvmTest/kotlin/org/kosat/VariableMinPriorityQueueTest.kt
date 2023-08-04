@@ -3,17 +3,17 @@ package org.kosat
 import org.junit.jupiter.api.Assertions.*
 import kotlin.test.Test
 
-class IntMinVariablePriorityQueueTest {
+class VariableMinPriorityQueueTest {
     @Test
     fun works() {
-        val queue = CDCL.IntMinVariablePriorityQueue(3)
+        val queue = CDCL.VariableMinPriorityQueue(3)
         val x = Var(0)
         val y = Var(1)
         val z = Var(2)
 
-        queue.incKey(x, 3)
-        queue.incKey(y, 2)
-        queue.decKey(x, 2)
+        queue.setKey(x, 3.0)
+        queue.setKey(y, 2.0)
+        queue.setKey(x, 1.0)
 
         assertTrue(queue.size == 3)
 
