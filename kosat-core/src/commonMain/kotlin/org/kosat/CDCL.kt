@@ -1196,15 +1196,39 @@ class CDCL {
      *
      * Similar to [bveMarkDeleted], but for adding new clauses.
      */
-    private fun bveAttachClause(state: EliminationState, resolvent: Clause) {
-        require(resolvent.size > 0)
+    private fun bveAttachClause(state: EliminationState, clause: Clause) {
+        require(clause.size > 1)
         bveStats.resolventsAdded++
         state.numberOfClauses++
-        attachClause(resolvent)
-        for (lit in resolvent.lits) {
-            state.occurrences[lit].add(resolvent)
+        attachClause(clause)
+        for (lit in clause.lits) {
+            state.occurrences[lit].add(clause)
             state.variableOrder.incKey(lit.variable)
         }
+    }
+
+    /**
+     * Shrinks the clause by removing all literals that are assigned to false,
+     * and adds it through [bveAttachClause]. This function can derive empty
+     * clause, or a unit clause which, when propagated, leads to empty clause,
+     * so it returns [SolveResult.UNSAT] in those cases.
+     */
+    private fun bveAttachShrunkClause(state: EliminationState, clause: Clause): SolveResult? {
+        if (clause.lits.any { assignment.value(it) == LBool.TRUE }) return null
+        clause.lits.removeAll { assignment.value(it) == LBool.FALSE }
+
+        when (clause.size) {
+            0 -> return finishWithUnsat()
+            1 -> {
+                if (!assignment.enqueue(clause.lits[0], null)) return finishWithUnsat()
+                bvePropagate()?.let { return finishWithUnsat() }
+            }
+            else -> {
+                bveAttachClause(state, clause)
+            }
+        }
+
+        return null
     }
 
     /**
@@ -1343,21 +1367,18 @@ class CDCL {
 
         // As observed in SatElite paper, there are special kinds of clause
         // formations, called "gates", which, when resolved with other gates,
-        // produce a tauto
-        // (which are also logical resolvent. Those are valuable for the
-        // algorithm, so we try to find them here. Those lists store if the
-        // clause at the given index of the occurrences list is a gate.
-        val isPosOccurredClauseGate = MutableList(posOccurrences.size) { false }
-        val isNegOccurredClauseGate = MutableList(negOccurrences.size) { false }
-        var foundGate = false
+        // produce a tautological resolvent. Those are valuable for the
+        // algorithm, so we try to find them here.
+        var gateClauses: List<Clause>? = null
+
         // We can only use a single gate, so we just use the first one we found
         // Below we look for OR-gates. Those are constraints in the form
         // x = (a1 | a2 | ... | aK), where x is the pivot literal, and a1, a2,
         // ..., aK are other literals. This is also AND-gate for the negation
         // of the literal, of course. See the implementation for more details.
-        if (!foundGate) foundGate = findOrGates(state, pivot.posLit, isPosOccurredClauseGate, isNegOccurredClauseGate)
-        if (!foundGate) foundGate = findOrGates(state, pivot.negLit, isNegOccurredClauseGate, isPosOccurredClauseGate)
-        if (foundGate) bveStats.gatesFound++
+        if (gateClauses == null) gateClauses = findOrGates(state, pivot.posLit)
+        if (gateClauses == null) gateClauses = findOrGates(state, pivot.negLit)
+        if (gateClauses != null) bveStats.gatesFound++
 
         // Finally, we perform the resolutions.
         val resolventsToAdd = mutableListOf<Clause>()
@@ -1378,10 +1399,14 @@ class CDCL {
                 // which only leaves us with the case of resolving a gate
                 // clause with a non-gate clause! See the SatElite paper for
                 // more details.
-                if (foundGate && isPosOccurredClauseGate[i] == isNegOccurredClauseGate[j]) continue
+                if (gateClauses != null) {
+                    val isPosClauseGate = gateClauses.any { it === posClause }
+                    val isNegClauseGate = gateClauses.any { it === negClause }
+                    if (isPosClauseGate == isNegClauseGate) continue
+                }
 
                 // We perform the resolution here.
-                val resolvent = resolve(posClause, negClause, pivot)
+                val resolvent = resolve(state, posClause, negClause, pivot)
 
                 // If it is tautological, we skip it.
                 if (resolvent == null) {
@@ -1398,6 +1423,7 @@ class CDCL {
                 }
 
                 resolventsToAdd.add(resolvent)
+
                 // We also limit the number of resolvents we add per elimination
                 // to prevent the algorithm from generating too many clauses.
                 if (resolventsToAdd.size > limit) return null
@@ -1413,29 +1439,9 @@ class CDCL {
 
         // We add resolvents to the database, removing falsified literals from
         // them.
-        // TODO: doesn't this break watches?
         for (resolvent in resolventsToAdd) {
-            if (resolvent.lits.any { assignment.value(it) == LBool.TRUE }) continue
-            resolvent.lits.removeAll { assignment.value(it) == LBool.FALSE }
-
-            when (resolvent.size) {
-                // FIXME: I BROKE IT NOOOOOOOOO
-                0 -> {
-                    return finishWithUnsat()
-                }
-
-                1 -> {
-                    if (!assignment.enqueue(resolvent[0], null)) {
-                        return finishWithUnsat()
-                    }
-                    bvePropagate()?.let { return finishWithUnsat() }
-                }
-
-                else -> {
-                    bveAttachClause(state, resolvent)
-                    removeBackwardSubsumed(state, resolvent)?.let { return it }
-                }
-            }
+            bveAttachShrunkClause(state, resolvent)?.let { return it }
+            removeBackwardSubsumed(state, resolvent)?.let { return it }
         }
 
         // Finally, we remove old clauses containing the variable.
@@ -1454,39 +1460,65 @@ class CDCL {
         return null
     }
 
+    /**
+     * As mentioned in the SatElite paper, when clauses form a gate circuit, we
+     * don't need to add every resolvent. This function looks for OR-gates,
+     * which is the gate in form `x = (a1 | a2 | ... | aK)`. This is equivalent
+     * to `-x = (-a1 & -a2 & ... & -aK)` so this function also discovers
+     * AND-gates when used on the negation of the pivot literal. Note that this
+     * function also discovers equivalences, that is, the gates of the form
+     * `x = a`.
+     *
+     * In clausal form, this gate is represented as a big clause, the negation
+     * of `x` and all the `a1, a2, ..., aK` literals, and a bunch of binary
+     * clauses between `x` and negations of `a1, a2, ..., aK` literals. This
+     * function returns such clauses. `x` is [pivot].
+     */
     private fun findOrGates(
         state: EliminationState,
         pivot: Lit,
-        posGatesMarks: MutableList<Boolean>,
-        negGatesMarks: MutableList<Boolean>,
-    ): Boolean {
+    ): List<Clause>? {
         val posOccurrences = state.occurrences[pivot]
         val negOccurrences = state.occurrences[pivot.neg]
         var foundAny = false
 
+        val gateClauses = mutableListOf<Clause>()
+
+        // We first mark all literals which occur in binary clauses with the
+        // positive pivot.
         for (i in 0 until posOccurrences.size) {
             val clause = posOccurrences[i]
             if (clause.deleted) continue
             if (clause.size != 2) continue
             val other = Lit(clause[0].inner xor clause[1].inner xor pivot.inner)
+            // We use the index of the clause + 1 as the mark, because we need
+            // to restore the clause from the mark later. Of course, we can't
+            // use 0 as the mark.
             state.marks[other.neg] = i + 1
         }
 
+        // We then look for the "big clause"
         for (i in 0 until negOccurrences.size) {
             val clause = negOccurrences[i]
             if (clause.deleted) continue
+
+            // If all the literals in the clause, except the negation of the
+            // pivot, are marked, then we found that clause.
             if (clause.lits.all { state.marks[it] != 0 || it == pivot.neg }) {
-                negGatesMarks[i] = true
                 foundAny = true
-                // println("Found gate: $clause, ${clause.lits.filter { it != pivot.neg }.map { state.marks[it] }.map { posOccurrences[it - 1] }}")
+                gateClauses.add(clause)
+
                 for (lit in clause.lits) {
-                    if (lit != pivot.neg)
-                        posGatesMarks[state.marks[lit] - 1] = true
+                    if (lit != pivot.neg) {
+                        gateClauses.add(posOccurrences[state.marks[lit] - 1])
+                    }
                 }
+
                 break
             }
         }
 
+        // We then must reset the marks.
         for (i in 0 until posOccurrences.size) {
             val clause = posOccurrences[i]
             if (clause.deleted) continue
@@ -1495,74 +1527,145 @@ class CDCL {
             state.marks[other.neg] = 0
         }
 
-        return foundAny
+        if (!foundAny) return null
+        return gateClauses
     }
 
+    /*
+     * Given a [clause], this function removes all the clauses which are
+     * subsumed by it, as well as strengthens the clause by self-subsumption.
+     *
+     * During the [boundedVariableElimination] procedure, we produce a lot of
+     * resolvents, some of which are subsumed by other clauses. This happens a
+     * lot and removing such clauses is crucial for the performance of the BVE.
+     *
+     * Moreover, sometimes a clause can be "almost subsumed" by another clause,
+     * that is, it would have been subsumed if not the one literal in the wrong
+     * phase. Consider two clauses, `x or A` and `-x or B`, and assume `A`
+     * subsumes `B`. Then, by resolving the two clauses, we get `A or B`, which
+     * is equivalent to `B`. In that case, we say that `-x or B` is strengthened
+     * by self-subsumption using `x or A`.
+     *
+     * Note that strengthening can cause a clause to become a unit, in which
+     * case we must propagate it, and in case of a conflict, return UNSAT.
+     */
     private fun removeBackwardSubsumed(state: EliminationState, clause: Clause): SolveResult? {
-        // println("Removing backward subsumed clauses for $clause")
+        // This function uses multiple heuristics to speed up the process.
+
+        // First of all, we only consider clauses which are occurrences of the
+        // least occurring literal. This may cause us to miss strengthening, but
+        // the performance gain is worth it.
         val leastOccurrenceLit = clause.lits.minBy { state.occurrences[it].size }
+
+        // We mark all the literals in the clause.
         for (lit in clause.lits) state.marks[lit] = 1
 
+        // And iterate over all the clauses which contain the least occurring
+        // literal.
         val initialSize = state.occurrences[leastOccurrenceLit].size
-
         outer@ for (i in 0 until initialSize) {
             val otherClause = state.occurrences[leastOccurrenceLit][i]
+
             if (otherClause === clause) continue
             if (otherClause.deleted) continue
+
+            // We also only consider clauses which are at least as big as the
+            // clause we are trying to subsume.
             if (otherClause.size < clause.size) continue
 
+            // This is the mismatch used for strengthening.
             var mismatch: Lit? = null
 
             for (lit in otherClause.lits) {
                 if (state.marks[lit] == 0) {
-                    if (mismatch != null) continue@outer
+                    // If mismatch is already set, then we have two literals
+                    // which are not in the clause we are trying to subsume.
+                    // If mismatch does not occur in the clause in the
+                    // other phase, then we can't strengthen.
+                    if (mismatch != null || state.marks[lit.neg] == 0) continue@outer
                     mismatch = lit
                 }
             }
 
             if (mismatch == null) {
+                // Finally, if there are no mismatches, then the clause is simply
+                // subsumed.
                 bveMarkDeleted(state, otherClause)
             } else if (state.marks[mismatch.neg] != 0) {
-                // println("Strengthening $otherClause with $mismatch")
+                // Otherwise, we can strengthen the clause.
                 val strengthenedClause = Clause(otherClause.lits.filter { it != mismatch }.toMutableList())
-                if (strengthenedClause.size == 1) {
-                    if (!assignment.enqueue(strengthenedClause[0], null)) {
-                        return finishWithUnsat()
-                    }
-                    bvePropagate()?.let { return finishWithUnsat() }
-                } else {
-                    bveAttachClause(state, strengthenedClause)
-                }
+                // Note that we don't reset marks here with a hope that those
+                // will never be used after UNSAT anyway.
+                bveAttachShrunkClause(state, strengthenedClause)?.let { return it }
                 bveMarkDeleted(state, otherClause)
             }
         }
 
+        // We then must reset the marks.
         for (lit in clause.lits) state.marks[lit] = 0
-
-        // println("Backward subsumption done")
 
         return null
     }
 
-    private fun resolve(clauseWithPosLit: Clause, clauseWithNegLit: Clause, pivot: Var): Clause? {
+    /**
+     * The resolution procedure used by the [boundedVariableElimination].
+     *
+     * Given two clauses, [clauseWithPosLit] and [clauseWithNegLit], which
+     * contain the same variable in opposite phases, this function returns the
+     * resolvent of the two clauses, or null if the resolvent is a tautology,
+     * or satisfied.
+     *
+     * It may return a unit clause, but it should never return an empty clause.
+     */
+    private fun resolve(state: EliminationState, clauseWithPosLit: Clause, clauseWithNegLit: Clause, pivot: Var): Clause? {
         require(!clauseWithPosLit.learnt && !clauseWithNegLit.learnt)
         require(!clauseWithPosLit.deleted && !clauseWithNegLit.deleted)
         val resolvent = Clause(mutableListOf())
 
-        for (lit in clauseWithPosLit.lits + clauseWithNegLit.lits) {
+        for (lit in clauseWithPosLit.lits) {
             if (lit.variable == pivot) continue
             val value = assignment.value(lit)
             if (value == LBool.FALSE) continue
-            if (value == LBool.TRUE) return null
+            if (value == LBool.TRUE) {
+                for (it in clauseWithPosLit.lits) state.marks[it] = 0
+                return null
+            }
+
+            resolvent.lits.add(lit)
+            state.marks[lit] = 1
+        }
+
+        for (lit in clauseWithNegLit.lits) {
+            if (lit.variable == pivot) continue
+            val value = assignment.value(lit)
+            if (value == LBool.FALSE) continue
+            if (state.marks[lit] == 1) continue
+            if (state.marks[lit.neg] == 1 || value == LBool.TRUE) {
+                for (it in clauseWithPosLit.lits) state.marks[it] = 0
+                return null
+            }
+
             resolvent.lits.add(lit)
         }
 
-        // TODO: can we not sort?
-        if (sortDedupAndCheckComplimentary(resolvent.lits)) return null
+        for (lit in clauseWithPosLit.lits) {
+            state.marks[lit] = 0
+        }
 
         return resolvent
     }
 
+    /**
+     * This is the custom propagation procedure used by the
+     * [boundedVariableElimination]. It is similar to the regular propagation
+     * except it ignores clauses which contain non-active literals. This is
+     * because when propagating, we may accidentally use a learnt clause which
+     * will cause learning non-active variables, and since removing learnt
+     * clauses is not cheap, we cannot afford to do that every elimination.
+     *
+     * It also removes such clauses from the watch list, since they are useless
+     * anyway.
+     */
     private fun bvePropagate(): Clause? {
         require(ok && assignment.decisionLevel == 0)
 
@@ -1583,18 +1686,20 @@ class CDCL {
 
                 if (conflict != null) continue
 
+                // This is where we ignore clauses with non-active literals.
+                if (clause.lits.any { !assignment.isActive(it) }) {
+                    j--
+                    continue
+                }
+
                 if (clause[0].variable == lit.variable) {
                     clause.lits.swap(0, 1)
                 }
 
-                if (!assignment.isActive(clause[0]) || value(clause[0]) == LBool.TRUE) continue
+                if (value(clause[0]) == LBool.TRUE) continue
 
                 var firstNotFalse = -1
                 for (ind in 2 until clause.size) {
-                    if (!assignment.isActive(clause[ind])) {
-                        j--
-                        break
-                    }
                     if (value(clause[ind]) != LBool.FALSE) {
                         firstNotFalse = ind
                         break

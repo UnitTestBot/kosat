@@ -1,8 +1,6 @@
 package org.kosat
 
 import okio.Path.Companion.toPath
-import okio.buffer
-import okio.sink
 import org.junit.jupiter.api.Timeout
 import org.kosat.cnf.CNF
 import org.kosat.cnf.from
@@ -12,7 +10,7 @@ import kotlin.test.Test
 internal class ManualTest {
     @Test
     fun testManual() {
-        val path = "src/jvmTest/resources/testCover/small/diamond1.cnf".toPath()
+        val path = "src/jvmTest/resources/testCover/small/prime4.cnf".toPath()
         val cnf = CNF.from(path)
         val clauses = cnf.clauses.map { lits ->
             Clause(lits.map { Lit.fromDimacs(it) }.toMutableList())
