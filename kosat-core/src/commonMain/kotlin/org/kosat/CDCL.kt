@@ -1148,13 +1148,17 @@ class CDCL {
         var numberOfClauses: Int = 0
 
         /**
-         * Those are arbitrary marks used throughout the algorithm. We try to
-         * not use such marks in the solver to improve readability, but here
-         * we pretty much have no choice: there are too many things to keep
-         * track of, and using hash-sets for them would mean tremendous slowdown
-         * and memory usage.
+         * In [findOrGates] we use this list to store indices of binary clauses
+         * that contain pivot literal. It is too expensive to create a new list
+         * for each pivot, so we reuse this one for the entire BVE.
          */
-        val marks: MutableList<Int> = MutableList(numberOfVariables * 2) { 0 }
+        val gateMarks: MutableList<Int> = MutableList(numberOfVariables * 2) { 0 }
+
+        /**
+         * In [removeBackwardSubsumed] we mark literals from the clause to
+         * quickly check if other clauses contain all literals from it.
+         */
+        val subsumptionMarks: MutableList<Boolean> = MutableList(numberOfVariables * 2) { false }
     }
 
     private fun bveVariableScore(state: EliminationState, x: Var): Double {
@@ -1497,7 +1501,7 @@ class CDCL {
             // We use the index of the clause + 1 as the mark, because we need
             // to restore the clause from the mark later. Of course, we can't
             // use 0 as the mark.
-            state.marks[other.neg] = i + 1
+            state.gateMarks[other.neg] = i + 1
         }
 
         // We then look for the "big clause"
@@ -1507,13 +1511,13 @@ class CDCL {
 
             // If all the literals in the clause, except the negation of the
             // pivot, are marked, then we found that clause.
-            if (clause.lits.all { state.marks[it] != 0 || it == pivot.neg }) {
+            if (clause.lits.all { state.gateMarks[it] != 0 || it == pivot.neg }) {
                 foundAny = true
                 gateClauses.add(clause)
 
                 for (lit in clause.lits) {
                     if (lit != pivot.neg) {
-                        gateClauses.add(posOccurrences[state.marks[lit] - 1])
+                        gateClauses.add(posOccurrences[state.gateMarks[lit] - 1])
                     }
                 }
 
@@ -1527,7 +1531,7 @@ class CDCL {
             if (clause.deleted) continue
             if (clause.size != 2) continue
             val other = Lit(clause[0].inner xor clause[1].inner xor pivot.inner)
-            state.marks[other.neg] = 0
+            state.gateMarks[other.neg] = 0
         }
 
         if (!foundAny) return null
@@ -1561,7 +1565,7 @@ class CDCL {
         val leastOccurrenceLit = clause.lits.minBy { state.occurrences[it].size }
 
         // We mark all the literals in the clause.
-        for (lit in clause.lits) state.marks[lit] = 1
+        for (lit in clause.lits) state.subsumptionMarks[lit] = true
 
         // And iterate over all the clauses which contain the least occurring
         // literal.
@@ -1580,12 +1584,12 @@ class CDCL {
             var mismatch: Lit? = null
 
             for (lit in otherClause.lits) {
-                if (state.marks[lit] == 0) {
+                if (!state.subsumptionMarks[lit]) {
                     // If mismatch is already set, then we have two literals
                     // which are not in the clause we are trying to subsume.
                     // If mismatch does not occur in the clause in the
                     // other phase, then we can't strengthen.
-                    if (mismatch != null || state.marks[lit.neg] == 0) continue@outer
+                    if (mismatch != null || !state.subsumptionMarks[lit.neg]) continue@outer
                     mismatch = lit
                 }
             }
@@ -1594,7 +1598,7 @@ class CDCL {
                 // Finally, if there are no mismatches, then the clause is simply
                 // subsumed.
                 bveMarkDeleted(state, otherClause)
-            } else if (state.marks[mismatch.neg] != 0) {
+            } else if (state.subsumptionMarks[mismatch.neg]) {
                 // Otherwise, we can strengthen the clause.
                 val strengthenedClause = Clause(otherClause.lits.filter { it != mismatch }.toMutableList())
                 // Note that we don't reset marks here with a hope that those
@@ -1605,7 +1609,7 @@ class CDCL {
         }
 
         // We then must reset the marks.
-        for (lit in clause.lits) state.marks[lit] = 0
+        for (lit in clause.lits) state.subsumptionMarks[lit] = false
 
         return null
     }
