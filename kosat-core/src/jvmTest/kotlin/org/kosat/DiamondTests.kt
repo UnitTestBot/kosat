@@ -35,7 +35,7 @@ internal class DiamondTests {
         private val testsPath = workingDir.resolve("src/jvmTest/resources")
         private val assumptionTestsPath = testsPath.resolve("testCover")
         private val benchmarksPath = testsPath.resolve("benchmarks")
-        private val incrementalTestsPath = testsPath.resolve("")
+        private val incrementalTestsPath = testsPath.resolve("testCover")
 
         private val dratTrimExecutable: Path = Paths.get("drat-trim")
         private val generateAndCheckDrat = System.getenv()["TEST_CHECK_UNSAT_PROOF"]?.let { it == "true" } ?: false
