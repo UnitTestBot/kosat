@@ -1718,19 +1718,20 @@ class CDCL {
 
             check(value(lit) == LBool.TRUE)
 
-            var j = 0
+            val clausesToKeep = mutableListOf<Clause>()
             val possiblyBrokenClauses = watchers[lit.neg]
 
             for (i in 0 until possiblyBrokenClauses.size) {
                 val clause = possiblyBrokenClauses[i]
                 if (clause.deleted) continue
-                possiblyBrokenClauses[j++] = clause
+
+                clausesToKeep.add(clause)
 
                 if (conflict != null) continue
 
                 // This is where we ignore clauses with non-active literals.
                 if (clause.lits.any { !assignment.isActive(it) }) {
-                    j--
+                    clausesToKeep.removeLast()
                     continue
                 }
 
@@ -1755,11 +1756,11 @@ class CDCL {
                 } else {
                     watchers[clause[firstNotFalse]].add(clause)
                     clause.lits.swap(firstNotFalse, 1)
-                    j--
+                    clausesToKeep.removeLast()
                 }
             }
 
-            possiblyBrokenClauses.retainFirst(j)
+            watchers[lit.neg] = clausesToKeep
 
             if (conflict != null) break
         }
