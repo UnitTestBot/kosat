@@ -1,9 +1,10 @@
 package org.kosat.cnf
 
+import okio.Buffer
 import okio.BufferedSource
 import kotlin.math.abs
 
-class CNF(
+data class CNF(
     val clauses: List<List<Int>>,
     val numVars: Int = determineNumberOfVariables(clauses),
 ) {
@@ -53,6 +54,14 @@ class CNF(
             }
 
             return CNF(clauses, numVars)
+        }
+
+        fun fromString(string: String): CNF {
+            val buffer = Buffer()
+            buffer.writeUtf8(string)
+            val result = from(buffer)
+            buffer.close()
+            return result
         }
     }
 }

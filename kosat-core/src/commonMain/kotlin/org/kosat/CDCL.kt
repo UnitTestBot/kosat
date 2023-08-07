@@ -13,6 +13,7 @@ fun solveCnf(cnf: CnfRequest): List<Boolean>? {
     val clauses = cnf.clauses.map { Clause.fromDimacs(it) }.toMutableList()
     val solver = CDCL(clauses, cnf.vars)
     val result = solver.solve()
+    println("trail: ${solver.assignment.trail}")
     return if (result == SolveResult.SAT) {
         solver.getModel()
     } else {
@@ -46,7 +47,7 @@ class CDCL {
      * Can solver perform the search? This becomes false if given constraints
      * cause unsatisfiability in some way.
      */
-    private var ok = true
+    var ok = true
 
     /**
      * Two-watched literals heuristic.
@@ -108,7 +109,7 @@ class CDCL {
     /**
      * The branching heuristic, used to choose the next decision variable.
      */
-    private val variableSelector: VariableSelector = VSIDS(assignment.numberOfVariables)
+    val variableSelector: VariableSelector = VSIDS(assignment.numberOfVariables)
 
     /**
      * The restart strategy, used to decide when to restart the search.
@@ -392,7 +393,7 @@ class CDCL {
      * mark the solver as not ok, add empty clause to the DRAT proof,
      * flush the proof and return [SolveResult.UNSAT].
      */
-    private fun finishWithUnsat(): SolveResult {
+    fun finishWithUnsat(): SolveResult {
         ok = false
         dratBuilder.addEmptyClauseAndFlush()
         return SolveResult.UNSAT
@@ -411,7 +412,7 @@ class CDCL {
      * If not, return [SolveResult.UNSAT] due to assumptions being impossible
      * to satisfy, otherwise return [SolveResult.SAT].
      */
-    private fun finishWithSatIfAssumptionsOk(): SolveResult {
+    fun finishWithSatIfAssumptionsOk(): SolveResult {
         for (assumption in assumptions) {
             if (value(assumption) == LBool.FALSE) {
                 return finishWithAssumptionsUnsat()
@@ -1802,7 +1803,7 @@ class CDCL {
      * @return the conflict clause if a conflict is found, or `null` if no
      * conflict occurs.
      */
-    private fun propagate(): Clause? {
+    fun propagate(): Clause? {
         check(ok)
 
         var conflict: Clause? = null
@@ -1881,7 +1882,7 @@ class CDCL {
      * @param conflict the conflict clause.
      * @return the learned clause.
      */
-    private fun analyzeConflict(conflict: Clause): Clause {
+    fun analyzeConflict(conflict: Clause): Clause {
         // We analyze conflict by walking back on implication graph,
         // starting with the literals in the conflict clause.
         // (Technically, the literals of the conflict are added on
