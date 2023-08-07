@@ -195,6 +195,7 @@ class CDCL {
         if (sortDedupAndCheckComplimentary(clause.lits)) return
 
         newClauses.add(clause)
+        clause.fromInput = true
 
         when (clause.size) {
             // Empty clause is an immediate UNSAT
@@ -213,8 +214,7 @@ class CDCL {
             }
 
             // Clauses of size >2 are added to the database.
-            // We don't add externally provided clauses to the proof.
-            else -> attachClause(clause, addToDrat = false)
+            else -> attachClause(clause)
         }
     }
 
@@ -1723,13 +1723,13 @@ class CDCL {
     /**
      * Add [clause] into the database and attach watchers for it.
      */
-    fun attachClause(clause: Clause, addToDrat: Boolean = true) {
+    fun attachClause(clause: Clause) {
         require(clause.size >= 2) { clause }
         check(ok)
         db.add(clause)
         watchers[clause[0]].add(clause)
         watchers[clause[1]].add(clause)
-        if (addToDrat) dratBuilder.addClause(clause)
+        if (!clause.fromInput) dratBuilder.addClause(clause)
     }
 
     /**
@@ -1740,7 +1740,7 @@ class CDCL {
     fun markDeleted(clause: Clause) {
         check(ok)
         clause.deleted = true
-        if (clause.learnt) dratBuilder.deleteClause(clause)
+        if (!clause.fromInput) dratBuilder.deleteClause(clause)
     }
 
     /**

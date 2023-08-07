@@ -6,6 +6,7 @@ data class Clause(
 ) {
     val size: Int get() = lits.size
     var deleted: Boolean = false
+    var fromInput: Boolean = false
     var activity: Double = 0.0
     var lbd: Int = 0
 
