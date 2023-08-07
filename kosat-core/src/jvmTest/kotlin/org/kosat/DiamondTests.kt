@@ -7,10 +7,8 @@ import korlibs.time.roundMilliseconds
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import okio.Sink
-import okio.Path.Companion.toPath
 import okio.buffer
 import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -27,9 +25,7 @@ import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
-import kotlin.test.Test
 import kotlin.test.assertContains
-import kotlin.time.measureTime
 
 private const val timeFormat = "yyyy-MM-dd_HH-mm-ss"
 
@@ -39,6 +35,7 @@ internal class DiamondTests {
         private val testsPath = workingDir.resolve("src/jvmTest/resources")
         private val assumptionTestsPath = testsPath.resolve("testCover")
         private val benchmarksPath = testsPath.resolve("benchmarks")
+        private val incrementalTestsPath = testsPath.resolve("")
 
         private val dratTrimExecutable: Path = Paths.get("drat-trim")
         private val generateAndCheckDrat = System.getenv()["TEST_CHECK_UNSAT_PROOF"]?.let { it == "true" } ?: false
@@ -75,6 +72,14 @@ internal class DiamondTests {
         @JvmStatic
         private fun getAssumptionFiles(): List<Arguments> {
             return Files.walk(assumptionTestsPath)
+                .filter { isTestFile(it) }
+                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .toList()
+        }
+
+        @JvmStatic
+        private fun getIncrementalFiles(): List<Arguments> {
+            return Files.walk(incrementalTestsPath)
                 .filter { isTestFile(it) }
                 .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
                 .toList()
@@ -239,6 +244,54 @@ internal class DiamondTests {
         }
     }
 
+    private fun runIncrementalTest(cnf: CNF) {
+        val solver = CDCL(cnf)
+        var fullCnf = cnf
+
+        val getInstances = 10
+        val results = mutableListOf<List<Boolean>>()
+
+        for (i in 0 until getInstances) {
+            val expectedResult = solveWithMiniSat(fullCnf)
+
+            val actualResult = solver.solve()
+
+            Assertions.assertEquals(expectedResult, actualResult) { "MiniSat and KoSat results are different" }
+            println("MiniSat and KoSat results are the same: $actualResult")
+
+            if (actualResult == SolveResult.SAT) {
+                val model = solver.getModel()
+
+                for (clause in fullCnf.clauses) {
+                    var satisfied = false
+                    for (lit in clause) {
+                        if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                            satisfied = true
+                            break
+                        }
+                    }
+
+                    Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                }
+
+                results.add(model)
+
+                val incrementalDimacsClause = model.mapIndexed { index, value ->
+                    if (value) index + 1 else -(index + 1)
+                }
+
+                fullCnf = CNF(fullCnf.clauses + listOf(incrementalDimacsClause), fullCnf.numVars)
+
+                val incrementalClause = Clause.fromDimacs(incrementalDimacsClause)
+
+                solver.newClause(incrementalClause)
+            } else {
+                break
+            }
+        }
+
+    }
+
     @ParameterizedTest(name = "{1}")
     @MethodSource("getAllNotBenchmarks")
     fun test(file: File, testName: String) {
@@ -279,5 +332,15 @@ internal class DiamondTests {
         runTestWithAssumptions(cnf, assumptionSets)
 
         println()
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("getIncrementalFiles")
+    fun incrementalTest(file: File, testName: String) {
+        val cnf = CNF.from(file.toOkioPath())
+        val clauseCount = cnf.clauses.size
+        println("# Testing on: $file ($clauseCount clauses, ${cnf.numVars} variables)")
+
+        runIncrementalTest(cnf)
     }
 }

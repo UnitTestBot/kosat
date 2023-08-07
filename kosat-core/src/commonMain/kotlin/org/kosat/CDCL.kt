@@ -182,8 +182,6 @@ class CDCL {
      * Add a new clause to the solver.
      */
     fun newClause(clause: Clause) {
-        check(assignment.decisionLevel == 0)
-
         // Return early when already UNSAT
         if (!ok) return
 
