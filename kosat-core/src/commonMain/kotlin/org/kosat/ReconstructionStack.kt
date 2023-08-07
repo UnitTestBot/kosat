@@ -78,28 +78,23 @@ class ReconstructionStack {
     fun reconstruct(assignment: Assignment): List<Boolean> {
         val model = MutableList(assignment.numberOfVariables) { varIndex ->
             val v = Var(varIndex)
-            if (assignment.isActive(v)) {
-                assignment.value(v)
-            } else {
-                LBool.UNDEF
-            }
+            assignment.isActiveAndTrue(v.posLit)
         }
 
         // To reconstruct the model, we need to go through the stack in reverse
         // order, and for each clause, check if it is already satisfied by the
         // model.
-        // If not, it means that to satisfy the clause, we need to set the
-        // witness literal to true.
+        // If not, it means that to satisfy the clause, we need to flip the
+        // value of the witness literal.
         for (stackIndex in stack.lastIndex downTo 0) {
             val (clause, witness) = stack[stackIndex]
-            val satisfied = clause.lits.any { model[it.variable] xor it.isNeg == LBool.TRUE }
+            val satisfied = clause.lits.any { model[it.variable] xor it.isNeg }
             if (!satisfied) {
-                check(model[witness.variable] == LBool.UNDEF)
-                model[witness.variable] = LBool.from(witness.isPos)
+                model[witness.variable] = witness.isPos
             }
         }
 
-        return model.map { it == LBool.TRUE }
+        return model
     }
 
     /**
@@ -162,8 +157,8 @@ class ReconstructionStack {
             // is unassigned.
             clause.lits.removeAll { solver.assignment.isActiveAndFalse(it) }
 
-            if (satisfied) continue // (*) this is where we remove satisfied clauses
-
+            // this is where we remove satisfied clauses
+            if (satisfied || solver.assignment.isActiveAndFalse(witness)) continue // (*)
             // Otherwise, the clause needs to be restored.
 
             // We mark all the literals in the clause as tainted, as they are
@@ -185,6 +180,15 @@ class ReconstructionStack {
                 solver.attachClause(clause)
             } else {
                 check(solver.assignment.enqueue(clause[0], clause))
+            }
+        }
+
+        // Note that some variables might have been tainted, but not even on the
+        // stack. This is because we can eliminate a variable, which is not even
+        // in the formula at the moment of elimination. We eliminate it here.
+        for (varIndex in 0 until solver.assignment.numberOfVariables) {
+            if (tainted[varIndex]) {
+                solver.assignment.markActive(Var(varIndex))
             }
         }
 
