@@ -48,17 +48,18 @@ class ReconstructionStack {
      * Pushes a clause with a given witness to the stack.
      */
     fun push(clause: Clause, witness: Lit) {
-        check(!clause.deleted)
         check(!clause.learnt)
         require(witness in clause.lits)
-        stack.add(ReconstructionStackEntry(clause, witness))
+        val copy = clause.copy()
+        copy.deleted = false
+        stack.add(ReconstructionStackEntry(copy, witness))
     }
 
     /**
      * Pushes a binary clause from a given literal and its witness to the stack.
      */
     fun pushBinary(lit: Lit, witness: Lit) {
-        push(Clause(mutableListOf(lit, witness)), witness)
+        stack.add(ReconstructionStackEntry(Clause(mutableListOf(lit, witness)), witness))
     }
 
     /**
