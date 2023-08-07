@@ -183,7 +183,9 @@ class ReconstructionStack {
             }
         }
 
-        // FIXME: ugly workaround
+        // Note that some variables might have been tainted, but not even on the
+        // stack. This is because we can eliminate a variable, which is not even
+        // in the formula at the moment of elimination. We eliminate it here.
         for (varIndex in 0 until solver.assignment.numberOfVariables) {
             if (tainted[varIndex]) {
                 solver.assignment.markActive(Var(varIndex))
