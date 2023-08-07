@@ -1252,6 +1252,8 @@ class CDCL {
      * algorithm and subsequent solving from taking too much time.
      */
     private fun boundedVariableElimination(): SolveResult? {
+        require(assignment.decisionLevel == 0)
+
         // This state will be used all throughout the BVE
         val state = EliminationState(assignment.numberOfVariables)
 
