@@ -75,10 +75,6 @@ value class Lit(val inner: Int) {
             return Lit((v shl 1) + sign)
         }
     }
-
-    override fun toString(): String {
-        return if (isPos) variable.toString() else "-$variable"
-    }
 }
 
 operator fun <T> List<T>.get(lit: Lit): T {
@@ -100,10 +96,6 @@ value class Var(val index: Int) {
 
     /** A literal of negation of that variable */
     val negLit: Lit get() = Lit((index shl 1) or 1)
-
-    override fun toString(): String {
-        return "x${index + 1}"
-    }
 }
 
 operator fun <T> List<T>.get(variable: Var): T {
