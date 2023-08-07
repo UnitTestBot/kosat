@@ -1161,10 +1161,17 @@ class CDCL {
         val subsumptionMarks: MutableList<Boolean> = MutableList(numberOfVariables * 2) { false }
     }
 
+    /**
+     * The priority of a variable in [boundedVariableElimination]. The less,
+     * the higher priority. The computed score is used as a key in the
+     * [EliminationState.variableOrder] queue.
+     */
     private fun bveVariableScore(state: EliminationState, x: Var): Double {
         val pos = state.occurrenceNumbers[x.posLit]
         val neg = state.occurrenceNumbers[x.negLit]
-        return bveConfig.varScoreSumWeight * (pos + neg) + bveConfig.varScoreProdWeight * (pos * neg)
+        val weightedSum = bveConfig.varScoreSumWeight * (pos + neg)
+        val weightedProd = bveConfig.varScoreProdWeight * (pos * neg)
+        return weightedSum + weightedProd
     }
 
     /**
@@ -1307,8 +1314,14 @@ class CDCL {
             // memory without this.
             if (db.clauses.size > state.numberOfClauses * 2) {
                 db.clauses.removeAll { it.deleted }
-                for (watches in watchers) watches.removeAll { it.deleted }
-                for (occurrenceList in state.occurrences) occurrenceList.removeAll { it.deleted }
+
+                for (watches in watchers) {
+                    watches.removeAll { it.deleted }
+                }
+
+                for (occurrenceList in state.occurrences) {
+                    occurrenceList.removeAll { it.deleted }
+                }
             }
         }
 
@@ -1323,12 +1336,23 @@ class CDCL {
             } else {
                 val needsShrink = learnt.lits.any { assignment.value(it) == LBool.UNDEF }
                 if (!needsShrink) continue
-                // TODO: why does this never produce empty clauses, or unit
-                //  clauses? This is just the bug not covered by tests yet, right?
-                val learntCopy = learnt.copy()
-                learntCopy.lits.removeAll { assignment.value(it) == LBool.FALSE }
-                check(learntCopy.size >= 2)
-                attachClause(learntCopy)
+
+                val newLearnt = learnt.copy(lits = learnt.lits.toMutableList())
+                newLearnt.lits.removeAll { assignment.value(it) == LBool.FALSE }
+
+                when (newLearnt.size) {
+                    0 -> return finishWithUnsat()
+
+                    1 -> {
+                        if (!assignment.enqueue(newLearnt.lits[0], null)) {
+                            return finishWithUnsat()
+                        }
+                        bvePropagate()?.let { return finishWithUnsat() }
+                    }
+
+                    else -> attachClause(newLearnt)
+                }
+
                 markDeleted(learnt)
             }
         }
@@ -1368,7 +1392,7 @@ class CDCL {
         // This is what makes variable elimination "bounded". By setting the
         // limit for the number of resolvents, we can prevent the algorithm
         // from generating too many clauses.
-        val limit: Int = bveConfig.maxNewResolventsPerElimination +
+        val bound: Int = bveConfig.maxNewResolventsPerElimination +
             posOccurrences.count { !it.deleted } +
             negOccurrences.count { !it.deleted }
 
@@ -1433,7 +1457,7 @@ class CDCL {
 
                 // We also limit the number of resolvents we add per elimination
                 // to prevent the algorithm from generating too many clauses.
-                if (resolventsToAdd.size > limit) return null
+                if (resolventsToAdd.size > bound) return null
             }
         }
 
@@ -1589,7 +1613,10 @@ class CDCL {
                     // which are not in the clause we are trying to subsume.
                     // If mismatch does not occur in the clause in the
                     // other phase, then we can't strengthen.
-                    if (mismatch != null || !state.subsumptionMarks[lit.neg]) continue@outer
+                    if (mismatch != null || !state.subsumptionMarks[lit.neg]) {
+                        continue@outer
+                    }
+
                     mismatch = lit
                 }
             }
