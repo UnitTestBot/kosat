@@ -81,11 +81,11 @@ class CDCL {
 
     private val bveConfig = object {
         val varsLimit = Int.MAX_VALUE
-        val relativeEfficiencyThreshold = 0.5
-        val minimumVarsToTry = 30
+        // val relativeEfficiencyThreshold = 0.5
+        // val minimumVarsToTry = 30
         val resolventSizeLimit = 16
-        val maxVarOccurrences = 400
-        val maxNewResolventsPerElimination = 16
+        val maxVarScore = 1600
+        var maxNewResolventsPerElimination = 16
         val varScoreSumWeight = -1.0
         val varScoreProdWeight = 1.0
     }
@@ -1155,7 +1155,7 @@ class CDCL {
         val gateMarks: MutableList<Int> = MutableList(numberOfVariables * 2) { 0 }
 
         /**
-         * In [removeBackwardSubsumed] we mark literals from the clause to
+         * In [removeSubsumedBy] we mark literals from the clause to
          * quickly check if other clauses contain all literals from it.
          */
         val subsumptionMarks: MutableList<Boolean> = MutableList(numberOfVariables * 2) { false }
@@ -1278,7 +1278,7 @@ class CDCL {
                 if (assignment.isActive(v) &&
                     !assignment.isFrozen(v) &&
                     assignment.value(v) == LBool.UNDEF &&
-                    state.variableOrder.getKey(v) <= bveConfig.maxVarOccurrences
+                    state.variableOrder.getKey(v) <= bveConfig.maxVarScore
                 ) {
                     bestVariable = v
                     break
@@ -1294,6 +1294,7 @@ class CDCL {
             bveStats.eliminationAttempts++
             bveTryEliminate(state, bestVariable)?.let { return it }
 
+            /*
             // To check how efficient the elimination is, we check the ratio
             // of eliminated variables to the number of elimination attempts,
             // after we tried to eliminate a certain number of variables.
@@ -1306,6 +1307,7 @@ class CDCL {
                     break
                 }
             }
+             */
 
             // This is the "garbage collection" routine we store number of
             // clauses for. If there are too many deleted clauses, we remove
@@ -1472,7 +1474,7 @@ class CDCL {
         // them.
         for (resolvent in resolventsToAdd) {
             bveAttachShrunkClause(state, resolvent)?.let { return it }
-            removeBackwardSubsumed(state, resolvent)?.let { return it }
+            removeSubsumedBy(state, resolvent)?.let { return it }
         }
 
         // Finally, we remove old clauses containing the variable.
@@ -1580,7 +1582,7 @@ class CDCL {
      * Note that strengthening can cause a clause to become a unit, in which
      * case we must propagate it, and in case of a conflict, return UNSAT.
      */
-    private fun removeBackwardSubsumed(state: EliminationState, clause: Clause): SolveResult? {
+    private fun removeSubsumedBy(state: EliminationState, clause: Clause): SolveResult? {
         // This function uses multiple heuristics to speed up the process.
 
         // First of all, we only consider clauses which are occurrences of the
