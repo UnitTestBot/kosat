@@ -271,6 +271,23 @@ class CDCL {
     }
 
     /**
+     * Run the preprocessing step of the solver and return the result. If the
+     * result is inconclusive after preprocessing, [SolveResult.UNKNOWN] is
+     * returned.
+     */
+    fun solveWithPreprocessingOnly(): SolveResult {
+        if (!ok) return finishWithUnsat()
+
+        if (assignment.decisionLevel > 0) backtrack(0)
+        cachedModel = null
+
+        propagate()?.let { return finishWithUnsat() }
+        preprocess()?.let { return it }
+
+        return SolveResult.UNKNOWN
+    }
+
+    /**
      * The main CDCL search loop.
      *
      * @return the result of the search.
