@@ -10,7 +10,7 @@ import kotlin.test.Test
 internal class ManualTest {
     @Test
     fun testManual() {
-        val path = "src/jvmTest/resources/testCover/small/prime4.cnf".toPath()
+        val path = "src/jvmTest/resources/testCover/cover/cover0015.cnf".toPath()
         val cnf = CNF.from(path)
         val clauses = cnf.clauses.map { lits ->
             Clause(lits.map { Lit.fromDimacs(it) }.toMutableList())
@@ -18,10 +18,10 @@ internal class ManualTest {
         val solver = CDCL(clauses, cnf.numVars)
         // solver.dratBuilder = DratBuilder(System.err.sink().buffer())
         val model = solver.solve()
-        // println("${solver.getModel()}")
-        // println("model = $model")
-        // val model2 = solver.solve(listOf(Lit.fromDimacs(1)))
-        // println("model = $model2")
+        println("${solver.getModel()}")
+        println("model = $model")
+        val model2 = solver.solve(listOf(81, 148, -1, -183, 158, -183, 35, 111, -139, 30, 67, 56, 151).map { Lit.fromDimacs(it) })
+        println("model = $model2")
         // solver.solve(listOf(Lit.fromDimacs(2), Lit.fromDimacs(-1)))
         // println("${solver.getModel()}")
     }

@@ -1,20 +1,7 @@
 package org.kosat
 
-abstract class VariableSelector {
-    protected var assumptions: List<Lit> = emptyList()
-
-    fun initAssumptions(assumptions: List<Lit>) {
-        this.assumptions = assumptions
-    }
-
-    abstract fun build(clauses: List<Clause>)
-    abstract fun nextDecision(assignment: Assignment): Lit?
-    abstract fun addVariable()
-    abstract fun update(learnt: Clause)
-    abstract fun backTrack(variable: Var)
-}
-
-class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
+class VSIDS {
+    private var numberOfVariables = 0
     private val multiplier = 1.1
     private var numberOfConflicts = 0
     private var activityInc = 1.0
@@ -172,7 +159,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         }
     }
 
-    override fun update(learnt: Clause) {
+    fun bump(learnt: Clause) {
         learnt.lits.forEach { lit ->
             val v = lit.variable
             activity[v] += activityInc
@@ -191,15 +178,12 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         numberOfConflicts++
     }
 
-    override fun addVariable() {
+    fun addVariable() {
         activity.add(0.0)
         numberOfVariables++
     }
 
-    override fun build(clauses: List<Clause>) {
-        while (activity.size < numberOfVariables) {
-            activity.add(0.0)
-        }
+    fun build(clauses: List<Clause>) {
         clauses.forEach { clause ->
             clause.lits.forEach { lit ->
                 activity[lit.variable] += activityInc
@@ -208,25 +192,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         activityPQ.buildHeap(activity)
     }
 
-    // returns the literal as the assumptions give information about the value of the variable
-    override fun nextDecision(assignment: Assignment): Lit? {
-        if (assumptions.any { assignment.value(it) == LBool.FALSE }) {
-            return null
-        }
-        // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull {
-            assignment.value(it) == LBool.UNDEF
-        } ?: getMaxActivityVariable(assignment).posLit
-    }
-
-    override fun backTrack(variable: Var) {
-        if (activityPQ.index[variable] == -1) {
-            activityPQ.insert(variable.index)
-        }
-    }
-
-    // Looks for index of undefined variable with max activity
-    private fun getMaxActivityVariable(assignment: Assignment): Var {
+    fun nextDecision(assignment: Assignment): Var {
         while (true) {
             require(activityPQ.size > 0)
             val v = Var(activityPQ.pop())
@@ -235,99 +201,10 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
             }
         }
     }
-}
 
-class FixedOrder : VariableSelector() {
-    override fun build(clauses: List<Clause>) {
-    }
-
-    override fun nextDecision(assignment: Assignment): Lit? {
-        // TODO: check indices
-        for (i in 1..assignment.value.lastIndex) {
-            if (assignment.value(Var(i)) == LBool.UNDEF) return Lit(i)
+    fun enqueueAgain(variable: Var) {
+        if (activityPQ.index[variable] == -1) {
+            activityPQ.insert(variable.index)
         }
-        return null
-    }
-
-    override fun addVariable() {
-    }
-
-    override fun update(learnt: Clause) {
-    }
-
-    override fun backTrack(variable: Var) {
-    }
-}
-
-class VsidsWithoutQueue(private var numberOfVariables: Int = 0) : VariableSelector() {
-    private val decay = 50
-    private val multiplier = 2.0
-    private val activityLimit = 1e100
-    private var activityInc = 1.0
-
-    private var numberOfConflicts = 0
-
-    // list of activity for variables
-    private val activity = mutableListOf<Double>()
-
-    override fun update(learnt: Clause) {
-        learnt.lits.forEach { lit ->
-            val v = lit.variable
-            activity[v] += activityInc
-        }
-
-        numberOfConflicts++
-        if (numberOfConflicts == decay) {
-            activityInc *= multiplier
-            // update activity
-            numberOfConflicts = 0
-            if (activityInc > activityLimit) {
-                activity.forEachIndexed { ind, value ->
-                    activity[ind] = value / activityInc
-                }
-                activityInc = 1.0
-            }
-        }
-    }
-
-    override fun addVariable() {
-        activity.add(0.0)
-        numberOfVariables++
-    }
-
-    override fun build(clauses: List<Clause>) {
-        while (activity.size < numberOfVariables) {
-            activity.add(0.0)
-        }
-        clauses.forEach { clause ->
-            clause.lits.forEach { lit ->
-                activity[lit.variable] += activityInc
-            }
-        }
-    }
-
-    override fun nextDecision(assignment: Assignment): Lit? {
-        if (assumptions.any { assignment.value(it) == LBool.FALSE }) {
-            return null
-        }
-        // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { assignment.value(it) == LBool.UNDEF }
-            ?: getMaxActivityVariable(assignment)?.posLit
-    }
-
-    override fun backTrack(variable: Var) {
-    }
-
-    // Looks for index of undefined variable with max activity
-    private fun getMaxActivityVariable(assignment: Assignment): Var? {
-        var v: Var? = null
-        var max = -1.0
-        for (i in 0 until numberOfVariables) {
-            if (assignment.value(Var(i)) == LBool.UNDEF && max < activity[i]) {
-                v = Var(i)
-                max = activity[i]
-            }
-        }
-        return v
     }
 }

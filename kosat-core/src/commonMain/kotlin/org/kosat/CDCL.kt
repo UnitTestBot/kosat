@@ -108,7 +108,7 @@ class CDCL {
     /**
      * The branching heuristic, used to choose the next decision variable.
      */
-    val variableSelector: VariableSelector = VSIDS(assignment.numberOfVariables)
+    val variableSelector: VSIDS = VSIDS()
 
     /**
      * The restart strategy, used to decide when to restart the search.
@@ -229,7 +229,7 @@ class CDCL {
             val v = lit.variable
             polarity[v] = assignment.value(v)
             assignment.unassign(v)
-            variableSelector.backTrack(v)
+            variableSelector.enqueueAgain(v)
         }
 
         check(assignment.qhead >= assignment.trail.size)
@@ -280,9 +280,6 @@ class CDCL {
         // TODO: is there a way to not rebuild the selector every solve?
         variableSelector.build(db.clauses)
 
-        // Enqueue the assumptions in the selector
-        variableSelector.initAssumptions(assumptions)
-
         preprocess()?.let { return it }
 
         return search()
@@ -318,23 +315,52 @@ class CDCL {
 
             // And after that, we are ready to make a decision.
             assignment.newDecisionLevel()
-            var nextDecisionLiteral = variableSelector.nextDecision(assignment)
 
-            // We always choose the assumption literals first, then the rest.
-            // If there are no non-assumed literals left, the problem is
-            // UNSAT under given assumptions.
-            nextDecisionLiteral ?: return finishWithAssumptionsUnsat()
-
-            // TODO: currently, to check if the literal is assumed or guessed, we check
-            //       the decision level. This is not precise (some assumptions can be deduced)
-            //       and error-prone.
-            // Use the phase from the search before, if possible (so called "Phase Saving")
-            if (assignment.decisionLevel > assumptions.size && polarity[nextDecisionLiteral.variable] == LBool.FALSE) {
-                nextDecisionLiteral = nextDecisionLiteral.neg
+            // We first enqueue unassigned assumptions, if any.
+            var assignedAssumption = false
+            for (assumption in assumptions) {
+                when (assignment.value(assumption)) {
+                    LBool.UNDEF -> {
+                        assignment.uncheckedEnqueue(assumption, null)
+                        assignedAssumption = true
+                        break
+                    }
+                    LBool.TRUE -> {
+                        // The assumption is already satisfied, so we can ignore it.
+                    }
+                    LBool.FALSE -> {
+                        // The assumption is falsified, so we can return UNSAT.
+                        return finishWithAssumptionsUnsat()
+                    }
+                }
             }
 
-            // Enqueue the decision literal, expect it to propagate at the next iteration.
-            assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+            // If there are no assumptions left to enqueue,
+            // we make a decision on the next variable.
+            if (!assignedAssumption) {
+                val nextDecisionVariable = variableSelector.nextDecision(assignment)
+
+                // Use the phase from the search before, if possible (so-called "Phase Saving")
+                val nextDecisionLiteral = when (polarity[nextDecisionVariable]) {
+                    LBool.UNDEF -> {
+                        // If the polarity is undefined, we can choose it freely.
+                        // We choose the positive literal.
+                        nextDecisionVariable.posLit
+                    }
+                    LBool.TRUE -> {
+                        // If we remember that the last chosen polarity was positive,
+                        // we choose the positive literal.
+                        nextDecisionVariable.posLit
+                    }
+                    LBool.FALSE -> {
+                        // If we remember that the last chosen polarity was negative,
+                        // we choose the negative literal.
+                        nextDecisionVariable.negLit
+                    }
+                }
+
+                assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+            }
 
             // Propagate the decision,
             // in case there is a conflict, backtrack, and repeat
@@ -382,7 +408,7 @@ class CDCL {
             }
 
             // Update the heuristics
-            variableSelector.update(learnt)
+            variableSelector.bump(learnt)
             db.clauseDecayActivity()
 
             restarter.numberOfConflictsAfterRestart++
@@ -535,14 +561,6 @@ class CDCL {
         for (i in 0 until elsRounds) {
             equivalentLiteralSubstitution()?.let { return it }
         }
-
-        // We must update assumptions after ELS, because it can
-        // substitute literals in assumptions, and even derive UNSAT.
-        if (sortDedupAndCheckComplimentary(assumptions)) {
-            return finishWithAssumptionsUnsat()
-        }
-
-        variableSelector.initAssumptions(assumptions)
 
         return null
     }
