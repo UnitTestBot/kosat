@@ -108,7 +108,7 @@ class CDCL {
     /**
      * The branching heuristic, used to choose the next decision variable.
      */
-    val variableSelector: VSIDS = VSIDS()
+    val vsids: VSIDS = VSIDS()
 
     /**
      * The restart strategy, used to decide when to restart the search.
@@ -162,7 +162,7 @@ class CDCL {
         assignment.addVariable()
 
         // Variable selection strategy
-        variableSelector.addVariable()
+        vsids.addVariable()
 
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
@@ -229,7 +229,7 @@ class CDCL {
             val v = lit.variable
             polarity[v] = assignment.value(v)
             assignment.unassign(v)
-            variableSelector.enqueueAgain(v)
+            vsids.enqueueAgain(v)
         }
 
         check(assignment.qhead >= assignment.trail.size)
@@ -278,7 +278,7 @@ class CDCL {
 
         // Rebuild the variable selector
         // TODO: is there a way to not rebuild the selector every solve?
-        variableSelector.build(db.clauses)
+        vsids.build(db.clauses)
 
         preprocess()?.let { return it }
 
@@ -338,7 +338,7 @@ class CDCL {
             // If there are no assumptions left to enqueue,
             // we make a decision on the next variable.
             if (!assignedAssumption) {
-                val nextDecisionVariable = variableSelector.nextDecision(assignment)
+                val nextDecisionVariable = vsids.nextDecision(assignment)
 
                 // Use the phase from the search before, if possible (so-called "Phase Saving")
                 val nextDecisionLiteral = when (polarity[nextDecisionVariable]) {
@@ -408,7 +408,7 @@ class CDCL {
             }
 
             // Update the heuristics
-            variableSelector.bump(learnt)
+            vsids.bump(learnt)
             db.clauseDecayActivity()
 
             restarter.numberOfConflictsAfterRestart++
