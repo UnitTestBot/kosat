@@ -164,7 +164,7 @@ class Assignment(private val solver: CDCL) {
 
         if (decisionLevel == 0) {
             solver.dratBuilder.addClause(Clause(mutableListOf(lit)))
-            solver.stats.unitsLearned++
+            solver.stats.unitsFound++
         }
 
         value[lit.variable] = LBool.from(lit.isPos)
