@@ -162,7 +162,10 @@ class Assignment(private val solver: CDCL) {
         require(value(lit) == LBool.UNDEF)
         require(isActive(lit))
 
-        if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(mutableListOf(lit)))
+        if (decisionLevel == 0) {
+            solver.dratBuilder.addClause(Clause(mutableListOf(lit)))
+            solver.stats.unitsLearned++
+        }
 
         value[lit.variable] = LBool.from(lit.isPos)
         varData[lit.variable].reason = reason
