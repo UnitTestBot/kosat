@@ -36,14 +36,14 @@ import react.useEffectOnce
 import react.useReducer
 import react.useState
 
-sealed interface SolverAction {
-    data object Solve : SolverAction
-    data object Propagate : SolverAction
-    data object Restart : SolverAction
-    data class Backtrack(val level: Int) : SolverAction
-    data class Learn(val learnt: Clause) : SolverAction
-    data class Enqueue(val lit: Lit) : SolverAction
-    data object AnalyzeConflict : SolverAction
+sealed interface SolverCommand {
+    data object Solve : SolverCommand
+    data object Propagate : SolverCommand
+    data object Restart : SolverCommand
+    data class Backtrack(val level: Int) : SolverCommand
+    data class Learn(val learnt: Clause) : SolverCommand
+    data class Enqueue(val lit: Lit) : SolverCommand
+    data object AnalyzeConflict : SolverCommand
 }
 
 class CdclWrapper(initialProblem: CNF) {
@@ -59,7 +59,7 @@ class CdclWrapper(initialProblem: CNF) {
         }
 
     var inner: CDCL = CDCL(problem)
-    val history: MutableList<SolverAction> = mutableListOf()
+    val history: MutableList<SolverCommand> = mutableListOf()
     var conflict: Clause? = null
     var learnt: Clause? = null
 
@@ -77,32 +77,32 @@ class CdclWrapper(initialProblem: CNF) {
         && learnt == null
         && inner.assignment.qhead == inner.assignment.trail.size
 
-    fun execute(action: SolverAction) {
-        history.add(action)
-        check(canExecute(action))
-        when (action) {
-            is SolverAction.Solve -> inner.solve()
-            is SolverAction.Propagate -> {
+    fun execute(command: SolverCommand) {
+        history.add(command)
+        check(canExecute(command))
+        when (command) {
+            is SolverCommand.Solve -> inner.solve()
+            is SolverCommand.Propagate -> {
                 conflict = inner.propagate()
                 if (conflict != null && inner.assignment.decisionLevel == 0) {
                     inner.finishWithUnsat()
                 }
             }
-            is SolverAction.AnalyzeConflict -> learnt = inner.analyzeConflict(conflict!!)
-            is SolverAction.Backtrack -> {
-                inner.backtrack(action.level)
+            is SolverCommand.AnalyzeConflict -> learnt = inner.analyzeConflict(conflict!!)
+            is SolverCommand.Backtrack -> {
+                inner.backtrack(command.level)
                 learnt = null
                 conflict = null
             }
-            is SolverAction.Restart -> {
+            is SolverCommand.Restart -> {
                 inner.backtrack(0)
                 learnt = null
                 conflict = null
             }
-            is SolverAction.Learn -> {
+            is SolverCommand.Learn -> {
                 learnt = null
                 conflict = null
-                val learnt = action.learnt
+                val learnt = command.learnt
                 inner.run {
                     val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
                     backtrack(level)
@@ -117,27 +117,27 @@ class CdclWrapper(initialProblem: CNF) {
                     db.clauseDecayActivity()
                 }
             }
-            is SolverAction.Enqueue -> {
+            is SolverCommand.Enqueue -> {
                 inner.assignment.newDecisionLevel()
-                inner.assignment.uncheckedEnqueue(action.lit, null)
+                inner.assignment.uncheckedEnqueue(command.lit, null)
             }
         }
     }
 
-    fun canExecute(action: SolverAction): Boolean {
+    fun canExecute(command: SolverCommand): Boolean {
         inner.run {
-            return when (action) {
-                is SolverAction.Solve -> propagated
-                is SolverAction.Propagate -> ok && conflict == null && learnt == null
-                is SolverAction.AnalyzeConflict -> ok && conflict != null && learnt == null
-                is SolverAction.Learn -> ok && conflict != null && learnt != null
-                is SolverAction.Backtrack -> ok && action.level in 0 until assignment.decisionLevel
-                is SolverAction.Restart -> ok && assignment.decisionLevel > 0
-                is SolverAction.Enqueue -> {
+            return when (command) {
+                is SolverCommand.Solve -> propagated
+                is SolverCommand.Propagate -> ok && conflict == null && learnt == null
+                is SolverCommand.AnalyzeConflict -> ok && conflict != null && learnt == null
+                is SolverCommand.Learn -> ok && conflict != null && learnt != null
+                is SolverCommand.Backtrack -> ok && command.level in 0 until assignment.decisionLevel
+                is SolverCommand.Restart -> ok && assignment.decisionLevel > 0
+                is SolverCommand.Enqueue -> {
                     propagated
-                        && action.lit.variable.index in 0 until assignment.numberOfVariables
-                        && assignment.isActive(action.lit)
-                        && assignment.value(action.lit) == LBool.UNDEF
+                        && command.lit.variable.index in 0 until assignment.numberOfVariables
+                        && assignment.isActive(command.lit)
+                        && assignment.value(command.lit) == LBool.UNDEF
                 }
             }
         }
@@ -146,8 +146,8 @@ class CdclWrapper(initialProblem: CNF) {
     fun undo() {
         val historyToRepeat = history.dropLast(1)
         problem = problem.copy()
-        for (action in historyToRepeat) {
-            execute(action)
+        for (command in historyToRepeat) {
+            execute(command)
         }
     }
 }
@@ -158,7 +158,7 @@ external interface WelcomeProps : Props {
 
 val Welcome = FC<WelcomeProps> { props ->
     var request by useState(props.request)
-    val channel by useState(Channel<SolverAction>(Channel.UNLIMITED))
+    val channel by useState(Channel<SolverCommand>(Channel.UNLIMITED))
     val solver by useState(CdclWrapper(CNF(emptyList())))
 
     // https://legacy.reactjs.org/docs/hooks-faq.html#is-there-something-like-forceupdate
@@ -272,9 +272,9 @@ val Welcome = FC<WelcomeProps> { props ->
                         td {
                             +solver.conflict?.toDimacs().toString()
                             button {
-                                disabled = !solver.canExecute(SolverAction.AnalyzeConflict)
+                                disabled = !solver.canExecute(SolverCommand.AnalyzeConflict)
                                 onClick = { _ ->
-                                    channel.trySend(SolverAction.AnalyzeConflict).getOrThrow()
+                                    channel.trySend(SolverCommand.AnalyzeConflict).getOrThrow()
                                 }
                                 +"Analyze"
                             }
@@ -286,9 +286,9 @@ val Welcome = FC<WelcomeProps> { props ->
                             +solver.learnt?.toDimacs().toString()
                             button {
                                 disabled = solver.learnt == null
-                                    || !solver.canExecute(SolverAction.Learn(solver.learnt!!))
+                                    || !solver.canExecute(SolverCommand.Learn(solver.learnt!!))
                                 onClick = { _ ->
-                                    channel.trySend(SolverAction.Learn(solver.learnt!!)).getOrThrow()
+                                    channel.trySend(SolverCommand.Learn(solver.learnt!!)).getOrThrow()
                                 }
                                 +"Learn"
                             }
@@ -312,47 +312,47 @@ val Welcome = FC<WelcomeProps> { props ->
     div {
         h2 { +"Actions:" }
         button {
-            disabled = !solver.canExecute(SolverAction.Solve)
+            disabled = !solver.canExecute(SolverCommand.Solve)
             onClick = { _ ->
-                channel.trySend(SolverAction.Solve).getOrThrow()
+                channel.trySend(SolverCommand.Solve).getOrThrow()
             }
             +"Solve"
         }
         button {
-            disabled = !solver.canExecute(SolverAction.Propagate)
+            disabled = !solver.canExecute(SolverCommand.Propagate)
             onClick = { _ ->
-                channel.trySend(SolverAction.Propagate).getOrThrow()
+                channel.trySend(SolverCommand.Propagate).getOrThrow()
             }
             +"Propagate"
         }
         for (i in 0 until solver.inner.assignment.numberOfVariables) {
             button {
-                disabled = !solver.canExecute(SolverAction.Enqueue(Var(i).posLit))
+                disabled = !solver.canExecute(SolverCommand.Enqueue(Var(i).posLit))
                 onClick = { _ ->
-                    channel.trySend(SolverAction.Enqueue(Var(i).posLit)).getOrThrow()
+                    channel.trySend(SolverCommand.Enqueue(Var(i).posLit)).getOrThrow()
                 }
                 +"Enqueue ${i + 1}"
             }
             button {
-                disabled = !solver.canExecute(SolverAction.Enqueue(Var(i).negLit))
+                disabled = !solver.canExecute(SolverCommand.Enqueue(Var(i).negLit))
                 onClick = { _ ->
-                    channel.trySend(SolverAction.Enqueue(Var(i).negLit)).getOrThrow()
+                    channel.trySend(SolverCommand.Enqueue(Var(i).negLit)).getOrThrow()
                 }
                 +"Enqueue -${i + 1}"
             }
         }
         button {
-            disabled = !solver.canExecute(SolverAction.Restart)
+            disabled = !solver.canExecute(SolverCommand.Restart)
             onClick = { _ ->
-                channel.trySend(SolverAction.Restart).getOrThrow()
+                channel.trySend(SolverCommand.Restart).getOrThrow()
             }
             +"Restart"
         }
         for (level in 1 until solver.inner.assignment.decisionLevel) {
             button {
-                disabled = !solver.canExecute(SolverAction.Backtrack(level))
+                disabled = !solver.canExecute(SolverCommand.Backtrack(level))
                 onClick = { _ ->
-                    channel.trySend(SolverAction.Backtrack(level)).getOrThrow()
+                    channel.trySend(SolverCommand.Backtrack(level)).getOrThrow()
                 }
                 +"Backtrack to $level"
             }
