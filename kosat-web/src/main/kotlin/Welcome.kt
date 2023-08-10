@@ -7,9 +7,6 @@ import csstype.Position
 import csstype.TextAlign
 import csstype.px
 import csstype.rgb
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
 import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.LBool
@@ -32,8 +29,6 @@ import react.dom.html.ReactHTML.tbody
 import react.dom.html.ReactHTML.td
 import react.dom.html.ReactHTML.textarea
 import react.dom.html.ReactHTML.tr
-import react.useEffectOnce
-import react.useReducer
 import react.useState
 
 sealed interface SolverCommand {
@@ -152,32 +147,36 @@ class CdclWrapper(initialProblem: CNF) {
     }
 }
 
+data class CdclState(val version: Int, val wrapper: CdclWrapper) {
+    fun canExecute(command: SolverCommand): Boolean {
+        return wrapper.canExecute(command)
+    }
+
+    fun execute(command: SolverCommand): CdclState {
+        wrapper.execute(command)
+        return copy(version = version + 1)
+    }
+
+    fun setProblem(cnf: CNF): CdclState {
+        wrapper.problem = cnf
+        return copy(version = version + 1)
+    }
+
+    val result get() = wrapper.result
+
+    fun undo(): CdclState {
+        wrapper.undo()
+        return copy(version = version + 1)
+    }
+}
+
 external interface WelcomeProps : Props {
     var request: String
 }
 
 val Welcome = FC<WelcomeProps> { props ->
     var request by useState(props.request)
-    val channel by useState(Channel<SolverCommand>(Channel.UNLIMITED))
-    val solver by useState(CdclWrapper(CNF(emptyList())))
-
-    // https://legacy.reactjs.org/docs/hooks-faq.html#is-there-something-like-forceupdate
-    val (_, forceUpdateImpl) = useReducer({ x, _: Unit -> x + 1 }, 0)
-    val forceUpdate = { forceUpdateImpl(Unit) }
-
-    useEffectOnce {
-        val job = MainScope().launch {
-            while (true) {
-                val action = channel.receive()
-                solver.execute(action)
-                forceUpdate()
-            }
-        }
-
-        cleanup {
-            job.cancel()
-        }
-    }
+    var solver by useState(CdclState(0, CdclWrapper(CNF(emptyList()))))
 
     div {
         css {
@@ -228,8 +227,7 @@ val Welcome = FC<WelcomeProps> { props ->
             }
             onClick = { _ ->
                 try {
-                    solver.problem = CNF.fromString(request)
-                    forceUpdate()
+                    solver = solver.setProblem(CNF.fromString(request))
                 } catch (e: Exception) {
                     println("Error: ${e.message}")
                 }
@@ -238,7 +236,7 @@ val Welcome = FC<WelcomeProps> { props ->
         }
     }
 
-    solver.inner.run {
+    solver.wrapper.inner.run {
         div {
             h2 { +"Solver State:" }
             table {
@@ -270,11 +268,11 @@ val Welcome = FC<WelcomeProps> { props ->
                     tr {
                         td { +"current conflict" }
                         td {
-                            +solver.conflict?.toDimacs().toString()
+                            +solver.wrapper.conflict?.toDimacs().toString()
                             button {
                                 disabled = !solver.canExecute(SolverCommand.AnalyzeConflict)
                                 onClick = { _ ->
-                                    channel.trySend(SolverCommand.AnalyzeConflict).getOrThrow()
+                                    solver = solver.execute(SolverCommand.AnalyzeConflict)
                                 }
                                 +"Analyze"
                             }
@@ -283,12 +281,12 @@ val Welcome = FC<WelcomeProps> { props ->
                     tr {
                         td { +"current learnt" }
                         td {
-                            +solver.learnt?.toDimacs().toString()
+                            +solver.wrapper.learnt?.toDimacs().toString()
                             button {
-                                disabled = solver.learnt == null
-                                    || !solver.canExecute(SolverCommand.Learn(solver.learnt!!))
+                                disabled = solver.wrapper.learnt == null
+                                    || !solver.canExecute(SolverCommand.Learn(solver.wrapper.learnt!!))
                                 onClick = { _ ->
-                                    channel.trySend(SolverCommand.Learn(solver.learnt!!)).getOrThrow()
+                                    solver = solver.execute(SolverCommand.Learn(solver.wrapper.learnt!!))
                                 }
                                 +"Learn"
                             }
@@ -314,29 +312,29 @@ val Welcome = FC<WelcomeProps> { props ->
         button {
             disabled = !solver.canExecute(SolverCommand.Solve)
             onClick = { _ ->
-                channel.trySend(SolverCommand.Solve).getOrThrow()
+                solver = solver.execute(SolverCommand.Solve)
             }
             +"Solve"
         }
         button {
             disabled = !solver.canExecute(SolverCommand.Propagate)
             onClick = { _ ->
-                channel.trySend(SolverCommand.Propagate).getOrThrow()
+                solver = solver.execute(SolverCommand.Propagate)
             }
             +"Propagate"
         }
-        for (i in 0 until solver.inner.assignment.numberOfVariables) {
+        for (i in 0 until solver.wrapper.inner.assignment.numberOfVariables) {
             button {
                 disabled = !solver.canExecute(SolverCommand.Enqueue(Var(i).posLit))
                 onClick = { _ ->
-                    channel.trySend(SolverCommand.Enqueue(Var(i).posLit)).getOrThrow()
+                    solver = solver.execute(SolverCommand.Enqueue(Var(i).posLit))
                 }
                 +"Enqueue ${i + 1}"
             }
             button {
                 disabled = !solver.canExecute(SolverCommand.Enqueue(Var(i).negLit))
                 onClick = { _ ->
-                    channel.trySend(SolverCommand.Enqueue(Var(i).negLit)).getOrThrow()
+                    solver = solver.execute(SolverCommand.Enqueue(Var(i).negLit))
                 }
                 +"Enqueue -${i + 1}"
             }
@@ -344,15 +342,15 @@ val Welcome = FC<WelcomeProps> { props ->
         button {
             disabled = !solver.canExecute(SolverCommand.Restart)
             onClick = { _ ->
-                channel.trySend(SolverCommand.Restart).getOrThrow()
+                solver = solver.execute(SolverCommand.Restart)
             }
             +"Restart"
         }
-        for (level in 1 until solver.inner.assignment.decisionLevel) {
+        for (level in 1 until solver.wrapper.inner.assignment.decisionLevel) {
             button {
                 disabled = !solver.canExecute(SolverCommand.Backtrack(level))
                 onClick = { _ ->
-                    channel.trySend(SolverCommand.Backtrack(level)).getOrThrow()
+                    solver = solver.execute(SolverCommand.Backtrack(level))
                 }
                 +"Backtrack to $level"
             }
@@ -360,10 +358,9 @@ val Welcome = FC<WelcomeProps> { props ->
     }
 
     button {
-        disabled = solver.history.isEmpty()
+        disabled = solver.wrapper.history.isEmpty()
         onClick = { _ ->
-            solver.undo()
-            forceUpdate()
+            solver = solver.undo()
         }
         +"Undo"
     }
