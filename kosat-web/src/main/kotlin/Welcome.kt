@@ -1,10 +1,20 @@
+import csstype.AlignItems
+import csstype.Border
+import csstype.BorderBlockStyle
+import csstype.BorderStyle
+import csstype.Cursor
 import csstype.Display
 import csstype.FontFamily
+import csstype.FontStyle
 import csstype.FontWeight
+import csstype.JustifyContent
+import csstype.LineStyle
 import csstype.Margin
 import csstype.NamedColor
 import csstype.Position
 import csstype.TextAlign
+import csstype.pct
+import csstype.pt
 import csstype.px
 import csstype.rgb
 import org.kosat.CDCL
@@ -14,8 +24,10 @@ import org.kosat.Lit
 import org.kosat.SolveResult
 import org.kosat.Var
 import org.kosat.cnf.CNF
+import org.kosat.get
 import react.FC
 import react.Props
+import react.PropsWithChildren
 import react.createContext
 import react.css.css
 import react.dom.html.ReactHTML.br
@@ -30,6 +42,7 @@ import react.dom.html.ReactHTML.tbody
 import react.dom.html.ReactHTML.td
 import react.dom.html.ReactHTML.textarea
 import react.dom.html.ReactHTML.tr
+import react.key
 import react.useContext
 import react.useReducer
 import react.useState
@@ -46,27 +59,30 @@ sealed interface SolverCommand {
     data object AnalyzeConflict : SolverCommand
 }
 
-class CdclWrapper(initialProblem: CNF) {
+class CdclState(initialProblem: CNF) {
     var problem: CNF = initialProblem
     var inner: CDCL = CDCL(initialProblem)
     val history: MutableList<SolverCommand> = mutableListOf()
     var conflict: Clause? = null
     var learnt: Clause? = null
 
-    val result: SolveResult get() {
-        return when {
-            !inner.ok -> SolveResult.UNSAT
-            !propagated -> SolveResult.UNKNOWN
-            inner.assignment.trail.size == inner.assignment.numberOfActiveVariables ->
-                inner.finishWithSatIfAssumptionsOk()
-            else -> SolveResult.UNKNOWN
-        }
-    }
+    val result: SolveResult
+        get() {
+            return when {
+                !inner.ok -> SolveResult.UNSAT
+                !propagated -> SolveResult.UNKNOWN
+                inner.assignment.trail.size == inner.assignment.numberOfActiveVariables ->
+                    inner.finishWithSatIfAssumptionsOk()
 
-    private val propagated get() = inner.ok
-        && conflict == null
-        && learnt == null
-        && inner.assignment.qhead == inner.assignment.trail.size
+                else -> SolveResult.UNKNOWN
+            }
+        }
+
+    private val propagated
+        get() = inner.ok
+            && conflict == null
+            && learnt == null
+            && inner.assignment.qhead == inner.assignment.trail.size
 
     fun execute(command: SolverCommand) {
         history.add(command)
@@ -81,7 +97,16 @@ class CdclWrapper(initialProblem: CNF) {
                 // FIXME: workaround
                 inner.variableSelector.build(inner.db.clauses)
             }
-            is SolverCommand.Undo -> undo()
+
+            is SolverCommand.Undo -> {
+                history.removeLast()
+                val historyToRepeat = history.dropLast(1)
+                execute(SolverCommand.Recreate(problem))
+                for (commandToRepeat in historyToRepeat) {
+                    execute(commandToRepeat)
+                }
+            }
+
             is SolverCommand.Solve -> inner.solve()
             is SolverCommand.Propagate -> {
                 conflict = inner.propagate()
@@ -89,17 +114,20 @@ class CdclWrapper(initialProblem: CNF) {
                     inner.finishWithUnsat()
                 }
             }
+
             is SolverCommand.AnalyzeConflict -> learnt = inner.analyzeConflict(conflict!!)
             is SolverCommand.Backtrack -> {
                 inner.backtrack(command.level)
                 learnt = null
                 conflict = null
             }
+
             is SolverCommand.Restart -> {
                 inner.backtrack(0)
                 learnt = null
                 conflict = null
             }
+
             is SolverCommand.Learn -> {
                 learnt = null
                 conflict = null
@@ -118,6 +146,7 @@ class CdclWrapper(initialProblem: CNF) {
                     db.clauseDecayActivity()
                 }
             }
+
             is SolverCommand.Enqueue -> {
                 inner.assignment.newDecisionLevel()
                 inner.assignment.uncheckedEnqueue(command.lit, null)
@@ -145,50 +174,161 @@ class CdclWrapper(initialProblem: CNF) {
             }
         }
     }
-
-    fun undo() {
-        val historyToRepeat = history.dropLast(1)
-        problem = problem.copy()
-        for (command in historyToRepeat) {
-            execute(command)
-        }
-    }
 }
 
-data class CdclState(val version: Int, val wrapper: CdclWrapper) {
+data class CdclWrapper(val version: Int, val state: CdclState) {
     fun canExecute(command: SolverCommand): Boolean {
-        return wrapper.canExecute(command)
+        return state.canExecute(command)
     }
 
-    fun execute(command: SolverCommand): CdclState {
-        wrapper.execute(command)
+    fun execute(command: SolverCommand): CdclWrapper {
+        state.execute(command)
         return copy(version = version + 1)
     }
 
-    val result get() = wrapper.result
+    val result get() = state.result
 }
+
 
 external interface VisualizerProps : Props
 
-val cdclStateContext = createContext<CdclState>()
+val cdclWrapperContext = createContext<CdclWrapper>()
 val cdclDispatchContext = createContext<(SolverCommand) -> Unit>()
 
 val Visualizer = FC<VisualizerProps> {
-    val (solver, dispatch) = useReducer({ state: CdclState, command: SolverCommand ->
-        state.execute(command)
-    }, CdclState(0, CdclWrapper(CNF(emptyList()))))
+    val (solver, dispatch) = useReducer({ wrapper: CdclWrapper, command: SolverCommand ->
+        wrapper.execute(command)
+    }, CdclWrapper(0, CdclState(CNF(emptyList()))))
 
-    cdclStateContext.Provider(solver) {
+    cdclWrapperContext.Provider(solver) {
         cdclDispatchContext.Provider(dispatch) {
             Welcome {}
         }
     }
 }
 
+
+external interface LiteralProps : Props {
+    @Suppress("INLINE_CLASS_IN_EXTERNAL_DECLARATION_WARNING")
+    var lit: Lit
+}
+
+val Literal = FC<LiteralProps> { props ->
+    val solver = useContext(cdclWrapperContext)
+    val lit = props.lit
+
+    val data = solver.state.inner.assignment.varData[lit.variable]
+    val value = if (!data.active) {
+        LBool.UNDEF
+    } else {
+        solver.state.inner.assignment.value(lit)
+    }
+    val level0 = data.level == 0
+
+    val fill = when {
+        value == LBool.TRUE && level0 -> rgb(0, 255, 0)
+        value == LBool.FALSE && level0 -> rgb(255, 0, 0)
+        !data.active -> rgb(128, 128, 128)
+        data.frozen -> rgb(128, 128, 255)
+        else -> rgb(200, 200, 200)
+    }
+
+    val borderColor = when {
+        value == LBool.TRUE && !level0 -> rgb(0, 255, 0)
+        value == LBool.FALSE && !level0 -> rgb(255, 0, 0)
+        else -> null
+    }
+
+    span {
+        css {
+            width = if (borderColor == null) 24.pt else 18.pt
+            height = if (borderColor == null) 24.pt else 18.pt
+            borderRadius = 100.pct
+            display = Display.inlineFlex
+            alignItems = AlignItems.center
+            justifyContent = JustifyContent.center
+            backgroundColor = fill
+            cursor = Cursor.pointer
+            fontStyle = if (data.frozen) FontStyle.italic else null
+            border = borderColor?.let { Border(3.pt, LineStyle.solid, it) }
+        }
+
+        onMouseOver
+        +if (lit.isPos) {
+            "${lit.variable.index + 1}"
+        } else {
+            "-${lit.variable.index + 1}"
+        }
+    }
+}
+
+external interface ClauseProps : Props {
+    var clause: Clause
+}
+
+val Clause = FC<ClauseProps> { props ->
+    val clause = props.clause
+    val solver = useContext(cdclWrapperContext)
+
+    val values = clause.lits.map {
+        if (!solver.state.inner.assignment.isActive(it)) {
+            LBool.UNDEF
+        } else {
+            solver.state.inner.assignment.value(it)
+        }
+    }
+
+    val satisfied = values.any { it == LBool.TRUE }
+    val falsified = values.all { it == LBool.FALSE }
+    val almostFalsified = values.count { it == LBool.FALSE } == values.size - 1
+    val color = when {
+        satisfied -> rgb(0, 200, 0)
+        falsified -> rgb(200, 0, 0)
+        almostFalsified -> rgb(100, 0, 0)
+        else -> rgb(150, 150, 150)
+    }
+
+    span {
+        css {
+            display = Display.inlineFlex
+            height = 24.pt
+            borderRadius = 15.pt
+            alignItems = AlignItems.center
+            justifyContent = JustifyContent.center
+            backgroundColor = color
+            padding = 3.pt
+            margin = 3.pt
+        }
+        for (lit in clause.lits) {
+            Literal {
+                key = lit.toString()
+                this.lit = lit
+            }
+        }
+    }
+}
+
+external interface ActionButtonProps : PropsWithChildren {
+    var command: SolverCommand?
+}
+
+val CommandButton = FC<ActionButtonProps> { props ->
+    val solver = useContext(cdclWrapperContext)
+    val dispatch = useContext(cdclDispatchContext)
+
+    val command = props.command
+    button {
+        disabled = command == null || !solver.canExecute(command)
+        onClick = { dispatch(command!!) }
+        props.children?.unaryPlus()
+    }
+}
+
 external interface WelcomeProps : Props
 
-val Welcome = FC<WelcomeProps> { props ->
-    var request by useState("""
+val Welcome = FC<WelcomeProps> { _ ->
+    var request by useState(
+        """
         p cnf 9 13
         -1 2 0
         -1 3 0
@@ -203,9 +343,10 @@ val Welcome = FC<WelcomeProps> { props ->
         -1 -4 -7 -9 0
         8 9 0
         -8 -9 0
-    """.trimIndent())
+    """.trimIndent()
+    )
 
-    val solver = useContext(cdclStateContext)
+    val solver = useContext(cdclWrapperContext)
     val dispatch = useContext(cdclDispatchContext)
 
     div {
@@ -250,24 +391,19 @@ val Welcome = FC<WelcomeProps> { props ->
             onChange = { event -> request = event.target.value }
         }
 
-        button {
-            css {
-                marginBottom = 20.px
-                display = Display.block
-            }
-            disabled = !solver.canExecute(SolverCommand.Recreate(CNF.fromString(request)))
-            onClick = { _ ->
+        CommandButton {
+            +"Recreate"
+            command = run {
                 try {
-                    dispatch(SolverCommand.Recreate(CNF.fromString(request)))
+                    SolverCommand.Recreate(CNF.fromString(request))
                 } catch (e: Exception) {
-                    println("Error: ${e.message}")
+                    null
                 }
             }
-            +"Create Solver"
         }
     }
 
-    solver.wrapper.inner.run {
+    solver.state.inner.run {
         div {
             h2 { +"Solver State:" }
             table {
@@ -278,7 +414,14 @@ val Welcome = FC<WelcomeProps> { props ->
                     }
                     tr {
                         td { +"trail" }
-                        td { +assignment.trail.map { it.toDimacs() }.toString() }
+                        td {
+                            assignment.trail.map {
+                                Literal {
+                                    key = it.toString()
+                                    lit = it
+                                }
+                            }
+                        }
                     }
                     tr {
                         td { +"decisionLevel" }
@@ -286,40 +429,62 @@ val Welcome = FC<WelcomeProps> { props ->
                     }
                     tr {
                         td { +"assignment" }
-                        td { +assignment.value.toString() }
+                        td {
+                            for (varIndex in 0 until assignment.numberOfVariables) {
+                                Literal {
+                                    key = varIndex.toString()
+                                    lit = Var(varIndex).posLit
+                                }
+                            }
+                        }
                     }
                     tr {
                         td { +"irreducible clauses" }
-                        td { +db.clauses.filter { !it.deleted }.map { it.toDimacs() }.joinToString() }
+                        td {
+                            db.clauses.withIndex().filter { !it.value.deleted }.map {
+                                Clause {
+                                    key = it.index.toString()
+                                    clause = it.value
+                                }
+                            }
+                        }
                     }
                     tr {
                         td { +"learnts" }
-                        td { +db.learnts.filter { !it.deleted }.map { it.toDimacs() }.joinToString() }
+                        td {
+                            db.learnts.withIndex().filter { !it.value.deleted }.map {
+                                Clause {
+                                    key = it.index.toString()
+                                    clause = it.value
+                                }
+                            }
+                        }
                     }
                     tr {
                         td { +"current conflict" }
                         td {
-                            +solver.wrapper.conflict?.toDimacs().toString()
-                            button {
-                                disabled = !solver.canExecute(SolverCommand.AnalyzeConflict)
-                                onClick = { _ ->
-                                    dispatch(SolverCommand.AnalyzeConflict)
+                            if (solver.state.conflict != null) {
+                                Clause {
+                                    clause = solver.state.conflict!!
                                 }
+                            }
+                            CommandButton {
                                 +"Analyze"
+                                command = solver.state.conflict?.let { SolverCommand.AnalyzeConflict }
                             }
                         }
                     }
                     tr {
                         td { +"current learnt" }
                         td {
-                            +solver.wrapper.learnt?.toDimacs().toString()
-                            button {
-                                disabled = solver.wrapper.learnt == null
-                                    || !solver.canExecute(SolverCommand.Learn(solver.wrapper.learnt!!))
-                                onClick = { _ ->
-                                    dispatch(SolverCommand.Learn(solver.wrapper.learnt!!))
+                            if (solver.state.learnt != null) {
+                                Clause {
+                                    clause = solver.state.learnt!!
                                 }
+                            }
+                            CommandButton {
                                 +"Learn"
+                                command = solver.state.learnt?.let { SolverCommand.Learn(it) }
                             }
                         }
                     }
@@ -340,59 +505,40 @@ val Welcome = FC<WelcomeProps> { props ->
 
     div {
         h2 { +"Actions:" }
-        button {
-            disabled = !solver.canExecute(SolverCommand.Solve)
-            onClick = { _ ->
-                dispatch(SolverCommand.Solve)
-            }
+        CommandButton {
             +"Solve"
+            command = SolverCommand.Solve
         }
-        button {
-            disabled = !solver.canExecute(SolverCommand.Propagate)
-            onClick = { _ ->
-                dispatch(SolverCommand.Propagate)
-            }
+        CommandButton {
             +"Propagate"
+            command = SolverCommand.Propagate
         }
-        for (i in 0 until solver.wrapper.inner.assignment.numberOfVariables) {
-            button {
-                disabled = !solver.canExecute(SolverCommand.Enqueue(Var(i).posLit))
-                onClick = { _ ->
-                    dispatch(SolverCommand.Enqueue(Var(i).posLit))
-                }
-                +"Enqueue ${i + 1}"
+        for (i in 0 until solver.state.inner.assignment.numberOfVariables) {
+            CommandButton {
+                +"Enqueue "
+                Literal { lit = Var(i).posLit }
+                command = SolverCommand.Enqueue(Var(i).posLit)
             }
-            button {
-                disabled = !solver.canExecute(SolverCommand.Enqueue(Var(i).negLit))
-                onClick = { _ ->
-                    dispatch(SolverCommand.Enqueue(Var(i).negLit))
-                }
-                +"Enqueue -${i + 1}"
+            CommandButton {
+                +"Enqueue "
+                Literal { lit = Var(i).negLit }
+                command = SolverCommand.Enqueue(Var(i).negLit)
             }
         }
-        button {
-            disabled = !solver.canExecute(SolverCommand.Restart)
-            onClick = { _ ->
-                dispatch(SolverCommand.Restart)
-            }
+        CommandButton {
             +"Restart"
+            command = SolverCommand.Restart
         }
-        for (level in 1 until solver.wrapper.inner.assignment.decisionLevel) {
-            button {
-                disabled = !solver.canExecute(SolverCommand.Backtrack(level))
-                onClick = { _ ->
-                    dispatch(SolverCommand.Backtrack(level))
-                }
+        for (level in 1 until solver.state.inner.assignment.decisionLevel) {
+            CommandButton {
                 +"Backtrack to $level"
+                command = SolverCommand.Backtrack(level)
             }
         }
     }
 
-    button {
-        disabled = solver.canExecute(SolverCommand.Undo)
-        onClick = { _ ->
-            dispatch(SolverCommand.Undo)
-        }
+    CommandButton {
+        command = SolverCommand.Undo
         +"Undo"
     }
 
