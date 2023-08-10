@@ -1,7 +1,5 @@
 import csstype.AlignItems
 import csstype.Border
-import csstype.BorderBlockStyle
-import csstype.BorderStyle
 import csstype.Cursor
 import csstype.Display
 import csstype.FontFamily
@@ -12,11 +10,14 @@ import csstype.LineStyle
 import csstype.Margin
 import csstype.NamedColor
 import csstype.Position
+import csstype.Scale
 import csstype.TextAlign
 import csstype.pct
 import csstype.pt
 import csstype.px
 import csstype.rgb
+import mui.material.Box
+import mui.material.Tooltip
 import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.LBool
@@ -28,6 +29,7 @@ import org.kosat.get
 import react.FC
 import react.Props
 import react.PropsWithChildren
+import react.create
 import react.createContext
 import react.css.css
 import react.dom.html.ReactHTML.br
@@ -239,25 +241,52 @@ val Literal = FC<LiteralProps> { props ->
         else -> null
     }
 
-    span {
-        css {
-            width = if (borderColor == null) 24.pt else 18.pt
-            height = if (borderColor == null) 24.pt else 18.pt
-            borderRadius = 100.pct
-            display = Display.inlineFlex
-            alignItems = AlignItems.center
-            justifyContent = JustifyContent.center
-            backgroundColor = fill
-            cursor = Cursor.pointer
-            fontStyle = if (data.frozen) FontStyle.italic else null
-            border = borderColor?.let { Border(3.pt, LineStyle.solid, it) }
+    Tooltip {
+        title = span.create {
+            if (lit.isPos) {
+                div { +"Positive literal" }
+            } else {
+                div { +"Negative literal" }
+            }
+
+            if (!data.active) div { +"Inactive (eliminated)" }
+            if (data.frozen) div { +"Frozen" }
+            if (value == LBool.TRUE) div { +"Assigned to TRUE at level ${data.level}" }
+            if (value == LBool.FALSE) div { +"Assigned to FALSE at level ${data.level}" }
+            if (data.reason != null) div {
+                +"Reason:"
+                Box {
+                    css {
+                        scale = Scale(0.3)
+                    }
+                    // FIXME: this is a hack
+                    (ClauseNodeFn()) {
+                        clause = data.reason!!
+                    }
+                }
+            }
         }
 
-        onMouseOver
-        +if (lit.isPos) {
-            "${lit.variable.index + 1}"
-        } else {
-            "-${lit.variable.index + 1}"
+        span {
+            css {
+                width = if (borderColor == null) 24.pt else 18.pt
+                height = if (borderColor == null) 24.pt else 18.pt
+                borderRadius = 100.pct
+                display = Display.inlineFlex
+                alignItems = AlignItems.center
+                justifyContent = JustifyContent.center
+                backgroundColor = fill
+                cursor = Cursor.pointer
+                fontStyle = if (data.frozen) FontStyle.italic else null
+                border = borderColor?.let { Border(3.pt, LineStyle.solid, it) }
+            }
+
+            onMouseOver
+            +if (lit.isPos) {
+                "${lit.variable.index + 1}"
+            } else {
+                "-${lit.variable.index + 1}"
+            }
         }
     }
 }
@@ -266,7 +295,7 @@ external interface ClauseProps : Props {
     var clause: Clause
 }
 
-val Clause = FC<ClauseProps> { props ->
+val ClauseNode = FC<ClauseProps> { props ->
     val clause = props.clause
     val solver = useContext(cdclWrapperContext)
 
@@ -307,6 +336,8 @@ val Clause = FC<ClauseProps> { props ->
         }
     }
 }
+
+fun ClauseNodeFn(): FC<ClauseProps> = ClauseNode
 
 external interface ActionButtonProps : PropsWithChildren {
     var command: SolverCommand?
@@ -442,7 +473,7 @@ val Welcome = FC<WelcomeProps> { _ ->
                         td { +"irreducible clauses" }
                         td {
                             db.clauses.withIndex().filter { !it.value.deleted }.map {
-                                Clause {
+                                ClauseNode {
                                     key = it.index.toString()
                                     clause = it.value
                                 }
@@ -453,7 +484,7 @@ val Welcome = FC<WelcomeProps> { _ ->
                         td { +"learnts" }
                         td {
                             db.learnts.withIndex().filter { !it.value.deleted }.map {
-                                Clause {
+                                ClauseNode {
                                     key = it.index.toString()
                                     clause = it.value
                                 }
@@ -464,7 +495,7 @@ val Welcome = FC<WelcomeProps> { _ ->
                         td { +"current conflict" }
                         td {
                             if (solver.state.conflict != null) {
-                                Clause {
+                                ClauseNode {
                                     clause = solver.state.conflict!!
                                 }
                             }
@@ -478,7 +509,7 @@ val Welcome = FC<WelcomeProps> { _ ->
                         td { +"current learnt" }
                         td {
                             if (solver.state.learnt != null) {
-                                Clause {
+                                ClauseNode {
                                     clause = solver.state.learnt!!
                                 }
                             }
