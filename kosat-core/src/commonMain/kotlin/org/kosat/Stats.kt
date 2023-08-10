@@ -101,7 +101,7 @@ class Stats {
             sink.writeUtf8("c ${name.padStart(42)}: $value\n")
         }
 
-        heading("Search", "")
+        heading("Overall", "")
         line("decisions", decisions)
         line("conflicts", conflicts)
         line("propagations", propagations)
