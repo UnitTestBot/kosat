@@ -121,6 +121,8 @@ internal class DiamondTests {
 
         val solver = CDCL(cnf)
 
+        solver.reporter = Reporter(System.out.sink().buffer())
+
         val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
         var dratSink: Sink? = null
         var dratBufferedSink: okio.BufferedSink? = null

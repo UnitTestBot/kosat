@@ -175,6 +175,8 @@ class ClauseDatabase(private val solver: CDCL) {
         if (learnts.size > reduceMaxLearnts + solver.assignment.trail.size) {
             reduceMaxLearnts += reduceMaxLearntsIncrement
 
+            solver.reporter?.report("Clause database reduction", solver.stats)
+
             simplify()
 
             when (reduceStrategy) {

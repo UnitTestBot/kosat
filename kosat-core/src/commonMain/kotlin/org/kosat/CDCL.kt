@@ -2,6 +2,7 @@ package org.kosat
 
 import org.kosat.cnf.CNF
 import kotlin.math.min
+import kotlin.time.measureTimedValue
 
 /**
  * Solves [cnf] and returns
@@ -47,6 +48,12 @@ class CDCL {
      * @see Stats
      */
     val stats: Stats = Stats()
+
+    /**
+     * An optional reporter, which can be used to report
+     * certain events and indicate solver progress to the user.
+     */
+    var reporter: Reporter? = null
 
     /**
      * Can solver perform the search? This becomes false if given constraints
@@ -244,6 +251,8 @@ class CDCL {
      *   [SolveResult.SAT], [SolveResult.UNSAT], or [SolveResult.UNKNOWN].
      */
     fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
+        reporter?.restartTimer()
+
         // Unfreeze assumptions from the previous solve
         for (assumption in assumptions) assignment.unfreeze(assumption)
         // and assign new assumptions
@@ -556,6 +565,7 @@ class CDCL {
     private fun equivalentLiteralSubstitution(): SolveResult? {
         require(assignment.decisionLevel == 0)
 
+        reporter?.report("Equivalent Literal Substitution round", stats)
         stats.els.rounds++
 
         // To find strongly connected components, we use Tarjan's algorithm.
@@ -781,6 +791,7 @@ class CDCL {
     private fun failedLiteralProbing(): SolveResult? {
         require(assignment.decisionLevel == 0)
 
+        reporter?.report("Failed Literal Probing", stats)
         stats.flp.rounds++
 
         val probesToTry = generateProbes()
@@ -1257,6 +1268,7 @@ class CDCL {
         require(assignment.decisionLevel == 0)
 
         stats.bve.rounds++
+        reporter?.report("Bounded Variable Elimination", stats)
 
         // This state will be used all throughout the BVE
         val state = EliminationState(assignment.numberOfVariables)
