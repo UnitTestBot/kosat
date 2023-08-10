@@ -552,6 +552,8 @@ class CDCL {
     private fun equivalentLiteralSubstitution(): SolveResult? {
         require(assignment.decisionLevel == 0)
 
+        stats.els.rounds++
+
         // To find strongly connected components, we use Tarjan's algorithm.
         // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 
@@ -774,6 +776,8 @@ class CDCL {
      */
     private fun failedLiteralProbing(): SolveResult? {
         require(assignment.decisionLevel == 0)
+
+        stats.flp.rounds++
 
         val probesToTry = generateProbes()
 
@@ -1247,6 +1251,8 @@ class CDCL {
      */
     private fun boundedVariableElimination(): SolveResult? {
         require(assignment.decisionLevel == 0)
+
+        stats.bve.rounds++
 
         // This state will be used all throughout the BVE
         val state = EliminationState(assignment.numberOfVariables)
