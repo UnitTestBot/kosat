@@ -42,6 +42,10 @@ class CDCL {
      */
     var dratBuilder: AbstractDratBuilder = NoOpDratBuilder()
 
+    /**
+     * Overall statistics of the solver.
+     * @see Stats
+     */
     val stats: Stats = Stats()
 
     /**
