@@ -7,6 +7,9 @@ import csstype.Position
 import csstype.TextAlign
 import csstype.px
 import csstype.rgb
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.LBool
@@ -29,6 +32,7 @@ import react.dom.html.ReactHTML.tbody
 import react.dom.html.ReactHTML.td
 import react.dom.html.ReactHTML.textarea
 import react.dom.html.ReactHTML.tr
+import react.useEffectOnce
 import react.useReducer
 import react.useState
 
@@ -154,15 +158,25 @@ external interface WelcomeProps : Props {
 
 val Welcome = FC<WelcomeProps> { props ->
     var request by useState(props.request)
+    val channel by useState(Channel<SolverAction>(Channel.UNLIMITED))
     val solver by useState(CdclWrapper(CNF(emptyList())))
 
     // https://legacy.reactjs.org/docs/hooks-faq.html#is-there-something-like-forceupdate
     val (_, forceUpdateImpl) = useReducer({ x, _: Unit -> x + 1 }, 0)
     val forceUpdate = { forceUpdateImpl(Unit) }
 
-    fun execute(action: SolverAction) {
-        solver.execute(action)
-        forceUpdate()
+    useEffectOnce {
+        val job = MainScope().launch {
+            while (true) {
+                val action = channel.receive()
+                solver.execute(action)
+                forceUpdate()
+            }
+        }
+
+        cleanup {
+            job.cancel()
+        }
     }
 
     div {
@@ -260,7 +274,7 @@ val Welcome = FC<WelcomeProps> { props ->
                             button {
                                 disabled = !solver.canExecute(SolverAction.AnalyzeConflict)
                                 onClick = { _ ->
-                                    execute(SolverAction.AnalyzeConflict)
+                                    channel.trySend(SolverAction.AnalyzeConflict).getOrThrow()
                                 }
                                 +"Analyze"
                             }
@@ -274,7 +288,7 @@ val Welcome = FC<WelcomeProps> { props ->
                                 disabled = solver.learnt == null
                                     || !solver.canExecute(SolverAction.Learn(solver.learnt!!))
                                 onClick = { _ ->
-                                    execute(SolverAction.Learn(solver.learnt!!))
+                                    channel.trySend(SolverAction.Learn(solver.learnt!!)).getOrThrow()
                                 }
                                 +"Learn"
                             }
@@ -300,14 +314,14 @@ val Welcome = FC<WelcomeProps> { props ->
         button {
             disabled = !solver.canExecute(SolverAction.Solve)
             onClick = { _ ->
-                execute(SolverAction.Solve)
+                channel.trySend(SolverAction.Solve).getOrThrow()
             }
             +"Solve"
         }
         button {
             disabled = !solver.canExecute(SolverAction.Propagate)
             onClick = { _ ->
-                execute(SolverAction.Propagate)
+                channel.trySend(SolverAction.Propagate).getOrThrow()
             }
             +"Propagate"
         }
@@ -315,14 +329,14 @@ val Welcome = FC<WelcomeProps> { props ->
             button {
                 disabled = !solver.canExecute(SolverAction.Enqueue(Var(i).posLit))
                 onClick = { _ ->
-                    execute(SolverAction.Enqueue(Var(i).posLit))
+                    channel.trySend(SolverAction.Enqueue(Var(i).posLit)).getOrThrow()
                 }
                 +"Enqueue ${i + 1}"
             }
             button {
                 disabled = !solver.canExecute(SolverAction.Enqueue(Var(i).negLit))
                 onClick = { _ ->
-                    execute(SolverAction.Enqueue(Var(i).negLit))
+                    channel.trySend(SolverAction.Enqueue(Var(i).negLit)).getOrThrow()
                 }
                 +"Enqueue -${i + 1}"
             }
@@ -330,7 +344,7 @@ val Welcome = FC<WelcomeProps> { props ->
         button {
             disabled = !solver.canExecute(SolverAction.Restart)
             onClick = { _ ->
-                execute(SolverAction.Restart)
+                channel.trySend(SolverAction.Restart).getOrThrow()
             }
             +"Restart"
         }
@@ -338,7 +352,7 @@ val Welcome = FC<WelcomeProps> { props ->
             button {
                 disabled = !solver.canExecute(SolverAction.Backtrack(level))
                 onClick = { _ ->
-                    execute(SolverAction.Backtrack(level))
+                    channel.trySend(SolverAction.Backtrack(level)).getOrThrow()
                 }
                 +"Backtrack to $level"
             }
