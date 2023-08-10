@@ -5,22 +5,30 @@ import okio.BufferedSink
 class Stats {
     /** Number of decisions made. */
     var decisions: Int = 0
+
     /** Number of conflicts encountered. */
     var conflicts: Int = 0
+
     /** Number of propagations made. */
     var propagations: Long = 0
+
     /** Number of units assigned at level 0. */
     var unitsFound: Int = 0
+
     /** Number of restarts. */
     var restarts: Int = 0
 
     class FlpStats {
         /** Number of full failed literal probing attempts performed */
         var rounds: Int = 0
+
         /** Number of total attempts to probe literal */
         var probes: Int = 0
-        /** Number of failed attempts to probe literal, leading to level 0 assignment */
+
+        /** Number of failed attempts to probe literal,
+         * leading to level 0 assignment */
         var probesFailed: Int = 0
+
         /** Number of hyper-binary-resolvents added */
         var hbrResolvents: Int = 0
     }
@@ -31,6 +39,7 @@ class Stats {
     class ElsStats {
         /** Number of full equivalent literal substitution attempts performed */
         var rounds: Int = 0
+
         /** Number of variables eliminated through substitution */
         var substitutions: Int = 0
     }
@@ -41,28 +50,40 @@ class Stats {
     class BveStats {
         /** Number of full bounded variable elimination attempts performed */
         var rounds: Int = 0
+
         /** Number of total attempts to eliminate variable */
         var eliminationAttempts: Int = 0
+
         /** Number of variables eliminated by distribution */
         var eliminatedVariables: Int = 0
+
         /** Number of resolvents added during elimination */
         var resolventsAdded: Int = 0
+
         /** Number of resolved clauses deleted during elimination */
         var clausesResolved: Int = 0
+
         /** Number of units assigned during BVE */
         var unitsAssigned: Int = 0
+
         /** Total number of clauses added to database */
         var clausesAttached: Int = 0
+
         /** Total number of clauses deleted from database */
         var clausesDeleted: Int = 0
+
         /** Number of clauses strengthened during BVE */
         var clausesStrengthened: Int = 0
+
         /** Number of clauses removed as subsumed during BVE */
         var clausesSubsumed: Int = 0
+
         /** Number of resolvents ignored as tautological */
         var tautologicalResolvents: Int = 0
+
         /** Number of failed resolutions due to big resolvents */
         var resolventsTooBig: Int = 0
+
         /** Number of gates found */
         var gatesFound: Int = 0
     }
