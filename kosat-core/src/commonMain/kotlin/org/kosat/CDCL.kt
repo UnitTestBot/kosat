@@ -192,7 +192,9 @@ class CDCL {
         }
 
         // Remove falsified literals from the new clause
-        clause.lits.removeAll { assignment.isActiveAndFalse(it) }
+        clause.lits.removeAll {
+            assignment.isActive(it) && assignment.value(it) == LBool.FALSE
+        }
 
         // If the clause contains complementary literals, ignore it as useless.
         if (sortDedupAndCheckComplimentary(clause.lits)) return
