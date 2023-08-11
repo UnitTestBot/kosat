@@ -326,7 +326,7 @@ val ClauseNode = FC<ClauseProps> { props ->
             justifyContent = JustifyContent.center
             backgroundColor = color
             padding = 3.pt
-            margin = 3.pt
+            margin = Margin(0.pt, 3.pt)
         }
         for (lit in clause.lits) {
             Literal {
@@ -355,6 +355,39 @@ val CommandButton = FC<ActionButtonProps> { props ->
     }
 }
 
+external interface TrailProps : Props
+
+val TrailNode = FC<TrailProps> { _ ->
+    val solver = useContext(cdclWrapperContext)
+    val assignment = solver.state.inner.assignment
+
+    table {
+        tbody {
+            for (level in 0..assignment.decisionLevel) {
+                tr {
+                    key = level.toString()
+                    td { +"level $level" }
+                    td {
+                        for (lit in assignment.trail.filter { assignment.level(it) == level }) {
+                            div {
+                                key = lit.toString()
+                                Literal {
+                                    this.lit = lit
+                                }
+                                if (assignment.reason(lit.variable) != null) {
+                                    ClauseNode {
+                                        clause = assignment.reason(lit.variable)!!
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 external interface WelcomeProps : Props
 
 val Welcome = FC<WelcomeProps> { _ ->
@@ -378,7 +411,6 @@ val Welcome = FC<WelcomeProps> { _ ->
     )
 
     val solver = useContext(cdclWrapperContext)
-    val dispatch = useContext(cdclDispatchContext)
 
     div {
         css {
@@ -446,12 +478,7 @@ val Welcome = FC<WelcomeProps> { _ ->
                     tr {
                         td { +"trail" }
                         td {
-                            assignment.trail.map {
-                                Literal {
-                                    key = it.toString()
-                                    lit = it
-                                }
-                            }
+                            TrailNode {}
                         }
                     }
                     tr {
