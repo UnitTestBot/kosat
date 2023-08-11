@@ -10,8 +10,11 @@ data class VarState(
     /** Index of the variable in the trail */
     var trailIndex: Int = -1,
 
-    /** A literal which is used to substitute this variable after Equivalent Literal Substitution */
-    var substitution: Lit? = null,
+    /** Whether the variable is active, i.e. used in the search and not eliminated in some way */
+    var active: Boolean = true,
+
+    /** Whether the variable is frozen (cannot be eliminated) */
+    var frozen: Boolean = false,
 )
 
 class Assignment(private val solver: CDCL) {
@@ -19,10 +22,10 @@ class Assignment(private val solver: CDCL) {
     val varData: MutableList<VarState> = mutableListOf()
     val trail: MutableList<Lit> = mutableListOf()
     val numberOfVariables get() = value.size
-    private var numberOfSubstitutions = 0
+    private var numberOfInactiveVariables = 0
 
-    /** The number of not substituted variables */
-    val numberOfActiveVariables get() = numberOfVariables - numberOfSubstitutions
+    /** The number of active variables (i.e. not eliminated, substituted, etc.) */
+    val numberOfActiveVariables get() = numberOfVariables - numberOfInactiveVariables
 
     var decisionLevel: Int = 0
     var qhead: Int = 0
@@ -32,7 +35,7 @@ class Assignment(private val solver: CDCL) {
      * @return the value of the variable, assuming that it is not substituted.
      */
     fun value(v: Var): LBool {
-        require(varData[v].substitution == null)
+        require(isActive(v))
         return value[v]
     }
 
@@ -40,78 +43,68 @@ class Assignment(private val solver: CDCL) {
      * @return the value of the literal, assuming that it is not substituted.
      */
     fun value(lit: Lit): LBool {
-        // TODO: It would be nice to have this assertion,
-        //       however, there are too many moving pieces at the moment
-        //       and enabling this will require a lot of additional
-        //       isSubstituted checks.
-        // require(varData[lit.variable].substitution == null)
+        require(isActive(lit))
         return value[lit.variable] xor lit.isNeg
     }
 
     /**
-     * @return the value of the variable, considering its substitution if
-     *         needed.
+     * @return true, if the literal is active and assigned to true.
      */
-    fun valueAfterSubstitution(v: Var): LBool {
-        val substitution = varData[v].substitution
-        return if (substitution != null) {
-            value(substitution)
-        } else {
-            value(v)
-        }
+    fun isActiveAndTrue(lit: Lit): Boolean {
+        return varData[lit.variable].active && value(lit) == LBool.TRUE
     }
 
     /**
-     * @return the value of the literal, considering its substitution if
-     *         needed.
+     * @return true, if the literal is active and assigned to false.
      */
-    fun valueAfterSubstitution(lit: Lit): LBool {
-        return valueAfterSubstitution(lit.variable) xor lit.isNeg
+    fun isActiveAndFalse(lit: Lit): Boolean {
+        return varData[lit.variable].active && value(lit) == LBool.FALSE
     }
 
-    /**
-     * Marks the literal as substituted by the given literal.
-     */
-    fun markSubstituted(lit: Lit, substitution: Lit) {
-        if (varData[lit.variable].substitution == null) numberOfSubstitutions++
-        varData[lit.variable].substitution = substitution xor lit.isNeg
+    /** @return whether the variable is [VarState.frozen] */
+    fun isFrozen(lit: Lit): Boolean {
+        return varData[lit.variable].frozen
     }
 
-    /**
-     * If a literal is substituted by another literal, which is then substituted
-     * by another literal, then the first literal is substituted by the last
-     * literal. This function removes such nested substitutions, up to the
-     * depth of 2.
-     */
-    fun fixNestedSubstitutions() {
-        for (varIndex in 0 until numberOfVariables) {
-            val variable = Var(varIndex)
-            val substitution = varData[variable].substitution ?: continue
-            val secondSubstitution = varData[substitution.variable].substitution ?: continue
-            check(varData[secondSubstitution.variable].substitution == null)
-            varData[variable].substitution = secondSubstitution xor substitution.isNeg
-        }
+    /** Marks active variable corresponding to [lit] as [VarState.frozen] */
+    fun freeze(lit: Lit) {
+        require(varData[lit.variable].active)
+        varData[lit.variable].frozen = true
     }
 
-    /**
-     * @return the substitution of the literal, if it is substituted, or the
-     *         literal itself otherwise.
-     */
-    fun getSubstitutionOf(lit: Lit): Lit {
-        val substitution = varData[lit.variable].substitution
-        return if (substitution != null) {
-            substitution xor lit.isNeg
-        } else {
-            lit
-        }
+    /** Marks variable corresponding to [lit] as not [VarState.frozen] */
+    fun unfreeze(lit: Lit) {
+        varData[lit.variable].frozen = false
     }
 
-    /**
-     * @return true if the variable is substituted.
-     */
-    fun isSubstituted(v: Var): Boolean {
-        return varData[v].substitution != null
+    /** @return whether the variable is [VarState.active] */
+    fun isActive(v: Var): Boolean {
+        return varData[v].active
     }
+
+    /** @return whether the variable corresponding to the [lit] is [VarState.active] */
+    fun isActive(lit: Lit): Boolean = isActive(lit.variable)
+
+    /** Marks variable as [VarState.active] */
+    fun markActive(v: Var) {
+        if (varData[v].active) return
+        numberOfInactiveVariables--
+        varData[v].active = true
+    }
+
+    /** Marks variable corresponding to the [lit] as [VarState.active] */
+    fun markActive(lit: Lit) = markActive(lit.variable)
+
+    /** Marks variable as not [VarState.active] */
+    fun markInactive(v: Var) {
+        require(!varData[v].frozen)
+        if (!varData[v].active) return
+        numberOfInactiveVariables++
+        varData[v].active = false
+    }
+
+    /** Marks variable corresponding to the [lit] as not [VarState.active] */
+    fun markInactive(lit: Lit) = markInactive(lit.variable)
 
     fun unassign(v: Var) {
         value[v] = LBool.UNDEF
@@ -164,7 +157,7 @@ class Assignment(private val solver: CDCL) {
 
     fun uncheckedEnqueue(lit: Lit, reason: Clause?) {
         require(value(lit) == LBool.UNDEF)
-        require(varData[lit.variable].substitution == null)
+        require(isActive(lit))
 
         if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(mutableListOf(lit)))
 

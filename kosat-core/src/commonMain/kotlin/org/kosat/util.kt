@@ -13,3 +13,10 @@ fun Double.round(decimals: Int): Double {
 fun Boolean.toInt(): Int {
     return if (this) 1 else 0
 }
+
+fun <T> MutableList<T>.retainFirst(n: Int) {
+    require(n <= this.size)
+    while (this.size > n) {
+        this.removeLast()
+    }
+}

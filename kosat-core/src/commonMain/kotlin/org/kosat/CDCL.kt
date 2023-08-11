@@ -28,7 +28,7 @@ class CDCL {
     /**
      * Clause database.
      */
-    private val db: ClauseDatabase = ClauseDatabase(this)
+    val db: ClauseDatabase = ClauseDatabase(this)
 
     /**
      * Assignment.
@@ -56,6 +56,16 @@ class CDCL {
     val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
     /**
+     * The reconstruction stack, used to restore the solver state
+     * before adding new clauses or assumptions incrementally and
+     * to reconstruct the model after solving.
+     *
+     * @see getModel
+     * @see ReconstructionStack
+     */
+    val reconstructionStack: ReconstructionStack = ReconstructionStack()
+
+    /**
      * The maximum amount of probes expected to be returned
      * by [generateProbes].
      *
@@ -79,6 +89,11 @@ class CDCL {
      * @see [solve]
      */
     private val restarter = Restarter(this)
+
+    /**
+     * A list of clauses which were added since the last call to [solve].
+     */
+    private val newClauses = mutableListOf<Clause>()
 
     /**
      * Create a new solver instance with no clauses.
@@ -153,11 +168,12 @@ class CDCL {
         }
 
         // Remove falsified literals from the new clause
-        clause.lits.removeAll { value(it) == LBool.FALSE }
+        clause.lits.removeAll { assignment.isActiveAndFalse(it) }
 
-        // If the clause contains complementary literals, ignore it as useless,
-        // perform substitution otherwise
-        if (substituteAndCheckComplimentary(clause.lits)) return
+        // If the clause contains complementary literals, ignore it as useless.
+        if (sortDedupAndCheckComplimentary(clause.lits)) return
+
+        newClauses.add(clause)
 
         when (clause.size) {
             // Empty clause is an immediate UNSAT
@@ -179,35 +195,6 @@ class CDCL {
             // We don't add externally provided clauses to the proof.
             else -> attachClause(clause, addToDrat = false)
         }
-    }
-
-    /**
-     * Takes a list of literals, applies every variable substitution
-     * (see [VarState.substitution]), sorts it and removes duplicates in place,
-     * then checks if the list contains a literal and its negation
-     * and returns true if so.
-     */
-    private fun substituteAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
-        for (i in 0 until lits.size) {
-            lits[i] = assignment.getSubstitutionOf(lits[i])
-        }
-
-        lits.sortBy { it.inner }
-
-        var i = 0
-        for (j in 1 until lits.size) {
-            if (lits[i] == lits[j].neg) return true
-            if (lits[i] != lits[j]) {
-                i++
-                lits[i] = lits[j]
-            }
-        }
-
-        while (lits.size > i + 1) {
-            lits.removeLast()
-        }
-
-        return false
     }
 
     fun backtrack(level: Int) {
@@ -242,18 +229,23 @@ class CDCL {
      *   [SolveResult.SAT], [SolveResult.UNSAT], or [SolveResult.UNKNOWN].
      */
     fun solve(currentAssumptions: List<Lit> = emptyList()): SolveResult {
+        // Unfreeze assumptions from the previous solve
+        for (assumption in assumptions) assignment.unfreeze(assumption)
+        // and assign new assumptions
         assumptions = currentAssumptions.toMutableList()
 
         // If given clauses are already cause UNSAT, no need to do anything
         if (!ok) return finishWithUnsat()
 
-        // Check if the assumptions are trivially unsatisfiable,
-        // performing substitutions along the way if required
-        if (substituteAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
+        // Check if the assumptions are trivially unsatisfiable
+        if (sortDedupAndCheckComplimentary(assumptions)) return finishWithAssumptionsUnsat()
 
         // Clean up from the previous solve
         if (assignment.decisionLevel > 0) backtrack(0)
         cachedModel = null
+        reconstructionStack.restore(this, newClauses, assumptions)
+        for (assumption in assumptions) assignment.freeze(assumption)
+        newClauses.clear()
 
         // Check for an immediate level 0 conflict
         propagate()?.let { return finishWithUnsat() }
@@ -411,7 +403,7 @@ class CDCL {
      * the result of the first call to [getModel] and return the cached value
      * on subsequent calls. This is reset in [solve].
      */
-    private var cachedModel: MutableList<Boolean>? = null
+    private var cachedModel: List<Boolean>? = null
 
     /**
      * Return the assignment of variables. This function is meant to be used
@@ -420,20 +412,7 @@ class CDCL {
     fun getModel(): List<Boolean> {
         if (cachedModel != null) return cachedModel!!
 
-        cachedModel = mutableListOf()
-
-        for (assumption in assumptions) {
-            check(assignment.value(assumption) == LBool.TRUE)
-        }
-
-        for (varIndex in 0 until assignment.numberOfVariables) {
-            cachedModel!!.add(
-                when (assignment.valueAfterSubstitution(Var(varIndex))) {
-                    LBool.TRUE, LBool.UNDEF -> true
-                    LBool.FALSE -> false
-                }
-            )
-        }
+        cachedModel = reconstructionStack.reconstruct(assignment)
 
         return cachedModel!!
     }
@@ -532,7 +511,7 @@ class CDCL {
 
         // We must update assumptions after ELS, because it can
         // substitute literals in assumptions, and even derive UNSAT.
-        if (substituteAndCheckComplimentary(assumptions)) {
+        if (sortDedupAndCheckComplimentary(assumptions)) {
             return finishWithAssumptionsUnsat()
         }
 
@@ -581,6 +560,10 @@ class CDCL {
         // Stack for Tarjan's algorithm
         val stack = mutableListOf<Lit>()
 
+        // The representative literal for each variable.
+        // Same for every literal in the SCC.
+        val representatives = MutableList<Lit?>(assignment.numberOfVariables) { null }
+
         // Total number of literals substituted
         var totalSubstituted = 0
 
@@ -614,6 +597,16 @@ class CDCL {
                     marks[u] = markInScc
                     scc.add(u)
                     if (u == v) {
+                        // We can choose any literal from the SCC as a
+                        // representative. We cannot substitute frozen literals,
+                        // so we prioritize them as representatives. Moreover,
+                        // there might be a problem with assigning different
+                        // literals to the same variable, if DFS visits the same
+                        // variable twice, so among all literals we choose the
+                        // one with the smallest index.
+                        var minFrozen = Int.MAX_VALUE
+                        var minLit = Int.MAX_VALUE
+
                         for (w in scc) {
                             // If two complementary literals are in the same SCC,
                             // the problem is UNSAT
@@ -627,14 +620,19 @@ class CDCL {
                                 return null
                             }
                             marks[w] = markProcessed
+
+                            minLit = min(minLit, w.inner)
+                            if (assignment.isFrozen(w)) {
+                                minFrozen = min(minFrozen, w.inner)
+                            }
                         }
 
-                        // We can choose any literal from the SCC as a
-                        // representative, so we choose the minimal one to
-                        // avoid re-substitution to a different literal later
-                        val repr = scc.minBy { it.inner }
+                        val repr = if (minFrozen != Int.MAX_VALUE) Lit(minFrozen) else Lit(minLit)
+
                         for (w in scc) {
-                            if (w != repr) assignment.markSubstituted(w, repr)
+                            if (w != repr && !assignment.isFrozen(w)) {
+                                representatives[w.variable] = repr xor w.isNeg
+                            }
                         }
                         // Note that there is no need to add clauses to the proof
                         totalSubstituted += scc.size - 1
@@ -656,7 +654,7 @@ class CDCL {
             val lit = variable.posLit
 
             if (
-                assignment.isSubstituted(variable) ||
+                !assignment.isActive(variable) ||
                 (marks[lit] != markUnvisited || marks[lit.neg] != markUnvisited) ||
                 value(lit) != LBool.UNDEF
             ) continue
@@ -666,17 +664,24 @@ class CDCL {
 
         if (totalSubstituted == 0) return null
 
-        assignment.fixNestedSubstitutions()
+        // Mark all substituted variables as inactive and memorize the substitution
+        // in the reconstruction stack
+        for (varIndex in 0 until assignment.numberOfVariables) {
+            val v = Var(varIndex)
+            if (representatives[v] == null) continue
+            assignment.markInactive(v)
+            reconstructionStack.pushSubstitution(representatives[v]!!, v.posLit)
+        }
 
         // Replace clauses which might have simplified due to substitution
         for (clause in db.clauses + db.learnts) {
             if (clause.deleted) continue
 
-            val willChange = clause.lits.any { assignment.isSubstituted(it.variable) }
+            val willChange = clause.lits.any { representatives[it.variable] != null }
             if (!willChange) continue
 
-            val newLits = clause.lits.toMutableList()
-            val containsComplementary = substituteAndCheckComplimentary(newLits)
+            val newLits = clause.lits.map { representatives[it.variable]?.xor(it.isNeg) ?: it }.toMutableList()
+            val containsComplementary = sortDedupAndCheckComplimentary(newLits)
             // Note that clause cannot become empty,
             // however, it can contain complementary literals.
             // We simply remove such clauses.
@@ -1020,7 +1025,7 @@ class CDCL {
     /**
      * Add [clause] into the database and attach watchers for it.
      */
-    private fun attachClause(clause: Clause, addToDrat: Boolean = true) {
+    fun attachClause(clause: Clause, addToDrat: Boolean = true) {
         require(clause.size >= 2) { clause }
         check(ok)
         db.add(clause)
@@ -1232,4 +1237,28 @@ class CDCL {
 
         return learnt
     }
+}
+
+/**
+ * Takes a list of literals, sorts it and removes duplicates in place,
+ * then checks if the list contains a literal and its negation
+ * and returns true if so.
+ */
+private fun sortDedupAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
+    lits.sortBy { it.inner }
+
+    var i = 0
+    for (j in 1 until lits.size) {
+        if (lits[i] == lits[j].neg) return true
+        if (lits[i] != lits[j]) {
+            i++
+            lits[i] = lits[j]
+        }
+    }
+
+    while (lits.size > i + 1) {
+        lits.removeLast()
+    }
+
+    return false
 }
