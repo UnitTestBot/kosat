@@ -175,7 +175,7 @@ class CDCL {
      *
      * @see Assignment.value
      */
-    private fun value(lit: Lit): LBool {
+    fun value(lit: Lit): LBool {
         return assignment.value(lit)
     }
 

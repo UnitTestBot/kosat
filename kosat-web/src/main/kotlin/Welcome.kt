@@ -16,6 +16,7 @@ import csstype.pct
 import csstype.pt
 import csstype.px
 import csstype.rgb
+import kotlinext.js.assign
 import mui.material.Box
 import mui.material.Tooltip
 import org.kosat.CDCL
@@ -26,6 +27,8 @@ import org.kosat.SolveResult
 import org.kosat.Var
 import org.kosat.cnf.CNF
 import org.kosat.get
+import org.kosat.set
+import org.kosat.swap
 import react.FC
 import react.Props
 import react.PropsWithChildren
@@ -54,11 +57,15 @@ sealed interface SolverCommand {
     data object Undo : SolverCommand
     data object Solve : SolverCommand
     data object Propagate : SolverCommand
+    data object PropagateOne : SolverCommand
     data object Restart : SolverCommand
     data class Backtrack(val level: Int) : SolverCommand
-    data class Learn(val learnt: Clause) : SolverCommand
+    data object Learn : SolverCommand
     data class Enqueue(val lit: Lit) : SolverCommand
     data object AnalyzeConflict : SolverCommand
+    data object AnalyzeOne : SolverCommand
+    data object AnalysisMinimize : SolverCommand
+    data object LearnAsIs : SolverCommand
 }
 
 class CdclState(initialProblem: CNF) {
@@ -101,8 +108,8 @@ class CdclState(initialProblem: CNF) {
             }
 
             is SolverCommand.Undo -> {
-                history.removeLast()
-                val historyToRepeat = history.dropLast(1)
+                val historyToRepeat = history.dropLast(2)
+                // FIXME: Too many hacks
                 execute(SolverCommand.Recreate(problem))
                 for (commandToRepeat in historyToRepeat) {
                     execute(commandToRepeat)
@@ -110,6 +117,7 @@ class CdclState(initialProblem: CNF) {
             }
 
             is SolverCommand.Solve -> inner.solve()
+
             is SolverCommand.Propagate -> {
                 conflict = inner.propagate()
                 if (conflict != null && inner.assignment.decisionLevel == 0) {
@@ -117,7 +125,45 @@ class CdclState(initialProblem: CNF) {
                 }
             }
 
-            is SolverCommand.AnalyzeConflict -> learnt = inner.analyzeConflict(conflict!!)
+            is SolverCommand.PropagateOne -> {
+                conflict = inner.propagateOne()
+                if (conflict != null && inner.assignment.decisionLevel == 0) {
+                    inner.finishWithUnsat()
+                }
+            }
+
+            is SolverCommand.AnalyzeConflict -> {
+                learnt = inner.analyzeConflict(conflict!!)
+            }
+
+            is SolverCommand.AnalyzeOne -> {
+                inner.analyzeOne()
+            }
+
+            is SolverCommand.AnalysisMinimize -> {
+                learnt = inner.analyzeConflict(conflict!!)
+            }
+
+            is SolverCommand.LearnAsIs -> {
+                val learnt = conflict!!
+                this.learnt = null
+                inner.run {
+                    learnt.lits.sortByDescending { assignment.level(it) }
+                    conflict = null
+                    val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
+                    backtrack(level)
+                    if (learnt.size == 1) {
+                        assignment.uncheckedEnqueue(learnt[0], null)
+                    } else {
+                        attachClause(learnt)
+                        assignment.uncheckedEnqueue(learnt[0], learnt)
+                        db.clauseBumpActivity(learnt)
+                    }
+                    variableSelector.update(learnt)
+                    db.clauseDecayActivity()
+                }
+            }
+
             is SolverCommand.Backtrack -> {
                 inner.backtrack(command.level)
                 learnt = null
@@ -131,9 +177,9 @@ class CdclState(initialProblem: CNF) {
             }
 
             is SolverCommand.Learn -> {
-                learnt = null
+                val learnt = learnt!!
+                this.learnt = null
                 conflict = null
-                val learnt = command.learnt
                 inner.run {
                     val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
                     backtrack(level)
@@ -162,19 +208,97 @@ class CdclState(initialProblem: CNF) {
                 is SolverCommand.Recreate -> true
                 is SolverCommand.Undo -> history.isNotEmpty()
                 is SolverCommand.Solve -> propagated
-                is SolverCommand.Propagate -> ok && conflict == null && learnt == null
+                is SolverCommand.Propagate ->
+                    ok
+                        && conflict == null
+                        && learnt == null
+                        && inner.assignment.qhead < inner.assignment.trail.size
+                is SolverCommand.PropagateOne ->
+                    ok
+                        && conflict == null
+                        && learnt == null
+                        && inner.assignment.qhead < inner.assignment.trail.size
                 is SolverCommand.AnalyzeConflict -> ok && conflict != null && learnt == null
+                is SolverCommand.AnalyzeOne ->
+                    ok
+                        && conflict != null
+                        && learnt == null
+                        && conflict!!.lits.count { assignment.level(it) == assignment.decisionLevel } > 1
+                is SolverCommand.AnalysisMinimize ->
+                    ok
+                        && conflict != null
+                        && learnt == null
+                        && conflict!!.lits.count { assignment.level(it) == assignment.decisionLevel } == 1
+                is SolverCommand.LearnAsIs ->
+                    ok
+                        && conflict != null
+                        && learnt == null
+                        && conflict!!.lits.count { assignment.level(it) == assignment.decisionLevel } == 1
                 is SolverCommand.Learn -> ok && conflict != null && learnt != null
                 is SolverCommand.Backtrack -> ok && command.level in 0 until assignment.decisionLevel
                 is SolverCommand.Restart -> ok && assignment.decisionLevel > 0
-                is SolverCommand.Enqueue -> {
+                is SolverCommand.Enqueue ->
                     propagated
                         && command.lit.variable.index in 0 until assignment.numberOfVariables
                         && assignment.isActive(command.lit)
                         && assignment.value(command.lit) == LBool.UNDEF
-                }
             }
         }
+    }
+
+    private fun CDCL.propagateOne(): Clause? {
+        var conflict: Clause? = null
+
+        val lit = assignment.dequeue()!!
+
+        check(value(lit) == LBool.TRUE)
+        val clausesToKeep = mutableListOf<Clause>()
+        val possiblyBrokenClauses = watchers[lit.neg]
+
+        for (clause in possiblyBrokenClauses) {
+            if (clause.deleted) continue
+
+            clausesToKeep.add(clause)
+
+            if (conflict != null) continue
+            if (clause[0].variable == lit.variable) {
+                clause.lits.swap(0, 1)
+            }
+
+            if (value(clause[0]) == LBool.TRUE) continue
+            var firstNotFalse = -1
+            for (ind in 2 until clause.size) {
+                if (value(clause[ind]) != LBool.FALSE) {
+                    firstNotFalse = ind
+                    break
+                }
+            }
+
+            if (firstNotFalse == -1 && value(clause[0]) == LBool.FALSE) {
+                conflict = clause
+            } else if (firstNotFalse == -1) {
+                assignment.uncheckedEnqueue(clause[0], clause)
+            } else {
+                watchers[clause[firstNotFalse]].add(clause)
+                clause.lits.swap(firstNotFalse, 1)
+                clausesToKeep.removeLast()
+            }
+        }
+
+        watchers[lit.neg] = clausesToKeep
+
+        return conflict
+    }
+
+    private fun CDCL.analyzeOne() {
+        val lits = conflict!!.lits
+        lits.sortBy { assignment.trailIndex(it.variable) }
+        val replaceWithReason = lits.removeLast()
+        for (lit in assignment.reason(replaceWithReason.variable)!!.lits) {
+            if (lit == replaceWithReason.neg) continue
+            lits.add(lit)
+        }
+        conflict = Clause(lits.toSet().toMutableList(), learnt = true)
     }
 }
 
@@ -263,6 +387,20 @@ val Literal = FC<LiteralProps> { props ->
                     (ClauseNodeFn()) {
                         clause = data.reason!!
                     }
+                }
+            }
+
+            div {
+                CommandButton {
+                    command = SolverCommand.Enqueue(lit)
+                    +"Enqueue"
+                }
+            }
+
+            div {
+                CommandButton {
+                    command = SolverCommand.Enqueue(lit.neg)
+                    +"Enqueue negation"
                 }
             }
         }
@@ -368,15 +506,29 @@ val TrailNode = FC<TrailProps> { _ ->
                     key = level.toString()
                     td { +"level $level" }
                     td {
-                        for (lit in assignment.trail.filter { assignment.level(it) == level }) {
+                        for (i in 0 until assignment.trail.size) {
+                            val lit = assignment.trail[i]
+                            if (assignment.level(lit) != level) continue
                             div {
-                                key = lit.toString()
                                 Literal {
+                                    key = lit.toString()
                                     this.lit = lit
                                 }
                                 if (assignment.reason(lit.variable) != null) {
                                     ClauseNode {
                                         clause = assignment.reason(lit.variable)!!
+                                    }
+                                }
+                                if (i == assignment.qhead) {
+                                    css {
+                                        backgroundColor = rgb(200, 200, 200)
+                                    }
+                                    span {
+                                        css {
+                                            fontStyle = FontStyle.italic
+                                            margin = 3.pt
+                                        }
+                                        +"qhead"
                                     }
                                 }
                             }
@@ -530,6 +682,18 @@ val Welcome = FC<WelcomeProps> { _ ->
                                 +"Analyze"
                                 command = solver.state.conflict?.let { SolverCommand.AnalyzeConflict }
                             }
+                            CommandButton {
+                                +"Analyze One"
+                                command = solver.state.conflict?.let { SolverCommand.AnalyzeOne }
+                            }
+                            CommandButton {
+                                +"Minimize"
+                                command = solver.state.conflict?.let { SolverCommand.AnalysisMinimize }
+                            }
+                            CommandButton {
+                                +"Learn As Is"
+                                command = solver.state.conflict?.let { SolverCommand.LearnAsIs }
+                            }
                         }
                     }
                     tr {
@@ -542,7 +706,7 @@ val Welcome = FC<WelcomeProps> { _ ->
                             }
                             CommandButton {
                                 +"Learn"
-                                command = solver.state.learnt?.let { SolverCommand.Learn(it) }
+                                command = solver.state.learnt?.let { SolverCommand.Learn }
                             }
                         }
                     }
@@ -570,6 +734,10 @@ val Welcome = FC<WelcomeProps> { _ ->
         CommandButton {
             +"Propagate"
             command = SolverCommand.Propagate
+        }
+        CommandButton {
+            +"Propagate One"
+            command = SolverCommand.PropagateOne
         }
         for (i in 0 until solver.state.inner.assignment.numberOfVariables) {
             CommandButton {
