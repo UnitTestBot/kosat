@@ -1,18 +1,7 @@
 package components
 
 import SolverCommand
-import csstype.AlignItems
-import csstype.Border
-import csstype.Cursor
-import csstype.Display
-import csstype.FontStyle
-import csstype.FontWeight
-import csstype.JustifyContent
-import csstype.LineStyle
-import csstype.Scale
-import csstype.pct
-import csstype.pt
-import csstype.rgb
+import emotion.react.css
 import mui.material.Box
 import mui.material.Tooltip
 import mui.material.Typography
@@ -22,9 +11,19 @@ import org.kosat.get
 import react.FC
 import react.Props
 import react.create
-import react.css.css
 import react.dom.html.ReactHTML.span
 import react.useContext
+import web.cssom.AlignItems
+import web.cssom.Border
+import web.cssom.Cursor
+import web.cssom.Display
+import web.cssom.FontStyle
+import web.cssom.FontWeight
+import web.cssom.JustifyContent
+import web.cssom.LineStyle
+import web.cssom.pct
+import web.cssom.pt
+import web.cssom.rgb
 
 external interface LitProps : Props {
     @Suppress("INLINE_CLASS_IN_EXTERNAL_DECLARATION_WARNING")
@@ -32,7 +31,7 @@ external interface LitProps : Props {
 }
 
 val LitNode = FC<LitProps> { props ->
-    val solver = useContext(cdclWrapperContext)
+    val solver = useContext(cdclWrapperContext)!!
     val lit = props.lit
 
     val data = solver.state.inner.assignment.varData[lit.variable]
@@ -115,7 +114,7 @@ val LitNode = FC<LitProps> { props ->
             Typography {
                 css {
                     fontSize = 18.pt
-                    fontWeight = FontWeight(900)
+                    fontWeight = FontWeight.bold
                 }
                 +if (lit.isPos) {
                     "${lit.variable.index + 1}"

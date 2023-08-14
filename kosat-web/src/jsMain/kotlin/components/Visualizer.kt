@@ -1,29 +1,12 @@
 package components
 
 import SolverCommand
-import csstype.Display
-import csstype.FlexDirection
-import csstype.FlexGrow
-import csstype.FontFamily
-import csstype.FontWeight
-import csstype.GridArea
-import csstype.GridTemplateColumns
-import csstype.GridTemplateRows
-import csstype.Margin
-import csstype.NamedColor
-import csstype.Position
-import csstype.TextAlign
-import csstype.fr
-import csstype.pct
-import csstype.pt
-import csstype.px
-import csstype.rgb
+import emotion.react.css
 import org.kosat.SolveResult
 import org.kosat.Var
 import org.kosat.cnf.CNF
 import react.FC
 import react.Props
-import react.css.css
 import react.dom.html.ReactHTML.br
 import react.dom.html.ReactHTML.div
 import react.dom.html.ReactHTML.h2
@@ -35,9 +18,31 @@ import react.dom.html.ReactHTML.tbody
 import react.dom.html.ReactHTML.td
 import react.dom.html.ReactHTML.textarea
 import react.dom.html.ReactHTML.tr
-import react.key
 import react.useContext
 import react.useState
+import web.cssom.Auto
+import web.cssom.Auto.Companion.auto
+import web.cssom.Display
+import web.cssom.FlexDirection
+import web.cssom.FlexGrow
+import web.cssom.FontFamily
+import web.cssom.FontWeight
+import web.cssom.GridArea
+import web.cssom.GridTemplateAreas
+import web.cssom.GridTemplateColumns
+import web.cssom.Length
+import web.cssom.Margin
+import web.cssom.NamedColor
+import web.cssom.Position
+import web.cssom.TextAlign
+import web.cssom.array
+import web.cssom.fr
+import web.cssom.ident
+import web.cssom.number
+import web.cssom.pct
+import web.cssom.pt
+import web.cssom.px
+import web.cssom.rgb
 
 external interface VisualizerProps : Props
 
@@ -61,7 +66,7 @@ val Visualizer = FC<VisualizerProps> { _ ->
         """.trimIndent()
     )
 
-    val solver = useContext(cdclWrapperContext)
+    val solver = useContext(cdclWrapperContext)!!
 
     div {
         css {
@@ -78,9 +83,13 @@ val Visualizer = FC<VisualizerProps> { _ ->
     div {
         css {
             display = Display.grid
-            // gridTemplateColumns = GridTemplateColumns(30.pct, 40.pct, 20.pct)
-            gridTemplateColumns = GridTemplateColumns(30.pct, 50.pct, 20.pct)
-            gridTemplateRows = GridTemplateRows(2.fr, 1.fr, 100.pt)
+            gridTemplateColumns = array(30.pct, 50.pct, 20.pct)
+            gridTemplateRows = array(3.fr, 1.fr, 100.pt)
+            gridTemplateAreas = GridTemplateAreas(
+                arrayOf(ident("input"), ident("state"), ident("trail")),
+                arrayOf(ident("history"), ident("actions"), ident("trail")),
+                arrayOf(ident("assignment"), ident("assignment"), ident("trail")),
+            )
         }
 
         div {
@@ -90,7 +99,7 @@ val Visualizer = FC<VisualizerProps> { _ ->
                 display = Display.flex
                 flexDirection = FlexDirection.column
                 fontFamily = FontFamily.monospace
-                gridArea = GridArea("1 / 1 / 1 / 1")
+                gridArea = ident("input")
             }
 
             label {
@@ -108,7 +117,7 @@ val Visualizer = FC<VisualizerProps> { _ ->
                     marginBottom = 20.px
                     backgroundColor = rgb(100, 100, 100)
                     color = rgb(56, 246, 137)
-                    flexGrow = FlexGrow(1.0)
+                    flexGrow = number(1.0)
                 }
                 rows = 25
                 value = request
@@ -130,7 +139,7 @@ val Visualizer = FC<VisualizerProps> { _ ->
         div {
             css {
                 display = Display.flex
-                gridArea = GridArea("2 / 1 / 2 / 1")
+                gridArea = ident("history")
             }
 
             History {}
@@ -139,7 +148,7 @@ val Visualizer = FC<VisualizerProps> { _ ->
         solver.state.inner.run {
             div {
                 css {
-                    gridArea = GridArea("1 / 2 / 1 / 2")
+                    gridArea = ident("state")
                 }
 
                 h2 { +"Solver State:" }
@@ -243,14 +252,14 @@ val Visualizer = FC<VisualizerProps> { _ ->
 
         div {
             css {
-                gridArea = GridArea("1 / 3 / 3 / 3")
+                gridArea = ident("trail")
             }
             TrailNode {}
         }
 
         div {
             css {
-                gridArea = GridArea("2 / 2 / 2 / 2")
+                gridArea = ident("actions")
             }
 
             h2 { +"Actions:" }
@@ -301,7 +310,7 @@ val Visualizer = FC<VisualizerProps> { _ ->
             position = Position.absolute
             display = Display.block
             marginRight = 0.px
-            marginLeft = Margin("auto")
+            marginLeft = auto
 
             fontFamily = FontFamily.monospace
             padding = 5.px

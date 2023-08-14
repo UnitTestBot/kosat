@@ -1,12 +1,12 @@
 import components.App
-import kotlinx.browser.document
 import react.create
-import react.dom.render
+import react.dom.client.createRoot
+import web.dom.document
+import web.html.HTML.div
 
 fun main() {
-    val container = document.createElement("div")
-    document.body!!.appendChild(container)
-
+    val container = document.createElement(div)
+    document.body.appendChild(container)
     val app = App.create()
-    render(app, container)
+    createRoot(container).render(app)
 }

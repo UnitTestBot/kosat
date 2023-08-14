@@ -10,7 +10,7 @@ import react.useContext
 external interface HistoryProps : Props
 
 val History = FC<HistoryProps> { _ ->
-    val solver = useContext(cdclWrapperContext)
+    val solver = useContext(cdclWrapperContext)!!
 
     div {
         for (command in solver.state.history) {

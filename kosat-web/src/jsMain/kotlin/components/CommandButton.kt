@@ -11,8 +11,8 @@ external interface CommandButtonProps : PropsWithChildren {
 }
 
 val CommandButton = FC<CommandButtonProps> { props ->
-    val solver = useContext(cdclWrapperContext)
-    val dispatch = useContext(cdclDispatchContext)
+    val solver = useContext(cdclWrapperContext)!!
+    val dispatch = useContext(cdclDispatchContext)!!
 
     val command = props.command
     button {

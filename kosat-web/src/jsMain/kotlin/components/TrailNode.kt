@@ -1,24 +1,23 @@
 package components
 
-import csstype.FontStyle
-import csstype.pt
-import csstype.rgb
+import emotion.react.css
 import react.FC
 import react.Props
-import react.css.css
 import react.dom.html.ReactHTML.div
 import react.dom.html.ReactHTML.span
 import react.dom.html.ReactHTML.table
 import react.dom.html.ReactHTML.tbody
 import react.dom.html.ReactHTML.td
 import react.dom.html.ReactHTML.tr
-import react.key
 import react.useContext
+import web.cssom.FontStyle
+import web.cssom.pt
+import web.cssom.rgb
 
 external interface TrailProps : Props
 
 val TrailNode = FC<TrailProps> { _ ->
-    val solver = useContext(cdclWrapperContext)
+    val solver = useContext(cdclWrapperContext)!!
     val assignment = solver.state.inner.assignment
 
     table {

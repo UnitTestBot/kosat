@@ -1,19 +1,18 @@
 package components
 
-import csstype.AlignItems
-import csstype.Display
-import csstype.JustifyContent
-import csstype.Margin
-import csstype.pt
-import csstype.rgb
+import emotion.react.css
 import org.kosat.Clause
 import org.kosat.LBool
 import react.FC
 import react.Props
-import react.css.css
 import react.dom.html.ReactHTML.span
-import react.key
 import react.useContext
+import web.cssom.AlignItems
+import web.cssom.Display
+import web.cssom.JustifyContent
+import web.cssom.Margin
+import web.cssom.pt
+import web.cssom.rgb
 
 external interface ClauseProps : Props {
     var clause: Clause
@@ -21,7 +20,7 @@ external interface ClauseProps : Props {
 
 val ClauseNode = FC<ClauseProps> { props ->
     val clause = props.clause
-    val solver = useContext(cdclWrapperContext)
+    val solver = useContext(cdclWrapperContext)!!
 
     val values = clause.lits.map {
         if (!solver.state.inner.assignment.isActive(it)) {
