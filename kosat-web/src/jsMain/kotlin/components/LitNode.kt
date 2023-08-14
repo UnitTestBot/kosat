@@ -42,11 +42,11 @@ val LitNode: FC<LitProps> = FC { props ->
     val level0 = data.level == 0
 
     val fill = when {
-        value == LBool.TRUE && level0 -> Colors.truth.main
-        value == LBool.FALSE && level0 -> Colors.falsity.main
-        !data.active -> Colors.inactive.main
-        data.frozen -> Colors.frozen.main
-        else -> Colors.bg.main
+        value == LBool.TRUE && level0 -> Colors.truth
+        value == LBool.FALSE && level0 -> Colors.falsity
+        !data.active -> Colors.inactive
+        data.frozen -> Colors.frozen
+        else -> Colors.bg
     }
 
     val borderColor = when {
@@ -103,7 +103,7 @@ val LitNode: FC<LitProps> = FC { props ->
                 display = Display.inlineFlex
                 alignItems = AlignItems.center
                 justifyContent = JustifyContent.center
-                backgroundColor = fill
+                backgroundColor = fill.main
                 cursor = Cursor.pointer
                 fontStyle = if (data.frozen) FontStyle.italic else null
                 border = borderColor?.let { Border(3.pt, LineStyle.solid, it) }
@@ -112,6 +112,7 @@ val LitNode: FC<LitProps> = FC { props ->
             Typography {
                 sx {
                     fontSize = 14.pt
+                    color = fill.contrastText
                 }
 
                 +if (lit.isPos) {

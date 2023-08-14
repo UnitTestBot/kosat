@@ -84,7 +84,7 @@ val Visualizer = FC<VisualizerProps> { _ ->
         css {
             display = Display.grid
             gridTemplateColumns = array(30.pct, 50.pct, 20.pct)
-            gridTemplateRows = array(3.fr, 1.fr, 100.pt)
+            gridTemplateRows = array(400.pt, 200.pt, 100.pt)
             gridTemplateAreas = GridTemplateAreas(
                 arrayOf(ident("input"), ident("state"), ident("trail")),
                 arrayOf(ident("history"), ident("actions"), ident("trail")),
