@@ -3,6 +3,8 @@ package components
 import CdclState
 import CdclWrapper
 import SolverCommand
+import mui.material.CssBaseline
+import mui.system.ThemeProvider
 import org.kosat.cnf.CNF
 import react.FC
 import react.Props
@@ -20,9 +22,15 @@ val App = FC<AppProps> {
         wrapper.execute(command)
     }, CdclWrapper(0, CdclState(CNF(emptyList()))))
 
-    cdclWrapperContext.Provider(solver) {
-        cdclDispatchContext.Provider(dispatch) {
-            Visualizer {}
+    ThemeProvider {
+        theme = Themes.default
+
+        CssBaseline {}
+
+        cdclWrapperContext.Provider(solver) {
+            cdclDispatchContext.Provider(dispatch) {
+                Visualizer {}
+            }
         }
     }
 }

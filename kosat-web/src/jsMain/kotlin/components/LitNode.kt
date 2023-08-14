@@ -1,10 +1,10 @@
 package components
 
 import SolverCommand
-import emotion.react.css
 import mui.material.Box
 import mui.material.Tooltip
 import mui.material.Typography
+import mui.system.sx
 import org.kosat.LBool
 import org.kosat.Lit
 import org.kosat.get
@@ -18,20 +18,19 @@ import web.cssom.Border
 import web.cssom.Cursor
 import web.cssom.Display
 import web.cssom.FontStyle
-import web.cssom.FontWeight
 import web.cssom.JustifyContent
 import web.cssom.LineStyle
 import web.cssom.pct
 import web.cssom.pt
-import web.cssom.rgb
 
 external interface LitProps : Props {
     @Suppress("INLINE_CLASS_IN_EXTERNAL_DECLARATION_WARNING")
     var lit: Lit
 }
 
-val LitNode = FC<LitProps> { props ->
+val LitNode: FC<LitProps> = FC { props ->
     val solver = useContext(cdclWrapperContext)!!
+
     val lit = props.lit
 
     val data = solver.state.inner.assignment.varData[lit.variable]
@@ -43,16 +42,16 @@ val LitNode = FC<LitProps> { props ->
     val level0 = data.level == 0
 
     val fill = when {
-        value == LBool.TRUE && level0 -> rgb(0, 255, 0)
-        value == LBool.FALSE && level0 -> rgb(255, 0, 0)
-        !data.active -> rgb(128, 128, 128)
-        data.frozen -> rgb(128, 128, 255)
-        else -> rgb(200, 200, 200)
+        value == LBool.TRUE && level0 -> Colors.truth.main
+        value == LBool.FALSE && level0 -> Colors.falsity.main
+        !data.active -> Colors.inactive.main
+        data.frozen -> Colors.frozen.main
+        else -> Colors.bg.main
     }
 
     val borderColor = when {
-        value == LBool.TRUE && !level0 -> rgb(0, 255, 0)
-        value == LBool.FALSE && !level0 -> rgb(255, 0, 0)
+        value == LBool.TRUE && !level0 -> Colors.truth.main
+        value == LBool.FALSE && !level0 -> Colors.falsity.main
         else -> null
     }
 
@@ -73,8 +72,7 @@ val LitNode = FC<LitProps> { props ->
             if (data.reason != null) Box {
                 +"Reason:"
                 Box {
-                    // FIXME: this is a hack
-                    (ClauseNodeFn()) {
+                    ClauseNode {
                         clause = data.reason!!
                     }
                 }
@@ -98,9 +96,9 @@ val LitNode = FC<LitProps> { props ->
         Box {
             component = span
 
-            css {
-                width = if (borderColor == null) 24.pt else 18.pt
-                height = if (borderColor == null) 24.pt else 18.pt
+            sx {
+                width = 24.pt
+                height = 24.pt
                 borderRadius = 100.pct
                 display = Display.inlineFlex
                 alignItems = AlignItems.center
@@ -112,10 +110,10 @@ val LitNode = FC<LitProps> { props ->
             }
 
             Typography {
-                css {
-                    fontSize = 18.pt
-                    fontWeight = FontWeight.bold
+                sx {
+                    fontSize = 14.pt
                 }
+
                 +if (lit.isPos) {
                     "${lit.variable.index + 1}"
                 } else {
