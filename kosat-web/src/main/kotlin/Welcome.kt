@@ -2,9 +2,15 @@ import csstype.AlignItems
 import csstype.Border
 import csstype.Cursor
 import csstype.Display
+import csstype.FlexDirection
+import csstype.FlexGrow
 import csstype.FontFamily
 import csstype.FontStyle
 import csstype.FontWeight
+import csstype.GridArea
+import csstype.GridColumn
+import csstype.GridTemplateColumns
+import csstype.GridTemplateRows
 import csstype.JustifyContent
 import csstype.LineStyle
 import csstype.Margin
@@ -12,6 +18,7 @@ import csstype.NamedColor
 import csstype.Position
 import csstype.Scale
 import csstype.TextAlign
+import csstype.fr
 import csstype.pct
 import csstype.pt
 import csstype.px
@@ -147,10 +154,10 @@ class CdclState(initialProblem: CNF) {
             is SolverCommand.LearnAsIs -> {
                 val learnt = conflict!!
                 this.learnt = null
+                this.conflict = null
                 inner.run {
                     learnt.lits.sortByDescending { assignment.level(it) }
-                    conflict = null
-                    val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
+                    val level = if (learnt.size > 1) assignment.level(learnt[1]) else 0
                     backtrack(level)
                     if (learnt.size == 1) {
                         assignment.uncheckedEnqueue(learnt[0], null)
@@ -181,7 +188,7 @@ class CdclState(initialProblem: CNF) {
                 this.learnt = null
                 conflict = null
                 inner.run {
-                    val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
+                    val level = if (learnt.size > 1) assignment.level(learnt[1]) else 0
                     backtrack(level)
                     if (learnt.size == 1) {
                         assignment.uncheckedEnqueue(learnt[0], null)
@@ -291,7 +298,7 @@ class CdclState(initialProblem: CNF) {
     }
 
     private fun CDCL.analyzeOne() {
-        val lits = conflict!!.lits
+        val lits = conflict!!.lits.toMutableList()
         lits.sortBy { assignment.trailIndex(it.variable) }
         val replaceWithReason = lits.removeLast()
         for (lit in assignment.reason(replaceWithReason.variable)!!.lits) {
@@ -493,6 +500,21 @@ val CommandButton = FC<ActionButtonProps> { props ->
     }
 }
 
+external interface HistoryProps : Props
+
+val History = FC<TrailProps> { _ ->
+    val solver = useContext(cdclWrapperContext)
+
+    div {
+        for (command in solver.state.history) {
+            span {
+                +command.toString()
+            }
+            br {}
+        }
+    }
+}
+
 external interface TrailProps : Props
 
 val TrailNode = FC<TrailProps> { _ ->
@@ -524,11 +546,11 @@ val TrailNode = FC<TrailProps> { _ ->
                                         backgroundColor = rgb(200, 200, 200)
                                     }
                                     span {
+                                        +"qhead"
                                         css {
                                             fontStyle = FontStyle.italic
                                             margin = 3.pt
                                         }
-                                        +"qhead"
                                     }
                                 }
                             }
@@ -578,194 +600,223 @@ val Welcome = FC<WelcomeProps> { _ ->
 
     div {
         css {
-            marginBottom = 20.px
-            padding = 5.px
-            display = Display.block
-            fontFamily = FontFamily.monospace
+            display = Display.grid
+            // gridTemplateColumns = GridTemplateColumns(30.pct, 40.pct, 20.pct)
+            gridTemplateColumns = GridTemplateColumns(30.pct, 50.pct, 20.pct)
+            gridTemplateRows = GridTemplateRows(2.fr, 1.fr, 100.pt)
         }
 
-        label {
-            css {
-                display = Display.block
-                marginBottom = 20.px
-                color = rgb(0, 0, 137)
-            }
-            +"Put your CNF in DIMACS format here"
-        }
-
-        textarea {
-            css {
-                display = Display.block
-                marginBottom = 20.px
-                backgroundColor = rgb(100, 100, 100)
-                color = rgb(56, 246, 137)
-            }
-            rows = 25
-            cols = 80
-            value = request
-            onChange = { event -> request = event.target.value }
-        }
-
-        CommandButton {
-            +"Recreate"
-            command = run {
-                try {
-                    SolverCommand.Recreate(CNF.fromString(request))
-                } catch (e: Exception) {
-                    null
-                }
-            }
-        }
-    }
-
-    solver.state.inner.run {
         div {
-            h2 { +"Solver State:" }
-            table {
-                tbody {
-                    tr {
-                        td { +"ok" }
-                        td { +ok.toString() }
+            css {
+                marginBottom = 20.px
+                padding = 5.px
+                display = Display.flex
+                flexDirection = FlexDirection.column
+                fontFamily = FontFamily.monospace
+                gridArea = GridArea("1 / 1 / 1 / 1")
+            }
+
+            label {
+                css {
+                    display = Display.block
+                    marginBottom = 20.px
+                    color = rgb(0, 0, 137)
+                }
+                +"Put your CNF in DIMACS format here"
+            }
+
+            textarea {
+                css {
+                    display = Display.block
+                    marginBottom = 20.px
+                    backgroundColor = rgb(100, 100, 100)
+                    color = rgb(56, 246, 137)
+                    flexGrow = FlexGrow(1.0)
+                }
+                rows = 25
+                value = request
+                onChange = { event -> request = event.target.value }
+            }
+
+            CommandButton {
+                +"Recreate"
+                command = run {
+                    try {
+                        SolverCommand.Recreate(CNF.fromString(request))
+                    } catch (e: Exception) {
+                        null
                     }
-                    tr {
-                        td { +"trail" }
-                        td {
-                            TrailNode {}
+                }
+            }
+        }
+
+        div {
+            css {
+                display = Display.flex
+                gridArea = GridArea("2 / 1 / 2 / 1")
+            }
+
+            History {}
+        }
+
+        solver.state.inner.run {
+            div {
+                css {
+                    gridArea = GridArea("1 / 2 / 1 / 2")
+                }
+
+                h2 { +"Solver State:" }
+                table {
+                    tbody {
+                        tr {
+                            td { +"ok" }
+                            td { +ok.toString() }
                         }
-                    }
-                    tr {
-                        td { +"decisionLevel" }
-                        td { +assignment.decisionLevel.toString() }
-                    }
-                    tr {
-                        td { +"assignment" }
-                        td {
-                            for (varIndex in 0 until assignment.numberOfVariables) {
-                                Literal {
-                                    key = varIndex.toString()
-                                    lit = Var(varIndex).posLit
+                        tr {
+                            td { +"decisionLevel" }
+                            td { +assignment.decisionLevel.toString() }
+                        }
+                        tr {
+                            td { +"assignment" }
+                            td {
+                                for (varIndex in 0 until assignment.numberOfVariables) {
+                                    Literal {
+                                        key = varIndex.toString()
+                                        lit = Var(varIndex).posLit
+                                    }
                                 }
                             }
                         }
-                    }
-                    tr {
-                        td { +"irreducible clauses" }
-                        td {
-                            db.clauses.withIndex().filter { !it.value.deleted }.map {
-                                ClauseNode {
-                                    key = it.index.toString()
-                                    clause = it.value
+                        tr {
+                            td { +"irreducible clauses" }
+                            td {
+                                db.clauses.withIndex().filter { !it.value.deleted }.map {
+                                    ClauseNode {
+                                        key = it.index.toString()
+                                        clause = it.value
+                                    }
                                 }
                             }
                         }
-                    }
-                    tr {
-                        td { +"learnts" }
-                        td {
-                            db.learnts.withIndex().filter { !it.value.deleted }.map {
-                                ClauseNode {
-                                    key = it.index.toString()
-                                    clause = it.value
+                        tr {
+                            td { +"learnts" }
+                            td {
+                                db.learnts.withIndex().filter { !it.value.deleted }.map {
+                                    ClauseNode {
+                                        key = it.index.toString()
+                                        clause = it.value
+                                    }
                                 }
                             }
                         }
-                    }
-                    tr {
-                        td { +"current conflict" }
-                        td {
-                            if (solver.state.conflict != null) {
-                                ClauseNode {
-                                    clause = solver.state.conflict!!
+                        tr {
+                            td { +"current conflict" }
+                            td {
+                                if (solver.state.conflict != null) {
+                                    ClauseNode {
+                                        clause = solver.state.conflict!!
+                                    }
+                                }
+                                CommandButton {
+                                    +"Analyze"
+                                    command = solver.state.conflict?.let { SolverCommand.AnalyzeConflict }
+                                }
+                                CommandButton {
+                                    +"Analyze One"
+                                    command = solver.state.conflict?.let { SolverCommand.AnalyzeOne }
+                                }
+                                CommandButton {
+                                    +"Minimize"
+                                    command = solver.state.conflict?.let { SolverCommand.AnalysisMinimize }
+                                }
+                                CommandButton {
+                                    +"Learn As Is"
+                                    command = solver.state.conflict?.let { SolverCommand.LearnAsIs }
                                 }
                             }
-                            CommandButton {
-                                +"Analyze"
-                                command = solver.state.conflict?.let { SolverCommand.AnalyzeConflict }
-                            }
-                            CommandButton {
-                                +"Analyze One"
-                                command = solver.state.conflict?.let { SolverCommand.AnalyzeOne }
-                            }
-                            CommandButton {
-                                +"Minimize"
-                                command = solver.state.conflict?.let { SolverCommand.AnalysisMinimize }
-                            }
-                            CommandButton {
-                                +"Learn As Is"
-                                command = solver.state.conflict?.let { SolverCommand.LearnAsIs }
-                            }
                         }
-                    }
-                    tr {
-                        td { +"current learnt" }
-                        td {
-                            if (solver.state.learnt != null) {
-                                ClauseNode {
-                                    clause = solver.state.learnt!!
+                        tr {
+                            td { +"current learnt" }
+                            td {
+                                if (solver.state.learnt != null) {
+                                    ClauseNode {
+                                        clause = solver.state.learnt!!
+                                    }
+                                }
+                                CommandButton {
+                                    +"Learn"
+                                    command = solver.state.learnt?.let { SolverCommand.Learn }
                                 }
                             }
-                            CommandButton {
-                                +"Learn"
-                                command = solver.state.learnt?.let { SolverCommand.Learn }
-                            }
                         }
-                    }
-                    tr {
-                        td { +"result" }
-                        td {
-                            when (solver.result) {
-                                SolveResult.SAT -> span { css { color = NamedColor.green }; +"SAT" }
-                                SolveResult.UNSAT -> span { css { color = NamedColor.red }; +"UNSAT" }
-                                SolveResult.UNKNOWN -> +"UNKNOWN"
+                        tr {
+                            td { +"result" }
+                            td {
+                                when (solver.result) {
+                                    SolveResult.SAT -> span { css { color = NamedColor.green }; +"SAT" }
+                                    SolveResult.UNSAT -> span { css { color = NamedColor.red }; +"UNSAT" }
+                                    SolveResult.UNKNOWN -> +"UNKNOWN"
+                                }
                             }
                         }
                     }
                 }
             }
         }
-    }
 
-    div {
-        h2 { +"Actions:" }
-        CommandButton {
-            +"Solve"
-            command = SolverCommand.Solve
-        }
-        CommandButton {
-            +"Propagate"
-            command = SolverCommand.Propagate
-        }
-        CommandButton {
-            +"Propagate One"
-            command = SolverCommand.PropagateOne
-        }
-        for (i in 0 until solver.state.inner.assignment.numberOfVariables) {
-            CommandButton {
-                +"Enqueue "
-                Literal { lit = Var(i).posLit }
-                command = SolverCommand.Enqueue(Var(i).posLit)
+        div {
+            css {
+                gridArea = GridArea("1 / 3 / 3 / 3")
             }
-            CommandButton {
-                +"Enqueue "
-                Literal { lit = Var(i).negLit }
-                command = SolverCommand.Enqueue(Var(i).negLit)
-            }
+            TrailNode {}
         }
-        CommandButton {
-            +"Restart"
-            command = SolverCommand.Restart
-        }
-        for (level in 1 until solver.state.inner.assignment.decisionLevel) {
-            CommandButton {
-                +"Backtrack to $level"
-                command = SolverCommand.Backtrack(level)
-            }
-        }
-    }
 
-    CommandButton {
-        command = SolverCommand.Undo
-        +"Undo"
+        div {
+            css {
+                gridArea = GridArea("2 / 2 / 2 / 2")
+            }
+
+            h2 { +"Actions:" }
+            CommandButton {
+                +"Solve"
+                command = SolverCommand.Solve
+            }
+            CommandButton {
+                +"Propagate"
+                command = SolverCommand.Propagate
+            }
+            CommandButton {
+                +"Propagate One"
+                command = SolverCommand.PropagateOne
+            }
+            for (i in 0 until solver.state.inner.assignment.numberOfVariables) {
+                CommandButton {
+                    +"Enqueue "
+                    Literal { lit = Var(i).posLit }
+                    command = SolverCommand.Enqueue(Var(i).posLit)
+                }
+                CommandButton {
+                    +"Enqueue "
+                    Literal { lit = Var(i).negLit }
+                    command = SolverCommand.Enqueue(Var(i).negLit)
+                }
+            }
+            CommandButton {
+                +"Restart"
+                command = SolverCommand.Restart
+            }
+            for (level in 1 until solver.state.inner.assignment.decisionLevel) {
+                CommandButton {
+                    +"Backtrack to $level"
+                    command = SolverCommand.Backtrack(level)
+                }
+            }
+
+            CommandButton {
+                command = SolverCommand.Undo
+                +"Undo"
+            }
+        }
     }
 
     div {
