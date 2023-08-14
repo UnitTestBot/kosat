@@ -196,19 +196,19 @@ val Visualizer = FC<VisualizerProps> { _ ->
                                 }
                                 CommandButton {
                                     +"Analyze"
-                                    command = solver.state.conflict?.let { SolverCommand.AnalyzeConflict }
+                                    command = SolverCommand.AnalyzeConflict
                                 }
                                 CommandButton {
                                     +"Analyze One"
-                                    command = solver.state.conflict?.let { SolverCommand.AnalyzeOne }
+                                    command = SolverCommand.AnalyzeOne
                                 }
                                 CommandButton {
                                     +"Minimize"
-                                    command = solver.state.conflict?.let { SolverCommand.AnalysisMinimize }
+                                    command = SolverCommand.AnalysisMinimize
                                 }
                                 CommandButton {
                                     +"Learn As Is"
-                                    command = solver.state.conflict?.let { SolverCommand.LearnAsIs }
+                                    command = SolverCommand.LearnAsIs
                                 }
                             }
                         }

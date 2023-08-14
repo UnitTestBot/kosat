@@ -6,6 +6,7 @@ import csstype.Border
 import csstype.Cursor
 import csstype.Display
 import csstype.FontStyle
+import csstype.FontWeight
 import csstype.JustifyContent
 import csstype.LineStyle
 import csstype.Scale
@@ -14,6 +15,7 @@ import csstype.pt
 import csstype.rgb
 import mui.material.Box
 import mui.material.Tooltip
+import mui.material.Typography
 import org.kosat.LBool
 import org.kosat.Lit
 import org.kosat.get
@@ -21,8 +23,6 @@ import react.FC
 import react.Props
 import react.create
 import react.css.css
-import react.dom.html.ReactHTML
-import react.dom.html.ReactHTML.div
 import react.dom.html.ReactHTML.span
 import react.useContext
 
@@ -58,23 +58,22 @@ val LitNode = FC<LitProps> { props ->
     }
 
     Tooltip {
-        title = ReactHTML.span.create {
+        title = Box.create {
+            component = span
+
             if (lit.isPos) {
-                div { +"Positive literal" }
+                Box { +"Positive literal" }
             } else {
-                div { +"Negative literal" }
+                Box { +"Negative literal" }
             }
 
-            if (!data.active) div { +"Inactive (eliminated)" }
-            if (data.frozen) div { +"Frozen" }
-            if (value == LBool.TRUE) div { +"Assigned to TRUE at level ${data.level}" }
-            if (value == LBool.FALSE) div { +"Assigned to FALSE at level ${data.level}" }
-            if (data.reason != null) div {
+            if (!data.active) Box { +"Inactive (eliminated)" }
+            if (data.frozen) Box { +"Frozen" }
+            if (value == LBool.TRUE) Box { +"Assigned to TRUE at level ${data.level}" }
+            if (value == LBool.FALSE) Box { +"Assigned to FALSE at level ${data.level}" }
+            if (data.reason != null) Box {
                 +"Reason:"
                 Box {
-                    css {
-                        scale = Scale(0.3)
-                    }
                     // FIXME: this is a hack
                     (ClauseNodeFn()) {
                         clause = data.reason!!
@@ -82,14 +81,14 @@ val LitNode = FC<LitProps> { props ->
                 }
             }
 
-            div {
+            Box {
                 CommandButton {
                     command = SolverCommand.Enqueue(lit)
                     +"Enqueue"
                 }
             }
 
-            div {
+            Box {
                 CommandButton {
                     command = SolverCommand.Enqueue(lit.neg)
                     +"Enqueue negation"
@@ -97,7 +96,9 @@ val LitNode = FC<LitProps> { props ->
             }
         }
 
-        span {
+        Box {
+            component = span
+
             css {
                 width = if (borderColor == null) 24.pt else 18.pt
                 height = if (borderColor == null) 24.pt else 18.pt
@@ -111,11 +112,16 @@ val LitNode = FC<LitProps> { props ->
                 border = borderColor?.let { Border(3.pt, LineStyle.solid, it) }
             }
 
-            onMouseOver
-            +if (lit.isPos) {
-                "${lit.variable.index + 1}"
-            } else {
-                "-${lit.variable.index + 1}"
+            Typography {
+                css {
+                    fontSize = 18.pt
+                    fontWeight = FontWeight(900)
+                }
+                +if (lit.isPos) {
+                    "${lit.variable.index + 1}"
+                } else {
+                    "-${lit.variable.index + 1}"
+                }
             }
         }
     }
