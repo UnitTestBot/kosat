@@ -1,4 +1,4 @@
-import components.App
+import App
 import react.create
 import react.dom.client.createRoot
 import web.dom.document

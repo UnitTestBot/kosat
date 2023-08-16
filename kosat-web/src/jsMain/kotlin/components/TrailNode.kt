@@ -1,6 +1,7 @@
 package components
 
 import SolverCommand
+import cdclWrapperContext
 import mui.icons.material.Download
 import mui.icons.material.ExpandLess
 import mui.icons.material.ExpandMore

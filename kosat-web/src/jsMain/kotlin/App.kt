@@ -1,7 +1,6 @@
-package components
-
 import CdclWrapper
 import WrapperCommand
+import components.Visualizer
 import mui.material.CssBaseline
 import mui.system.ThemeProvider
 import react.FC
