@@ -6,13 +6,10 @@ import org.kosat.cnf.CNF
 import org.kosat.get
 import org.kosat.set
 import org.kosat.swap
-import web.prompts.alert
 
 
 class CdclState(initialProblem: CNF) {
-    var problem: CNF = initialProblem
     var inner: CDCL = CDCL(initialProblem)
-    val history: MutableList<SolverCommand> = mutableListOf()
     var conflict: Clause? = null
 
     val result: SolveResult
@@ -27,33 +24,19 @@ class CdclState(initialProblem: CNF) {
             }
         }
 
+    init {
+        // FIXME: workaround
+        inner.variableSelector.build(inner.db.clauses)
+    }
+
     private val propagated
         get() = inner.ok
             && conflict == null
             && inner.assignment.qhead == inner.assignment.trail.size
 
     fun execute(command: SolverCommand) {
-        history.add(command)
         check(canExecute(command))
         when (command) {
-            is SolverCommand.Recreate -> {
-                problem = command.cnf
-                inner = CDCL(problem)
-                conflict = null
-                history.clear()
-                // FIXME: workaround
-                inner.variableSelector.build(inner.db.clauses)
-            }
-
-            is SolverCommand.Undo -> {
-                val historyToRepeat = history.dropLast(2)
-                // FIXME: Too many hacks
-                execute(SolverCommand.Recreate(problem))
-                for (commandToRepeat in historyToRepeat) {
-                    execute(commandToRepeat)
-                }
-            }
-
             is SolverCommand.Solve -> inner.solve()
 
             is SolverCommand.Propagate -> {
@@ -125,8 +108,6 @@ class CdclState(initialProblem: CNF) {
             } ?: 0
 
             return when (command) {
-                is SolverCommand.Recreate -> true
-                is SolverCommand.Undo -> history.isNotEmpty()
                 is SolverCommand.Solve -> propagated
                 is SolverCommand.Propagate ->
                     ok

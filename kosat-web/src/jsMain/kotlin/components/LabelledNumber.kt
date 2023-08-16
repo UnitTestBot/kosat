@@ -6,7 +6,6 @@ import react.FC
 import react.Props
 import react.dom.html.ReactHTML
 import web.cssom.AlignItems
-import web.cssom.AlignSelf
 import web.cssom.Display
 import web.cssom.FlexDirection
 import web.cssom.pt

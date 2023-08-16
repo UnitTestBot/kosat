@@ -1,64 +1,36 @@
 package components
 
-import SolverCommand
+import WrapperCommand
 import emotion.react.css
 import js.core.jso
 import mui.material.Box
-import mui.material.Card
 import mui.material.Paper
 import mui.material.TextField
 import mui.material.Typography
 import mui.material.styles.TypographyVariant
 import mui.system.sx
-import org.kosat.SolveResult
-import org.kosat.Var
 import org.kosat.cnf.CNF
 import react.FC
 import react.Props
 import react.PropsWithChildren
-import react.dom.html.ReactHTML.br
-import react.dom.html.ReactHTML.div
-import react.dom.html.ReactHTML.h2
-import react.dom.html.ReactHTML.label
-import react.dom.html.ReactHTML.p
-import react.dom.html.ReactHTML.span
-import react.dom.html.ReactHTML.table
-import react.dom.html.ReactHTML.tbody
-import react.dom.html.ReactHTML.td
-import react.dom.html.ReactHTML.textarea
-import react.dom.html.ReactHTML.tr
 import react.dom.onChange
 import react.useContext
 import react.useState
-import web.cssom.AlignItems
 import web.cssom.AlignSelf
-import web.cssom.Auto
 import web.cssom.Auto.Companion.auto
-import web.cssom.CSSMathOperator.Companion.min
 import web.cssom.Display
 import web.cssom.FlexDirection
-import web.cssom.FlexGrow
 import web.cssom.FontFamily
-import web.cssom.FontWeight
 import web.cssom.GridArea
 import web.cssom.GridTemplateAreas
-import web.cssom.GridTemplateColumns
 import web.cssom.Length
-import web.cssom.Margin
-import web.cssom.NamedColor
-import web.cssom.Position
 import web.cssom.TextAlign
 import web.cssom.array
-import web.cssom.atrule.height
-import web.cssom.clamp
 import web.cssom.fr
 import web.cssom.ident
-import web.cssom.minmax
 import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
-import web.cssom.px
-import web.cssom.rgb
 
 external interface SectionPaperProps : PropsWithChildren {
     var gridArea: GridArea
@@ -156,7 +128,7 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
                 +"Recreate"
                 command = run {
                     try {
-                        SolverCommand.Recreate(CNF.fromString(request))
+                        WrapperCommand.Recreate(CNF.fromString(request))
                     } catch (e: Exception) {
                         null
                     }

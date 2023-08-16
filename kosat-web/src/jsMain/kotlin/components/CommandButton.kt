@@ -1,6 +1,6 @@
 package components
 
-import SolverCommand
+import WrapperCommand
 import mui.material.Button
 import mui.material.ButtonVariant
 import mui.material.IconButton
@@ -10,7 +10,7 @@ import react.PropsWithChildren
 import react.useContext
 
 external interface CommandButtonProps : PropsWithChildren {
-    var command: SolverCommand?
+    var command: WrapperCommand?
     var size: Size?
 }
 

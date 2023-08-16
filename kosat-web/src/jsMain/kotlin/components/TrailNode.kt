@@ -1,50 +1,38 @@
 package components
 
-import emotion.react.css
-import mui.icons.material.AddRoad
+import SolverCommand
 import mui.icons.material.Download
 import mui.icons.material.ExpandLess
 import mui.icons.material.ExpandMore
 import mui.icons.material.RestartAlt
-import mui.icons.material.TrafficSharp
 import mui.material.Box
 import mui.material.Collapse
 import mui.material.Icon
 import mui.material.IconButton
-import mui.material.Typography
 import mui.material.List
 import mui.material.ListItem
-import mui.material.ListItemButton
 import mui.material.ListItemIcon
 import mui.material.ListItemText
 import mui.material.Stack
+import mui.material.Typography
 import mui.material.styles.Theme
 import mui.material.styles.TypographyVariant
 import mui.material.styles.useTheme
 import mui.system.sx
 import react.FC
 import react.Props
-import react.dom.html.ReactHTML.span
 import react.useContext
 import react.useState
 import web.cssom.AlignItems
 import web.cssom.AlignSelf
 import web.cssom.Auto.Companion.auto
-import web.cssom.Border
-import web.cssom.Color
 import web.cssom.Display
 import web.cssom.FlexDirection
-import web.cssom.FontStyle
 import web.cssom.FontWeight
-import web.cssom.JustifyItems
-import web.cssom.LineStyle
-import web.cssom.NamedColor
 import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
-import web.cssom.rem
 import web.cssom.rgb
-import web.cssom.translate
 
 external interface TrailLevelProps : Props {
     var level: Int

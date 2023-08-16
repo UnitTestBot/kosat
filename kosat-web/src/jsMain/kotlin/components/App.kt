@@ -1,11 +1,10 @@
 package components
 
-import CdclState
 import CdclWrapper
-import SolverCommand
+import Themes
+import WrapperCommand
 import mui.material.CssBaseline
 import mui.system.ThemeProvider
-import org.kosat.cnf.CNF
 import react.FC
 import react.Props
 import react.StrictMode
@@ -16,12 +15,12 @@ import react.useReducer
 external interface AppProps : Props
 
 val cdclWrapperContext = createContext<CdclWrapper>()
-val cdclDispatchContext = createContext<(SolverCommand) -> Unit>()
+val cdclDispatchContext = createContext<(WrapperCommand) -> Unit>()
 
 val App = FC<AppProps> {
-    val (solver, dispatch) = useReducer({ wrapper: CdclWrapper, command: SolverCommand ->
+    val (solver, dispatch) = useReducer({ wrapper: CdclWrapper, command: WrapperCommand ->
         wrapper.execute(command)
-    }, CdclWrapper(0, CdclState(CNF(emptyList()))))
+    }, CdclWrapper())
 
     StrictMode {
         ThemeProvider {

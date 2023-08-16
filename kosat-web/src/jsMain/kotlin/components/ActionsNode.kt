@@ -1,5 +1,6 @@
 package components
 
+import SolverCommand
 import mui.material.Box
 import mui.material.ButtonGroup
 import mui.material.Paper

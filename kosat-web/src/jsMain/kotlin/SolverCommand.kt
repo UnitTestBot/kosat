@@ -1,9 +1,13 @@
 import org.kosat.Lit
 import org.kosat.cnf.CNF
 
-sealed interface SolverCommand {
-    data class Recreate(val cnf: CNF) : SolverCommand
-    data object Undo : SolverCommand
+sealed interface WrapperCommand {
+    data class Recreate(val cnf: CNF) : WrapperCommand
+    data object Undo : WrapperCommand
+    data object Redo : WrapperCommand
+}
+
+sealed interface SolverCommand : WrapperCommand {
     data object Solve : SolverCommand
     data object Propagate : SolverCommand
     data object PropagateOne : SolverCommand

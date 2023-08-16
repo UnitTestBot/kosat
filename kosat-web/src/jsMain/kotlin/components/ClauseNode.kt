@@ -1,5 +1,6 @@
 package components
 
+import Colors
 import mui.material.Box
 import mui.system.sx
 import org.kosat.Clause

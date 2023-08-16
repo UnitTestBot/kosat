@@ -1,12 +1,11 @@
 package components
 
+import WrapperCommand
 import mui.material.Box
+import mui.material.ButtonGroup
 import mui.system.sx
 import react.FC
 import react.Props
-import react.dom.html.ReactHTML.br
-import react.dom.html.ReactHTML.div
-import react.dom.html.ReactHTML.span
 import react.useContext
 import web.cssom.Auto.Companion.auto
 import web.cssom.number
@@ -22,15 +21,21 @@ val History = FC<HistoryProps> { _ ->
             overflow = auto
         }
 
-        for (command in solver.state.history) {
+        for (command in solver.history) {
             Box {
                 +command.toString()
             }
         }
     }
 
-    CommandButton {
-        command = SolverCommand.Undo
-        +"Undo"
+    ButtonGroup {
+        CommandButton {
+            command = WrapperCommand.Undo
+            +"Undo"
+        }
+        CommandButton{
+            command = WrapperCommand.Redo
+            +"Redo"
+        }
     }
 }

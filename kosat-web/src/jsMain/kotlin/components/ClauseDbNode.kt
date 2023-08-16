@@ -1,7 +1,6 @@
 package components
 
 import mui.material.Box
-import mui.material.Card
 import mui.material.Paper
 import mui.material.Stack
 import mui.material.Typography

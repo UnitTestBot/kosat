@@ -1,12 +1,12 @@
 package components
 
+import Colors
 import mui.material.Box
 import mui.material.Card
 import mui.material.Stack
 import mui.material.StackDirection
 import mui.material.Typography
 import mui.material.styles.TypographyVariant
-import mui.system.ResponsiveStyleValue
 import mui.system.responsive
 import mui.system.sx
 import org.kosat.LBool

@@ -1,6 +1,6 @@
 package components
 
-import SolverCommand
+import Colors
 import mui.material.Box
 import mui.material.Tooltip
 import mui.material.Typography

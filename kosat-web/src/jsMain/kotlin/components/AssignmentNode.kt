@@ -1,17 +1,14 @@
 package components
 
+import SolverCommand
 import mui.icons.material.Add
 import mui.icons.material.Remove
 import mui.material.Box
-import mui.material.ButtonGroup
-import mui.material.Icon
-import mui.material.IconButton
 import mui.material.Size
 import mui.material.Stack
 import mui.material.StackDirection
 import mui.system.responsive
 import mui.system.sx
-import org.kosat.Assignment
 import org.kosat.Var
 import react.FC
 import react.Props
@@ -19,11 +16,6 @@ import react.useContext
 import web.cssom.AlignItems
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display
-import web.cssom.JustifyContent
-import web.cssom.Margin
-import web.cssom.PropertyName.Companion.alignItems
-import web.cssom.PropertyName.Companion.justifyContent
-import web.cssom.PropertyName.Companion.margin
 import web.cssom.number
 import web.cssom.pt
 
