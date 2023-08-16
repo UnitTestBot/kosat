@@ -72,23 +72,11 @@ val LitNode: FC<LitProps> = FC { props ->
             if (data.reason != null) Box {
                 +"Reason:"
                 Box {
+                    component = span
                     ClauseNode {
                         clause = data.reason!!
+                        scale = 0.5
                     }
-                }
-            }
-
-            Box {
-                CommandButton {
-                    command = SolverCommand.Enqueue(lit)
-                    +"Enqueue"
-                }
-            }
-
-            Box {
-                CommandButton {
-                    command = SolverCommand.Enqueue(lit.neg)
-                    +"Enqueue negation"
                 }
             }
         }
@@ -111,7 +99,7 @@ val LitNode: FC<LitProps> = FC { props ->
 
             Typography {
                 sx {
-                    fontSize = 14.pt
+                    fontSize = (16 - 2 * "${lit.variable.index + 1}".length).pt
                     color = fill.contrastText
                 }
 

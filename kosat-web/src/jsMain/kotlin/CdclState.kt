@@ -6,6 +6,7 @@ import org.kosat.cnf.CNF
 import org.kosat.get
 import org.kosat.set
 import org.kosat.swap
+import web.prompts.alert
 
 
 class CdclState(initialProblem: CNF) {
@@ -13,7 +14,6 @@ class CdclState(initialProblem: CNF) {
     var inner: CDCL = CDCL(initialProblem)
     val history: MutableList<SolverCommand> = mutableListOf()
     var conflict: Clause? = null
-    var learnt: Clause? = null
 
     val result: SolveResult
         get() {
@@ -30,7 +30,6 @@ class CdclState(initialProblem: CNF) {
     private val propagated
         get() = inner.ok
             && conflict == null
-            && learnt == null
             && inner.assignment.qhead == inner.assignment.trail.size
 
     fun execute(command: SolverCommand) {
@@ -41,7 +40,6 @@ class CdclState(initialProblem: CNF) {
                 problem = command.cnf
                 inner = CDCL(problem)
                 conflict = null
-                learnt = null
                 history.clear()
                 // FIXME: workaround
                 inner.variableSelector.build(inner.db.clauses)
@@ -72,67 +70,45 @@ class CdclState(initialProblem: CNF) {
                 }
             }
 
+            is SolverCommand.PropagateUpTo -> {
+                while (inner.assignment.qhead <= command.trailIndex) {
+                    conflict = inner.propagateOne()
+                    if (conflict != null) {
+                        break
+                    }
+                }
+
+                if (conflict != null && inner.assignment.decisionLevel == 0) {
+                    inner.finishWithUnsat()
+                }
+            }
+
             is SolverCommand.AnalyzeConflict -> {
-                learnt = inner.analyzeConflict(conflict!!)
+                conflict = inner.analyzeConflict(conflict!!)
             }
 
             is SolverCommand.AnalyzeOne -> {
-                inner.analyzeOne()
+                conflict = inner.analyzeOne(conflict!!)
             }
 
             is SolverCommand.AnalysisMinimize -> {
-                learnt = inner.analyzeConflict(conflict!!)
+                conflict = inner.analyzeConflict(conflict!!)
             }
 
-            is SolverCommand.LearnAsIs -> {
+            is SolverCommand.LearnAndBacktrack -> {
                 val learnt = conflict!!
-                this.learnt = null
-                this.conflict = null
-                inner.run {
-                    learnt.lits.sortByDescending { assignment.level(it) }
-                    val level = if (learnt.size > 1) assignment.level(learnt[1]) else 0
-                    backtrack(level)
-                    if (learnt.size == 1) {
-                        assignment.uncheckedEnqueue(learnt[0], null)
-                    } else {
-                        attachClause(learnt)
-                        assignment.uncheckedEnqueue(learnt[0], learnt)
-                        db.clauseBumpActivity(learnt)
-                    }
-                    variableSelector.update(learnt)
-                    db.clauseDecayActivity()
-                }
+                conflict = null
+                inner.learnAndBacktrack(learnt)
             }
 
             is SolverCommand.Backtrack -> {
                 inner.backtrack(command.level)
-                learnt = null
                 conflict = null
             }
 
             is SolverCommand.Restart -> {
                 inner.backtrack(0)
-                learnt = null
                 conflict = null
-            }
-
-            is SolverCommand.Learn -> {
-                val learnt = learnt!!
-                this.learnt = null
-                conflict = null
-                inner.run {
-                    val level = if (learnt.size > 1) assignment.level(learnt[1]) else 0
-                    backtrack(level)
-                    if (learnt.size == 1) {
-                        assignment.uncheckedEnqueue(learnt[0], null)
-                    } else {
-                        attachClause(learnt)
-                        assignment.uncheckedEnqueue(learnt[0], learnt)
-                        db.clauseBumpActivity(learnt)
-                    }
-                    variableSelector.update(learnt)
-                    db.clauseDecayActivity()
-                }
             }
 
             is SolverCommand.Enqueue -> {
@@ -144,6 +120,10 @@ class CdclState(initialProblem: CNF) {
 
     fun canExecute(command: SolverCommand): Boolean {
         inner.run {
+            val conflictLitsFromLastLevel = conflict?.lits?.count {
+                assignment.level(it) == assignment.decisionLevel
+            } ?: 0
+
             return when (command) {
                 is SolverCommand.Recreate -> true
                 is SolverCommand.Undo -> history.isNotEmpty()
@@ -151,35 +131,35 @@ class CdclState(initialProblem: CNF) {
                 is SolverCommand.Propagate ->
                     ok
                         && conflict == null
-                        && learnt == null
                         && inner.assignment.qhead < inner.assignment.trail.size
 
                 is SolverCommand.PropagateOne ->
                     ok
                         && conflict == null
-                        && learnt == null
                         && inner.assignment.qhead < inner.assignment.trail.size
 
-                is SolverCommand.AnalyzeConflict -> ok && conflict != null && learnt == null
+                is SolverCommand.PropagateUpTo ->
+                    ok
+                        && conflict == null
+                        && command.trailIndex >= inner.assignment.qhead
+                        && command.trailIndex < inner.assignment.trail.size
+
+                is SolverCommand.AnalyzeConflict -> ok && conflict != null
                 is SolverCommand.AnalyzeOne ->
                     ok
                         && conflict != null
-                        && learnt == null
-                        && conflict!!.lits.count { assignment.level(it) == assignment.decisionLevel } > 1
+                        && conflictLitsFromLastLevel > 1
 
                 is SolverCommand.AnalysisMinimize ->
                     ok
                         && conflict != null
-                        && learnt == null
-                        && conflict!!.lits.count { assignment.level(it) == assignment.decisionLevel } == 1
+                        && conflictLitsFromLastLevel == 1
 
-                is SolverCommand.LearnAsIs ->
+                is SolverCommand.LearnAndBacktrack ->
                     ok
                         && conflict != null
-                        && learnt == null
-                        && conflict!!.lits.count { assignment.level(it) == assignment.decisionLevel } == 1
+                        && conflictLitsFromLastLevel == 1
 
-                is SolverCommand.Learn -> ok && conflict != null && learnt != null
                 is SolverCommand.Backtrack -> ok && command.level in 0 until assignment.decisionLevel
                 is SolverCommand.Restart -> ok && assignment.decisionLevel > 0
                 is SolverCommand.Enqueue ->
@@ -235,14 +215,29 @@ class CdclState(initialProblem: CNF) {
         return conflict
     }
 
-    private fun CDCL.analyzeOne() {
-        val lits = conflict!!.lits.toMutableList()
+    private fun CDCL.analyzeOne(conflict: Clause): Clause {
+        val lits = conflict.lits.toMutableList()
         lits.sortBy { assignment.trailIndex(it.variable) }
         val replaceWithReason = lits.removeLast()
         for (lit in assignment.reason(replaceWithReason.variable)!!.lits) {
             if (lit == replaceWithReason.neg) continue
             lits.add(lit)
         }
-        conflict = Clause(lits.toSet().toMutableList(), learnt = true)
+        return Clause(lits.toSet().toMutableList(), learnt = true)
+    }
+
+    private fun CDCL.learnAndBacktrack(learnt: Clause) {
+        learnt.lits.sortByDescending { assignment.trailIndex(it.variable) }
+        val level = if (learnt.size > 1) assignment.level(learnt[1]) else 0
+        backtrack(level)
+        if (learnt.size == 1) {
+            assignment.uncheckedEnqueue(learnt[0], null)
+        } else {
+            attachClause(learnt)
+            assignment.uncheckedEnqueue(learnt[0], learnt)
+            db.clauseBumpActivity(learnt)
+        }
+        variableSelector.update(learnt)
+        db.clauseDecayActivity()
     }
 }

@@ -1,10 +1,33 @@
 import js.core.jso
 import mui.material.styles.PaletteColor
+import mui.material.styles.TypographyOptions
+import mui.material.styles.TypographyVariant.Companion.h1
+import mui.material.styles.TypographyVariant.Companion.h2
+import mui.material.styles.TypographyVariant.Companion.h3
 import mui.material.styles.createTheme
 import web.cssom.Color
+import web.cssom.FontWeight
+import web.cssom.rem
 
 object Themes {
-    val default = createTheme()
+    val default = createTheme(jso {
+        typography = TypographyOptions {
+            h1 {
+                fontSize = 2.rem
+                fontWeight = FontWeight.bold
+            }
+
+            h2 {
+                fontSize = 1.5.rem
+                fontWeight = FontWeight.bold
+            }
+
+            h3 {
+                fontSize = 1.2.rem
+                fontWeight = FontWeight.bold
+            }
+        }
+    })
 }
 
 private fun augment(color: Color): PaletteColor {

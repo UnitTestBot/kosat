@@ -15,9 +15,11 @@ import web.cssom.JustifyContent
 import web.cssom.LineStyle
 import web.cssom.NamedColor
 import web.cssom.pt
+import web.cssom.scale
 
 external interface ClauseProps : Props {
     var clause: Clause
+    var scale: Double?
 }
 
 val ClauseNode: FC<ClauseProps> = FC { props ->
@@ -54,6 +56,7 @@ val ClauseNode: FC<ClauseProps> = FC { props ->
             padding = 3.pt
             margin = 3.pt
             border = Border(1.pt, LineStyle.solid, NamedColor.black)
+            transform = scale(props.scale ?: 1.0)
         }
 
         for (lit in clause.lits) {

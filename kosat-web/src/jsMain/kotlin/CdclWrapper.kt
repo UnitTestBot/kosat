@@ -8,5 +8,5 @@ data class CdclWrapper(val version: Int, val state: CdclState) {
         return copy(version = version + 1)
     }
 
-    val result get() = state.result
+    val result by lazy { state.result }
 }

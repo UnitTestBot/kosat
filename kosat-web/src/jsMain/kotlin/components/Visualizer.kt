@@ -2,11 +2,20 @@ package components
 
 import SolverCommand
 import emotion.react.css
+import js.core.jso
+import mui.material.Box
+import mui.material.Card
+import mui.material.Paper
+import mui.material.TextField
+import mui.material.Typography
+import mui.material.styles.TypographyVariant
+import mui.system.sx
 import org.kosat.SolveResult
 import org.kosat.Var
 import org.kosat.cnf.CNF
 import react.FC
 import react.Props
+import react.PropsWithChildren
 import react.dom.html.ReactHTML.br
 import react.dom.html.ReactHTML.div
 import react.dom.html.ReactHTML.h2
@@ -18,10 +27,14 @@ import react.dom.html.ReactHTML.tbody
 import react.dom.html.ReactHTML.td
 import react.dom.html.ReactHTML.textarea
 import react.dom.html.ReactHTML.tr
+import react.dom.onChange
 import react.useContext
 import react.useState
+import web.cssom.AlignItems
+import web.cssom.AlignSelf
 import web.cssom.Auto
 import web.cssom.Auto.Companion.auto
+import web.cssom.CSSMathOperator.Companion.min
 import web.cssom.Display
 import web.cssom.FlexDirection
 import web.cssom.FlexGrow
@@ -36,17 +49,52 @@ import web.cssom.NamedColor
 import web.cssom.Position
 import web.cssom.TextAlign
 import web.cssom.array
+import web.cssom.atrule.height
+import web.cssom.clamp
 import web.cssom.fr
 import web.cssom.ident
+import web.cssom.minmax
 import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
 import web.cssom.px
 import web.cssom.rgb
 
+external interface SectionPaperProps : PropsWithChildren {
+    var gridArea: GridArea
+    var title: String
+    var maxHeight: Length?
+}
+
+val SectionPaper: FC<SectionPaperProps> = FC { props ->
+    Paper {
+        elevation = 3
+
+        css {
+            padding = 8.pt
+            display = Display.flex
+            flexDirection = FlexDirection.column
+            gridArea = props.gridArea
+            gap = 8.pt
+            maxHeight = props.maxHeight
+        }
+
+        Typography {
+            sx {
+                alignSelf = AlignSelf.center
+                textAlign = TextAlign.center
+            }
+            variant = TypographyVariant.h2
+            +props.title
+        }
+
+        +props.children
+    }
+}
+
 external interface VisualizerProps : Props
 
-val Visualizer = FC<VisualizerProps> { _ ->
+val Visualizer: FC<VisualizerProps> = FC { _ ->
     var request by useState(
         """
             p cnf 9 13
@@ -68,60 +116,40 @@ val Visualizer = FC<VisualizerProps> { _ ->
 
     val solver = useContext(cdclWrapperContext)!!
 
-    div {
-        css {
-            padding = 5.px
-            backgroundColor = rgb(8, 97, 22)
-            color = rgb(56, 246, 137)
-            textAlign = TextAlign.center
-            marginBottom = 10.px
-            fontFamily = FontFamily.monospace
-        }
-        +"Kotlin-based SAT solver, v0.1"
-    }
-
-    div {
-        css {
+    Box {
+        sx {
             display = Display.grid
-            gridTemplateColumns = array(30.pct, 50.pct, 20.pct)
-            gridTemplateRows = array(400.pt, 200.pt, 100.pt)
+            gap = 8.pt
+            padding = 8.pt
+            gridTemplateColumns = array(3.fr, 50.pct, 2.fr)
+            gridTemplateRows = array(130.pt, 250.pt, 120.pt, 190.pt)
             gridTemplateAreas = GridTemplateAreas(
                 arrayOf(ident("input"), ident("state"), ident("trail")),
-                arrayOf(ident("history"), ident("actions"), ident("trail")),
+                arrayOf(ident("input"), ident("db"), ident("trail")),
                 arrayOf(ident("assignment"), ident("assignment"), ident("trail")),
+                arrayOf(ident("history"), ident("actions"), ident("trail")),
             )
         }
 
-        div {
-            css {
-                marginBottom = 20.px
-                padding = 5.px
-                display = Display.flex
-                flexDirection = FlexDirection.column
-                fontFamily = FontFamily.monospace
-                gridArea = ident("input")
-            }
+        SectionPaper {
+            gridArea = ident("input")
+            title = "Input"
 
-            label {
-                css {
-                    display = Display.block
-                    marginBottom = 20.px
-                    color = rgb(0, 0, 137)
-                }
-                +"Put your CNF in DIMACS format here"
-            }
-
-            textarea {
-                css {
-                    display = Display.block
-                    marginBottom = 20.px
-                    backgroundColor = rgb(100, 100, 100)
-                    color = rgb(56, 246, 137)
+            TextField {
+                sx {
+                    overflow = auto
                     flexGrow = number(1.0)
                 }
-                rows = 25
+
+                inputProps = jso {
+                    style = jso {
+                        fontFamily = FontFamily.monospace
+                    }
+                }
+
                 value = request
-                onChange = { event -> request = event.target.value }
+                multiline = true
+                onChange = { event -> request = event.target.asDynamic().value as String }
             }
 
             CommandButton {
@@ -136,19 +164,35 @@ val Visualizer = FC<VisualizerProps> { _ ->
             }
         }
 
-        div {
-            css {
-                display = Display.flex
-                gridArea = ident("history")
-            }
-
+        SectionPaper {
+            gridArea = ident("history")
+            title = "History"
             History {}
         }
 
         solver.state.inner.run {
+            SectionPaper {
+                gridArea = ident("state")
+                title = "Solver State"
+                StateNode {}
+            }
+
+            SectionPaper {
+                gridArea = ident("db")
+                title = "Clause Database"
+                ClauseDbNode {}
+            }
+
+            SectionPaper {
+                gridArea = ident("assignment")
+                title = "Assignment"
+                AssignmentNode {}
+            }
+
+            /*
             div {
                 css {
-                    gridArea = ident("state")
+                    gridArea = ident("db")
                 }
 
                 h2 { +"Solver State:" }
@@ -246,92 +290,21 @@ val Visualizer = FC<VisualizerProps> { _ ->
                             }
                         }
                     }
-                }
-            }
+               }
+           }
+             */
         }
 
-        div {
-            css {
-                gridArea = ident("trail")
-            }
+        SectionPaper {
+            gridArea = ident("trail")
+            title = "Trail"
             TrailNode {}
         }
 
-        div {
-            css {
-                gridArea = ident("actions")
-            }
-
-            h2 { +"Actions:" }
-            CommandButton {
-                +"Solve"
-                command = SolverCommand.Solve
-            }
-            CommandButton {
-                +"Propagate"
-                command = SolverCommand.Propagate
-            }
-            CommandButton {
-                +"Propagate One"
-                command = SolverCommand.PropagateOne
-            }
-            for (i in 0 until solver.state.inner.assignment.numberOfVariables) {
-                CommandButton {
-                    +"Enqueue "
-                    LitNode { lit = Var(i).posLit }
-                    command = SolverCommand.Enqueue(Var(i).posLit)
-                }
-                CommandButton {
-                    +"Enqueue "
-                    LitNode { lit = Var(i).negLit }
-                    command = SolverCommand.Enqueue(Var(i).negLit)
-                }
-            }
-            CommandButton {
-                +"Restart"
-                command = SolverCommand.Restart
-            }
-            for (level in 1 until solver.state.inner.assignment.decisionLevel) {
-                CommandButton {
-                    +"Backtrack to $level"
-                    command = SolverCommand.Backtrack(level)
-                }
-            }
-
-            CommandButton {
-                command = SolverCommand.Undo
-                +"Undo"
-            }
-        }
-    }
-
-    div {
-        css {
-            position = Position.absolute
-            display = Display.block
-            marginRight = 0.px
-            marginLeft = auto
-
-            fontFamily = FontFamily.monospace
-            padding = 5.px
-            color = rgb(0, 0, 137)
-        }
-        h2 { +"DIMACS CNF format:" }
-        p { +"The number of variables and the number of clauses is defined by the line \"p cnf variables clauses\"." }
-        p {
-            +"Each of the next lines specifies a clause: a positive literal is denoted by the corresponding number, and a negative literal is denoted by the corresponding negative number. "
-            br {}
-            +"The last number in a line should be zero. For example:"
-        }
-        p {
-            css {
-                fontWeight = FontWeight.bold
-            }
-            +"p cnf 3 2"
-            br {}
-            +"1 2 -3 0"
-            br {}
-            +"-2 3 0"
+        SectionPaper {
+            gridArea = ident("actions")
+            title = "Actions"
+            ActionsNode {}
         }
     }
 }

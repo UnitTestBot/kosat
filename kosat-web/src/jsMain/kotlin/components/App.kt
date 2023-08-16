@@ -8,6 +8,7 @@ import mui.system.ThemeProvider
 import org.kosat.cnf.CNF
 import react.FC
 import react.Props
+import react.StrictMode
 import react.createContext
 import react.useReducer
 
@@ -22,16 +23,17 @@ val App = FC<AppProps> {
         wrapper.execute(command)
     }, CdclWrapper(0, CdclState(CNF(emptyList()))))
 
-    ThemeProvider {
-        theme = Themes.default
+    StrictMode {
+        ThemeProvider {
+            theme = Themes.default
 
-        CssBaseline {}
+            CssBaseline {}
 
-        cdclWrapperContext.Provider(solver) {
-            cdclDispatchContext.Provider(dispatch) {
-                Visualizer {}
+            cdclWrapperContext.Provider(solver) {
+                cdclDispatchContext.Provider(dispatch) {
+                    Visualizer {}
+                }
             }
         }
     }
 }
-
