@@ -38,6 +38,8 @@ class CdclState(initialProblem: CNF) {
         when (command) {
             is SolverCommand.Solve -> inner.solve()
 
+            is SolverCommand.Search -> inner.search()
+
             is SolverCommand.Propagate -> {
                 conflict = inner.propagate()
                 if (conflict != null && inner.assignment.decisionLevel == 0) {
@@ -109,6 +111,13 @@ class CdclState(initialProblem: CNF) {
 
         when (command) {
             is SolverCommand.Solve -> propagatedRequirements
+
+            is SolverCommand.Search -> propagatedRequirements + listOf(
+                Requirement(
+                    assignment.decisionLevel == 0,
+                    "Solver is at decision level 0"
+                ),
+            )
 
             is SolverCommand.Propagate -> listOf(
                 Requirement(ok, "Solver is not in UNSAT state", obvious = true),
@@ -206,7 +215,13 @@ class CdclState(initialProblem: CNF) {
             } ?: 0
 
             return when (command) {
-                is SolverCommand.Solve -> propagated
+                is SolverCommand.Solve ->
+                    propagated
+
+                is SolverCommand.Search ->
+                    propagated
+                        && assignment.decisionLevel == 0
+
                 is SolverCommand.Propagate ->
                     ok
                         && conflict == null
@@ -223,7 +238,10 @@ class CdclState(initialProblem: CNF) {
                         && command.trailIndex >= inner.assignment.qhead
                         && command.trailIndex < inner.assignment.trail.size
 
-                is SolverCommand.AnalyzeConflict -> ok && conflict != null
+                is SolverCommand.AnalyzeConflict ->
+                    ok
+                        && conflict != null
+
                 is SolverCommand.AnalyzeOne ->
                     ok
                         && conflict != null
@@ -239,7 +257,10 @@ class CdclState(initialProblem: CNF) {
                         && conflict != null
                         && conflictLitsFromLastLevel == 1
 
-                is SolverCommand.Backtrack -> ok && command.level in 0 until assignment.decisionLevel
+                is SolverCommand.Backtrack ->
+                    ok
+                        && command.level in 0 until assignment.decisionLevel
+
                 is SolverCommand.Enqueue ->
                     propagated
                         && command.lit.variable.index in 0 until assignment.numberOfVariables

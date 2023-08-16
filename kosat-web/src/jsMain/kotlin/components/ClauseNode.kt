@@ -56,8 +56,9 @@ val ClauseNode: FC<ClauseProps> = FC { props ->
             backgroundColor = color
             padding = 3.pt
             margin = 3.pt
-            border = Border(1.pt, LineStyle.solid, NamedColor.black)
-            transform = scale(props.scale ?: 1.0)
+            if (props.scale != null) {
+                transform = scale(props.scale!!)
+            }
         }
 
         for (lit in clause.lits) {

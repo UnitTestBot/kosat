@@ -46,8 +46,8 @@ val ActionsNode: FC<ActionsProps> = FC {
             }
 
             CommandButton {
-                +"Propagate"
-                command = SolverCommand.Propagate
+                +"Search"
+                command = SolverCommand.Search
             }
         }
 

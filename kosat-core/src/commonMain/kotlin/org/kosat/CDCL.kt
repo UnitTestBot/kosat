@@ -292,7 +292,7 @@ class CDCL {
      *
      * @return the result of the search.
      */
-    private fun search(): SolveResult {
+    fun search(): SolveResult {
         while (true) {
             check(assignment.qhead == assignment.trail.size)
 

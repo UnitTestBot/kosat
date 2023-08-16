@@ -5,6 +5,7 @@ data class CdclWrapper(
     val problem: CNF,
     val state: CdclState,
     val redoHistory: List<SolverCommand>,
+    val runEagerly: List<SolverCommand>,
 ) {
     val result by lazy { state.result }
 
@@ -12,7 +13,8 @@ data class CdclWrapper(
         history = emptyList(),
         redoHistory = emptyList(),
         problem = CNF(emptyList()),
-        state = CdclState(CNF(emptyList()))
+        state = CdclState(CNF(emptyList())),
+        runEagerly = emptyList(),
     )
 
     fun canExecute(command: WrapperCommand): Boolean {
@@ -20,6 +22,7 @@ data class CdclWrapper(
             is WrapperCommand.Recreate -> true
             is WrapperCommand.Undo -> history.isNotEmpty()
             is WrapperCommand.Redo -> redoHistory.isNotEmpty()
+            is WrapperCommand.SetRunEagerly -> true
             is SolverCommand -> state.canExecute(command)
         }
     }
@@ -43,56 +46,90 @@ data class CdclWrapper(
                 )
             )
 
+            is WrapperCommand.SetRunEagerly -> emptyList()
+
             is SolverCommand -> state.requirementsFor(command)
         }
     }
 
     fun execute(command: WrapperCommand): CdclWrapper {
         when (command) {
-            is WrapperCommand.Recreate -> return CdclWrapper(
+            is WrapperCommand.Recreate -> return copy(
                 history = emptyList(),
                 redoHistory = emptyList(),
                 problem = command.cnf,
-                state = CdclState(command.cnf)
+                state = CdclState(command.cnf),
             )
 
             is WrapperCommand.Undo -> {
-                val lastCommand = history.last()
-                val historyToRepeat = history.dropLast(1)
+                val newUndoHistory = history.toMutableList()
+                val newRedoHistory = redoHistory.toMutableList()
+
+                while (newUndoHistory.lastOrNull() in runEagerly) {
+                    val commandToUndo = newUndoHistory.removeLast()
+                    newRedoHistory.add(commandToUndo)
+                }
+
+                if (newUndoHistory.isNotEmpty()) {
+                    newUndoHistory.removeLast()
+                }
+
                 val newState = CdclState(problem)
 
-                for (commandToRepeat in historyToRepeat) {
+                for (commandToRepeat in newUndoHistory) {
                     newState.execute(commandToRepeat)
                 }
 
-                return CdclWrapper(
-                    history = historyToRepeat,
-                    redoHistory = redoHistory + lastCommand,
-                    problem = problem,
-                    state = newState
+                return copy(
+                    history = newUndoHistory,
+                    redoHistory = newRedoHistory,
+                    state = newState,
                 )
             }
 
             is WrapperCommand.Redo -> {
-                val lastCommand = redoHistory.last()
+                val newRedoHistory = redoHistory.toMutableList()
+                val newUndoHistory = history.toMutableList()
+                val lastCommand = newRedoHistory.removeLast()
                 state.execute(lastCommand)
+                newUndoHistory.add(lastCommand)
 
-                return CdclWrapper(
-                    history = history + lastCommand,
-                    redoHistory = redoHistory.dropLast(1),
-                    problem = problem,
-                    state = state
+                while (newRedoHistory.lastOrNull() in runEagerly) {
+                    val commandToRun = newRedoHistory.removeLast()
+                    state.execute(commandToRun)
+                    newUndoHistory.add(commandToRun)
+                }
+
+                return copy(
+                    history = newUndoHistory,
+                    redoHistory = newRedoHistory,
                 )
             }
 
-            is SolverCommand -> {
-                state.execute(command)
+            is WrapperCommand.SetRunEagerly -> {
+                val newRunEagerly = if (command.runEagerly) {
+                    runEagerly + command.command
+                } else {
+                    runEagerly - command.command
+                }
+                return copy(runEagerly = newRunEagerly)
+            }
 
-                return CdclWrapper(
-                    history = history + command,
+            is SolverCommand -> {
+                val newHistory = history.toMutableList()
+
+                state.execute(command)
+                newHistory.add(command)
+
+                while (true) {
+                    val commandToRun = runEagerly.firstOrNull { state.canExecute(it) } ?: break
+                    state.execute(commandToRun)
+                    newHistory.add(commandToRun)
+                }
+
+                return copy(
+                    history = newHistory,
                     redoHistory = emptyList(),
-                    problem = problem,
-                    state = state,
                 )
             }
         }

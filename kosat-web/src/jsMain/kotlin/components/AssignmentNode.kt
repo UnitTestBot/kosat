@@ -60,12 +60,18 @@ val AssignmentNode: FC<AssignmentProps> = FC {
                         IconCommandButton {
                             size = Size.small
                             command = SolverCommand.Enqueue(v.posLit)
+                            descriptionOverride = """
+                                Assign this variable to true on a new decision level.
+                            """.trimIndent()
                             Add {}
                         }
 
                         IconCommandButton {
                             size = Size.small
-                            command = SolverCommand.Enqueue(v.posLit)
+                            command = SolverCommand.Enqueue(v.negLit)
+                            descriptionOverride = """
+                                Assign this variable to false on a new decision level.
+                            """.trimIndent()
                             Remove {}
                         }
                     }

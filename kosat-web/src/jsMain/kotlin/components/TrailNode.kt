@@ -14,10 +14,12 @@ import mui.material.ListItem
 import mui.material.ListItemIcon
 import mui.material.ListItemText
 import mui.material.Stack
+import mui.material.StackDirection
 import mui.material.Typography
 import mui.material.styles.Theme
 import mui.material.styles.TypographyVariant
 import mui.material.styles.useTheme
+import mui.system.responsive
 import mui.system.sx
 import react.FC
 import react.Props
@@ -29,6 +31,7 @@ import web.cssom.Auto.Companion.auto
 import web.cssom.Display
 import web.cssom.FlexDirection
 import web.cssom.FontWeight
+import web.cssom.JustifyContent
 import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
@@ -82,6 +85,36 @@ val TrailLevelNode: FC<TrailLevelProps> = FC { props ->
                 val lit = assignment.trail[i]
                 if (assignment.level(lit) != level) continue
 
+                if (i == assignment.qhead) {
+                    Box {
+                        sx {
+                            alignSelf = AlignSelf.stretch
+                            display = Display.flex
+                            flexDirection = FlexDirection.column
+                            alignItems = AlignItems.end
+                        }
+
+                        Typography {
+                            variant = TypographyVariant.subtitle2
+                            sx {
+                                fontSize = 8.pt
+                                fontWeight = FontWeight.bolder
+                                color = theme.palette.primary.main
+                            }
+                            +"Propagated up to here"
+                        }
+
+                        Box {
+                            sx {
+                                borderRadius = 2.pt
+                                height = 4.pt
+                                width = 100.pct
+                                backgroundColor = theme.palette.primary.main
+                            }
+                        }
+                    }
+                }
+
                 Box {
                     sx {
                         display = Display.flex
@@ -94,20 +127,18 @@ val TrailLevelNode: FC<TrailLevelProps> = FC { props ->
                          */
 
                         borderRadius = 5.pt
+                        height = 30.pt
 
                         if (i % 2 == 0) {
                             backgroundColor = rgb(240, 240, 240)
                         }
                     }
 
-                    IconCommandButton {
-                        if (i >= assignment.qhead) {
+                    if (i >= assignment.qhead) {
+                        IconCommandButton {
                             Download {}
-                        } else {
-                            Icon {}
+                            command = SolverCommand.PropagateUpTo(i)
                         }
-
-                        command = SolverCommand.PropagateUpTo(i)
                     }
 
                     key = lit.toString()
@@ -151,36 +182,6 @@ val TrailLevelNode: FC<TrailLevelProps> = FC { props ->
                     }
                      */
                 }
-
-                if (i + 1 == assignment.qhead) {
-                    Box {
-                        sx {
-                            alignSelf = AlignSelf.stretch
-                            display = Display.flex
-                            flexDirection = FlexDirection.column
-                            alignItems = AlignItems.end
-                        }
-
-                        Box {
-                            sx {
-                                borderRadius = 2.pt
-                                height = 4.pt
-                                width = 100.pct
-                                backgroundColor = theme.palette.secondary.main
-                            }
-                        }
-
-                        Typography {
-                            variant = TypographyVariant.subtitle2
-                            sx {
-                                fontSize = 8.pt
-                                fontWeight = FontWeight.bolder
-                                color = theme.palette.secondary.main
-                            }
-                            +"Propagated up to here"
-                        }
-                    }
-                }
             }
         }
     }
@@ -190,7 +191,38 @@ external interface TrailProps : Props
 
 val TrailNode = FC<TrailProps> { _ ->
     val solver = useContext(cdclWrapperContext)!!
+    val theme = useTheme<Theme>()
     val assignment = solver.state.inner.assignment
+
+    Box {
+        sx {
+            display = Display.flex
+            gap = 8.pt
+            alignItems = AlignItems.center
+        }
+
+        IconCommandButton {
+            Download {}
+            command = SolverCommand.PropagateOne
+        }
+
+        CommandButton {
+            command = SolverCommand.Propagate
+            sx {
+                flexGrow = number(1.0)
+            }
+            +"Propagate"
+        }
+
+        EagerlyRunButton {
+            command = SolverCommand.Propagate
+            description = """
+                Automatically propagate all literals that can be 
+                propagated without making any decisions, every time
+                the assignment changes.
+            """.trimIndent()
+        }
+    }
 
     List {
         sx {
@@ -200,6 +232,25 @@ val TrailNode = FC<TrailProps> { _ ->
         for (level in 0..assignment.decisionLevel) {
             TrailLevelNode {
                 this.level = level
+            }
+        }
+    }
+
+    if (assignment.qhead == assignment.trail.size) {
+        Box {
+            sx {
+                display = Display.flex
+                alignItems = AlignItems.center
+                justifyContent = JustifyContent.center
+            }
+
+            Typography {
+                variant = TypographyVariant.subtitle1
+                sx {
+                    fontWeight = FontWeight.bolder
+                    color = theme.palette.text.secondary
+                }
+                +"fully propagated"
             }
         }
     }

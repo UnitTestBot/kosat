@@ -16,6 +16,7 @@ import react.dom.html.ReactHTML.h3
 import react.useContext
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display
+import web.cssom.FlexDirection
 import web.cssom.FlexWrap
 import web.cssom.number
 import web.cssom.pt
@@ -41,20 +42,21 @@ val ClauseList: FC<ClauseListProps> = FC { props ->
     }
 }
 
-
-
 external interface ClauseDbProps : Props
 
 val ClauseDbNode: FC<ClauseDbProps> = FC {
     val theme = useTheme<Theme>()
     val solver = useContext(cdclWrapperContext)!!
 
-    Stack {
-        spacing = responsive(8.pt)
-
+    Box {
         sx {
+            display = Display.flex
+            flexDirection = FlexDirection.column
+            gap = 8.pt
             flexGrow = number(1.0)
             overflow = auto
+            margin = (-8).pt
+            padding = 8.pt
         }
 
         Paper {
