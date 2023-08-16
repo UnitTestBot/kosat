@@ -16,12 +16,20 @@ sealed interface WrapperCommand {
         override val description = "Redo the last undone command"
     }
 
+    data class TimeTravel(val historyIndex: Int) : WrapperCommand {
+        override val description = """
+            Time travel to the given point in time by undoing and redoing commands
+        """.trimIndent()
+    }
+
     data class SetRunEagerly(val command: SolverCommand, val runEagerly: Boolean) : WrapperCommand {
         override val description = "this should be overridden in the UI"
     }
 }
 
 sealed interface SolverCommand : WrapperCommand {
+    val priority: Int get() = 0
+
     data object Solve : SolverCommand {
         override val description = "Solve the given problem using the default algorithm"
     }
@@ -31,6 +39,8 @@ sealed interface SolverCommand : WrapperCommand {
     }
 
     data object Propagate : SolverCommand {
+        override val priority: Int get() = 1000
+
         override val description = """
             Propagate all literals that can be propagated without making any decisions.
         """.trimIndent().replace("\n", " ")
@@ -73,6 +83,8 @@ sealed interface SolverCommand : WrapperCommand {
     }
 
     data object AnalysisMinimize : SolverCommand {
+        override val priority: Int get() = 100
+
         override val description = """
             Minimize the conflict clause by removing literals 
             that are implied by the remaining literals.

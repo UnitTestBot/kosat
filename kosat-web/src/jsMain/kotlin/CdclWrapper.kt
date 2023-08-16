@@ -22,6 +22,8 @@ data class CdclWrapper(
             is WrapperCommand.Recreate -> true
             is WrapperCommand.Undo -> history.isNotEmpty()
             is WrapperCommand.Redo -> redoHistory.isNotEmpty()
+            is WrapperCommand.TimeTravel ->
+                command.historyIndex in 0 until history.size + redoHistory.size
             is WrapperCommand.SetRunEagerly -> true
             is SolverCommand -> state.canExecute(command)
         }
@@ -30,6 +32,7 @@ data class CdclWrapper(
     fun requirementsFor(command: WrapperCommand): List<Requirement> {
         return when (command) {
             is WrapperCommand.Recreate -> emptyList()
+
             is WrapperCommand.Undo -> listOf(
                 Requirement(
                     history.isNotEmpty(),
@@ -42,6 +45,14 @@ data class CdclWrapper(
                 Requirement(
                     redoHistory.isNotEmpty(),
                     "There must be something undone to redo",
+                    obvious = true,
+                )
+            )
+
+            is WrapperCommand.TimeTravel -> listOf(
+                Requirement(
+                    command.historyIndex in 0 until history.size + redoHistory.size,
+                    "The given history index must be valid",
                     obvious = true,
                 )
             )
@@ -66,12 +77,11 @@ data class CdclWrapper(
                 val newRedoHistory = redoHistory.toMutableList()
 
                 while (newUndoHistory.lastOrNull() in runEagerly) {
-                    val commandToUndo = newUndoHistory.removeLast()
-                    newRedoHistory.add(commandToUndo)
+                    newRedoHistory.add(0, newUndoHistory.removeLast())
                 }
 
                 if (newUndoHistory.isNotEmpty()) {
-                    newUndoHistory.removeLast()
+                    newRedoHistory.add(0, newUndoHistory.removeLast())
                 }
 
                 val newState = CdclState(problem)
@@ -90,12 +100,12 @@ data class CdclWrapper(
             is WrapperCommand.Redo -> {
                 val newRedoHistory = redoHistory.toMutableList()
                 val newUndoHistory = history.toMutableList()
-                val lastCommand = newRedoHistory.removeLast()
+                val lastCommand = newRedoHistory.removeFirst()
                 state.execute(lastCommand)
                 newUndoHistory.add(lastCommand)
 
-                while (newRedoHistory.lastOrNull() in runEagerly) {
-                    val commandToRun = newRedoHistory.removeLast()
+                while (newRedoHistory.firstOrNull() in runEagerly) {
+                    val commandToRun = newRedoHistory.removeFirst()
                     state.execute(commandToRun)
                     newUndoHistory.add(commandToRun)
                 }
@@ -104,6 +114,33 @@ data class CdclWrapper(
                     history = newUndoHistory,
                     redoHistory = newRedoHistory,
                 )
+            }
+
+            is WrapperCommand.TimeTravel -> {
+                if (command.historyIndex < history.size) {
+                    val newState = CdclState(problem)
+
+                    for (commandToRepeat in history.take(command.historyIndex)) {
+                        newState.execute(commandToRepeat)
+                    }
+
+                    return copy(
+                        state = newState,
+                        history = history.take(command.historyIndex),
+                        redoHistory = history.drop(command.historyIndex) + redoHistory,
+                    )
+                } else {
+                    val toTake = command.historyIndex - history.size
+                    for (commandToRepeat in redoHistory.take(toTake)) {
+                        state.execute(commandToRepeat)
+                    }
+
+                    return copy(
+                        state = state,
+                        history = history + redoHistory.take(toTake),
+                        redoHistory = redoHistory.drop(toTake),
+                    )
+                }
             }
 
             is WrapperCommand.SetRunEagerly -> {
@@ -122,7 +159,11 @@ data class CdclWrapper(
                 newHistory.add(command)
 
                 while (true) {
-                    val commandToRun = runEagerly.firstOrNull { state.canExecute(it) } ?: break
+                    val commandToRun = runEagerly.sortedByDescending {
+                        it.priority
+                    }.firstOrNull {
+                        state.canExecute(it)
+                    } ?: break
                     state.execute(commandToRun)
                     newHistory.add(commandToRun)
                 }
