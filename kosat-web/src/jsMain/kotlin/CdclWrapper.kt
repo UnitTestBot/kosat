@@ -16,11 +16,34 @@ data class CdclWrapper(
     )
 
     fun canExecute(command: WrapperCommand): Boolean {
-        return when(command) {
+        return when (command) {
             is WrapperCommand.Recreate -> true
             is WrapperCommand.Undo -> history.isNotEmpty()
             is WrapperCommand.Redo -> redoHistory.isNotEmpty()
             is SolverCommand -> state.canExecute(command)
+        }
+    }
+
+    fun requirementsFor(command: WrapperCommand): List<Requirement> {
+        return when (command) {
+            is WrapperCommand.Recreate -> emptyList()
+            is WrapperCommand.Undo -> listOf(
+                Requirement(
+                    history.isNotEmpty(),
+                    "There must be something left to undo",
+                    obvious = true,
+                )
+            )
+
+            is WrapperCommand.Redo -> listOf(
+                Requirement(
+                    redoHistory.isNotEmpty(),
+                    "There must be something undone to redo",
+                    obvious = true,
+                )
+            )
+
+            is SolverCommand -> state.requirementsFor(command)
         }
     }
 

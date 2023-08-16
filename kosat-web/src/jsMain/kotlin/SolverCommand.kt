@@ -12,7 +12,6 @@ sealed interface SolverCommand : WrapperCommand {
     data object Propagate : SolverCommand
     data object PropagateOne : SolverCommand
     data class PropagateUpTo(val trailIndex: Int) : SolverCommand
-    data object Restart : SolverCommand
     data class Backtrack(val level: Int) : SolverCommand
     data class Enqueue(val lit: Lit) : SolverCommand
     data object AnalyzeConflict : SolverCommand
@@ -20,3 +19,5 @@ sealed interface SolverCommand : WrapperCommand {
     data object AnalysisMinimize : SolverCommand
     data object LearnAndBacktrack : SolverCommand
 }
+
+data class Requirement(val fulfilled: Boolean, val message: String, val obvious: Boolean = false)

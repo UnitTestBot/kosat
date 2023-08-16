@@ -56,6 +56,8 @@ val LitNode: FC<LitProps> = FC { props ->
     }
 
     Tooltip {
+        disableInteractive = true
+
         title = Box.create {
             component = span
 

@@ -67,25 +67,6 @@ val SectionPaper: FC<SectionPaperProps> = FC { props ->
 external interface VisualizerProps : Props
 
 val Visualizer: FC<VisualizerProps> = FC { _ ->
-    var request by useState(
-        """
-            p cnf 9 13
-            -1 2 0
-            -1 3 0
-            -2 -3 4 0
-            -4 5 0
-            -4 6 0
-            -5 -6 7 0
-            -7 1 0
-            1 4 7 8 0
-            -1 -4 -7 -8 0
-            1 4 7 9 0
-            -1 -4 -7 -9 0
-            8 9 0
-            -8 -9 0
-        """.trimIndent()
-    )
-
     val solver = useContext(cdclWrapperContext)!!
 
     Box {
@@ -107,33 +88,7 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
             gridArea = ident("input")
             title = "Input"
 
-            TextField {
-                sx {
-                    overflow = auto
-                    flexGrow = number(1.0)
-                }
-
-                inputProps = jso {
-                    style = jso {
-                        fontFamily = FontFamily.monospace
-                    }
-                }
-
-                value = request
-                multiline = true
-                onChange = { event -> request = event.target.asDynamic().value as String }
-            }
-
-            CommandButton {
-                +"Recreate"
-                command = run {
-                    try {
-                        WrapperCommand.Recreate(CNF.fromString(request))
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
-            }
+            InputNode {}
         }
 
         SectionPaper {
@@ -160,111 +115,6 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
                 title = "Assignment"
                 AssignmentNode {}
             }
-
-            /*
-            div {
-                css {
-                    gridArea = ident("db")
-                }
-
-                h2 { +"Solver State:" }
-                table {
-                    tbody {
-                        tr {
-                            td { +"ok" }
-                            td { +ok.toString() }
-                        }
-                        tr {
-                            td { +"decisionLevel" }
-                            td { +assignment.decisionLevel.toString() }
-                        }
-                        tr {
-                            td { +"assignment" }
-                            td {
-                                for (varIndex in 0 until assignment.numberOfVariables) {
-                                    LitNode {
-                                        key = varIndex.toString()
-                                        lit = Var(varIndex).posLit
-                                    }
-                                }
-                            }
-                        }
-                        tr {
-                            td { +"irreducible clauses" }
-                            td {
-                                db.clauses.withIndex().filter { !it.value.deleted }.map {
-                                    ClauseNode {
-                                        key = it.index.toString()
-                                        clause = it.value
-                                    }
-                                }
-                            }
-                        }
-                        tr {
-                            td { +"learnts" }
-                            td {
-                                db.learnts.withIndex().filter { !it.value.deleted }.map {
-                                    ClauseNode {
-                                        key = it.index.toString()
-                                        clause = it.value
-                                    }
-                                }
-                            }
-                        }
-                        tr {
-                            td { +"current conflict" }
-                            td {
-                                if (solver.state.conflict != null) {
-                                    ClauseNode {
-                                        clause = solver.state.conflict!!
-                                    }
-                                }
-                                CommandButton {
-                                    +"Analyze"
-                                    command = SolverCommand.AnalyzeConflict
-                                }
-                                CommandButton {
-                                    +"Analyze One"
-                                    command = SolverCommand.AnalyzeOne
-                                }
-                                CommandButton {
-                                    +"Minimize"
-                                    command = SolverCommand.AnalysisMinimize
-                                }
-                                CommandButton {
-                                    +"Learn As Is"
-                                    command = SolverCommand.LearnAsIs
-                                }
-                            }
-                        }
-                        tr {
-                            td { +"current learnt" }
-                            td {
-                                if (solver.state.learnt != null) {
-                                    ClauseNode {
-                                        clause = solver.state.learnt!!
-                                    }
-                                }
-                                CommandButton {
-                                    +"Learn"
-                                    command = solver.state.learnt?.let { SolverCommand.Learn }
-                                }
-                            }
-                        }
-                        tr {
-                            td { +"result" }
-                            td {
-                                when (solver.result) {
-                                    SolveResult.SAT -> span { css { color = NamedColor.green }; +"SAT" }
-                                    SolveResult.UNSAT -> span { css { color = NamedColor.red }; +"UNSAT" }
-                                    SolveResult.UNKNOWN -> +"UNKNOWN"
-                                }
-                            }
-                        }
-                    }
-               }
-           }
-             */
         }
 
         SectionPaper {
