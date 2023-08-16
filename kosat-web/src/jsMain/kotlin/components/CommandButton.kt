@@ -4,16 +4,12 @@ import SolverCommand
 import WrapperCommand
 import mui.icons.material.CheckBox
 import mui.icons.material.CheckBoxOutlineBlank
-import mui.icons.material.CheckBoxOutlined
 import mui.icons.material.SmartToy
 import mui.material.Box
 import mui.material.Button
 import mui.material.ButtonVariant
 import mui.material.IconButton
 import mui.material.IconButtonColor
-import mui.material.ListItem
-import mui.material.ListItemIcon
-import mui.material.ListItemText
 import mui.material.Size
 import mui.material.Stack
 import mui.material.ToggleButton
@@ -25,7 +21,6 @@ import mui.system.PropsWithSx
 import mui.system.responsive
 import mui.system.sx
 import react.FC
-import react.Props
 import react.PropsWithChildren
 import react.create
 import react.dom.html.ReactHTML.span

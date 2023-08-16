@@ -10,11 +10,8 @@ import react.Props
 import react.dom.html.ReactHTML.span
 import react.useContext
 import web.cssom.AlignItems
-import web.cssom.Border
 import web.cssom.Display
 import web.cssom.JustifyContent
-import web.cssom.LineStyle
-import web.cssom.NamedColor
 import web.cssom.pt
 import web.cssom.scale
 

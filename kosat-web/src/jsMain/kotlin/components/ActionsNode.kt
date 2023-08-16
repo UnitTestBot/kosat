@@ -2,8 +2,8 @@ package components
 
 import SolverCommand
 import mui.material.Box
-import mui.material.ButtonGroup
 import mui.material.Paper
+import mui.material.Stack
 import mui.material.Typography
 import mui.material.styles.Theme
 import mui.material.styles.TypographyVariant
@@ -103,25 +103,71 @@ val ActionsNode: FC<ActionsProps> = FC {
                 }
             }
 
-            ButtonGroup {
-                CommandButton {
-                    +"Analyze"
-                    command = SolverCommand.AnalyzeConflict
-                }
-                CommandButton {
-                    +"Analyze One"
-                    command = SolverCommand.AnalyzeOne
-                }
-            }
+            Stack {
+                Box {
+                    sx {
+                        display = Display.flex
+                        alignItems = AlignItems.center
+                        gap = 8.pt
+                    }
 
-            ButtonGroup {
-                CommandButton {
-                    +"Minimize"
-                    command = SolverCommand.AnalysisMinimize
+                    EagerlyRunButton {
+                        command = SolverCommand.AnalyzeConflict
+                        description = """
+                            Automatically analyze the conflict every time it occurs.
+                        """.trimIndent()
+                    }
+
+
+                    CommandButton {
+                        sx {
+                            flexGrow = number(1.0)
+                        }
+
+                        +"Analyze"
+                        command = SolverCommand.AnalyzeConflict
+                    }
+
+                    CommandButton {
+                        sx {
+                            flexGrow = number(1.0)
+                        }
+
+                        +"Analyze One"
+                        command = SolverCommand.AnalyzeOne
+                    }
                 }
-                CommandButton {
-                    +"Learn and Backtrack"
-                    command = SolverCommand.LearnAndBacktrack
+
+                Box {
+                    sx {
+                        display = Display.flex
+                        alignItems = AlignItems.center
+                        gap = 8.pt
+                    }
+
+                    EagerlyRunButton {
+                        command = SolverCommand.AnalysisMinimize
+                        description = """
+                            Automatically minimize the conflict every time it is analyzed.
+                        """.trimIndent()
+                    }
+
+                    CommandButton {
+                        +"Minimize"
+                        command = SolverCommand.AnalysisMinimize
+                    }
+
+                    CommandButton {
+                        +"Learn and Backtrack"
+                        command = SolverCommand.LearnAndBacktrack
+                    }
+
+                    EagerlyRunButton {
+                        command = SolverCommand.LearnAndBacktrack
+                        description = """
+                            Automatically learn and backtrack every time the conflict is analyzed.
+                        """.trimIndent()
+                    }
                 }
             }
         }

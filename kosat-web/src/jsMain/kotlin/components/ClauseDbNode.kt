@@ -2,12 +2,10 @@ package components
 
 import mui.material.Box
 import mui.material.Paper
-import mui.material.Stack
 import mui.material.Typography
 import mui.material.styles.Theme
 import mui.material.styles.TypographyVariant
 import mui.material.styles.useTheme
-import mui.system.responsive
 import mui.system.sx
 import org.kosat.Clause
 import react.FC

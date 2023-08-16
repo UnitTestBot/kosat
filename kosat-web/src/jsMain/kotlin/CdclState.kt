@@ -68,7 +68,7 @@ class CdclState(initialProblem: CNF) {
             }
 
             is SolverCommand.AnalyzeConflict -> {
-                conflict = inner.analyzeConflict(conflict!!)
+                conflict = inner.analyzeConflict(conflict!!, minimize = false)
             }
 
             is SolverCommand.AnalyzeOne -> {
@@ -150,6 +150,10 @@ class CdclState(initialProblem: CNF) {
             is SolverCommand.AnalyzeConflict -> listOf(
                 Requirement(ok, "Solver is not in UNSAT state", obvious = true),
                 Requirement(conflict != null, "There is a conflict"),
+                Requirement(
+                    conflictLitsFromLastLevel?.let { it > 1 } ?: false,
+                    "There is more than one literal from the current decision level in the conflict",
+                )
             )
 
             is SolverCommand.AnalyzeOne -> listOf(
@@ -167,7 +171,11 @@ class CdclState(initialProblem: CNF) {
                 Requirement(
                     conflictLitsFromLastLevel?.let { it == 1 } ?: false,
                     "There is exactly one literal from the current decision level in the conflict",
-                )
+                ),
+                Requirement(
+                    conflict != null && inner.checkIfLearntCanBeMinimized(conflict!!),
+                    "There is a literal which reason is a subset of the conflict",
+                ),
             )
 
             is SolverCommand.LearnAndBacktrack -> listOf(
@@ -241,6 +249,7 @@ class CdclState(initialProblem: CNF) {
                 is SolverCommand.AnalyzeConflict ->
                     ok
                         && conflict != null
+                        && conflictLitsFromLastLevel > 1
 
                 is SolverCommand.AnalyzeOne ->
                     ok
@@ -251,6 +260,7 @@ class CdclState(initialProblem: CNF) {
                     ok
                         && conflict != null
                         && conflictLitsFromLastLevel == 1
+                        && inner.checkIfLearntCanBeMinimized(conflict!!)
 
                 is SolverCommand.LearnAndBacktrack ->
                     ok
@@ -338,5 +348,14 @@ class CdclState(initialProblem: CNF) {
         }
         variableSelector.update(learnt)
         db.clauseDecayActivity()
+    }
+
+    private fun CDCL.checkIfLearntCanBeMinimized(learnt: Clause): Boolean {
+        return learnt.lits.any { lit ->
+            val reason = assignment.reason(lit.variable) ?: return@any false
+            reason.lits.all { reasonLit ->
+                reasonLit == lit.neg || reasonLit in learnt.lits
+            }
+        }
     }
 }

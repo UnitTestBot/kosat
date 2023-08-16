@@ -1880,9 +1880,12 @@ class CDCL {
      * redundant literals.
      *
      * @param conflict the conflict clause.
+     * @param minimize if true, the learned clause will be minimized by
+     *                 removing literals which follow from the other literals
+     *                 in the learned clause.
      * @return the learned clause.
      */
-    fun analyzeConflict(conflict: Clause): Clause {
+    fun analyzeConflict(conflict: Clause, minimize: Boolean = true): Clause {
         // We analyze conflict by walking back on implication graph,
         // starting with the literals in the conflict clause.
         // (Technically, the literals of the conflict are added on
@@ -1953,13 +1956,15 @@ class CDCL {
         learntLits.add(uip.neg)
 
         // Some literals in the learnt can follow from their reasons,
-        // included in the learnt. We remove them here.
-        learntLits.removeAll { lit ->
-            val reason = assignment.reason(lit.variable) ?: return@removeAll false
-            // lit is redundant if all the literals in its reason are already seen
-            // (and, therefore, included in the learnt or follow from it)
-            val redundant = reason.lits.all { it == lit.neg || seen[it.variable] }
-            redundant
+        // included in the learnt. We remove them here, if requested.
+        if (minimize) {
+            learntLits.removeAll { lit ->
+                val reason = assignment.reason(lit.variable) ?: return@removeAll false
+                // lit is redundant if all the literals in its reason are already seen
+                // (and, therefore, included in the learnt or follow from it)
+                val redundant = reason.lits.all { it == lit.neg || seen[it.variable] }
+                redundant
+            }
         }
 
         // Sort the learnt by the decision level of the literals

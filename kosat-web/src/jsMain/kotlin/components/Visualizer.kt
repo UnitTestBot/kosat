@@ -1,26 +1,18 @@
 package components
 
-import WrapperCommand
 import emotion.react.css
-import js.core.jso
 import mui.material.Box
 import mui.material.Paper
-import mui.material.TextField
 import mui.material.Typography
 import mui.material.styles.TypographyVariant
 import mui.system.sx
-import org.kosat.cnf.CNF
 import react.FC
 import react.Props
 import react.PropsWithChildren
-import react.dom.onChange
 import react.useContext
-import react.useState
 import web.cssom.AlignSelf
-import web.cssom.Auto.Companion.auto
 import web.cssom.Display
 import web.cssom.FlexDirection
-import web.cssom.FontFamily
 import web.cssom.GridArea
 import web.cssom.GridTemplateAreas
 import web.cssom.Length
@@ -28,7 +20,6 @@ import web.cssom.TextAlign
 import web.cssom.array
 import web.cssom.fr
 import web.cssom.ident
-import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
 
