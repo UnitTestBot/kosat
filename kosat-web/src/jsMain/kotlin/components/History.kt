@@ -5,12 +5,10 @@ import WrapperCommand
 import cdclDispatchContext
 import cdclWrapperContext
 import mui.icons.material.SmartToy
-import mui.material.Box
 import mui.material.ButtonGroup
 import mui.material.ListItemButton
 import mui.material.ListItemIcon
 import mui.material.ListItemText
-import mui.material.Stack
 import mui.material.styles.Theme
 import mui.material.styles.useTheme
 import mui.system.sx
@@ -76,7 +74,6 @@ external interface HistoryProps : Props
 val History = FC<HistoryProps> { _ ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
-    val theme = useTheme<Theme>()
 
     mui.material.List {
         sx {

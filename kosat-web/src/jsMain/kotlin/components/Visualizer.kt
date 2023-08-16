@@ -2,14 +2,19 @@ package components
 
 import cdclWrapperContext
 import emotion.react.css
+import mui.icons.material.Help
+import mui.icons.material.HelpOutline
 import mui.material.Box
+import mui.material.Icon
 import mui.material.Paper
+import mui.material.Tooltip
 import mui.material.Typography
 import mui.material.styles.TypographyVariant
 import mui.system.sx
 import react.FC
 import react.Props
 import react.PropsWithChildren
+import react.create
 import react.useContext
 import web.cssom.AlignSelf
 import web.cssom.Display
@@ -23,10 +28,12 @@ import web.cssom.fr
 import web.cssom.ident
 import web.cssom.pct
 import web.cssom.pt
+import web.cssom.scale
 
 external interface SectionPaperProps : PropsWithChildren {
     var gridArea: GridArea
     var title: String
+    var description: String?
     var maxHeight: Length?
 }
 
@@ -50,6 +57,21 @@ val SectionPaper: FC<SectionPaperProps> = FC { props ->
             }
             variant = TypographyVariant.h2
             +props.title
+
+            if (props.description != null) {
+                Tooltip {
+                    title = Typography.create {
+                        variant = TypographyVariant.body1
+                        +props.description
+                    }
+
+                    Help {
+                        sx {
+                            transform = scale(0.7)
+                        }
+                    }
+                }
+            }
         }
 
         +props.children
@@ -81,11 +103,16 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
             title = "Input"
 
             InputNode {}
+
+            description = """
+                Input clauses are parsed from the input text field. 
+                The input is parsed as a DIMACS CNF file.
+            """.trimIndent()
         }
 
         SectionPaper {
             gridArea = ident("history")
-            title = "History"
+            title = "Time Travel"
             History {}
         }
 
