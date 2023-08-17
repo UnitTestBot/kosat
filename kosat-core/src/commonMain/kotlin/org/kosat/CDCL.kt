@@ -1819,13 +1819,14 @@ class CDCL {
             // which can either lead to a conflict (all literals in clause are false),
             // unit propagation (only one unassigned literal left), or invalidation
             // of the watchers (both watchers are false, but there are others)
-            val clausesToKeep = mutableListOf<Clause>()
+            var j = 0
             val possiblyBrokenClauses = watchers[lit.neg]
 
-            for (clause in possiblyBrokenClauses) {
+            for (i in 0 until possiblyBrokenClauses.size) {
+                val clause = possiblyBrokenClauses[i]
                 if (clause.deleted) continue
 
-                clausesToKeep.add(clause)
+                possiblyBrokenClauses[j++] = clause
 
                 if (conflict != null) continue
 
@@ -1859,11 +1860,11 @@ class CDCL {
                     // so we can use it as a new first watcher instead
                     watchers[clause[firstNotFalse]].add(clause)
                     clause.lits.swap(firstNotFalse, 1)
-                    clausesToKeep.removeLast()
+                    j--
                 }
             }
 
-            watchers[lit.neg] = clausesToKeep
+            watchers[lit.neg].retainFirst(j)
 
             if (conflict != null) break
         }
