@@ -120,10 +120,10 @@ val StateNode: FC<StateProps> = FC {
                         }
                     }
 
-                    LabelledNumber {
-                        label = "Active"
-                        value = assignment.numberOfActiveVariables
-                    }
+                    // LabelledNumber {
+                    //     label = "Active"
+                    //     value = assignment.numberOfActiveVariables
+                    // }
 
                     LabelledNumber {
                         label = "Total"

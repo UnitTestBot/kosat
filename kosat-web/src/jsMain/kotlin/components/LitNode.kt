@@ -70,10 +70,10 @@ val LitNode: FC<LitProps> = FC { props ->
                 Box { +"Negative literal" }
             }
 
-            if (!data.active) Box { +"Inactive (eliminated)" }
+            // if (!data.active) Box { +"Inactive (eliminated)" }
             if (data.active) Box {
                 val activity = (solver.state.inner.variableSelector as VSIDS).activity[lit.variable]
-                +"Active, VSIDS activity: ${activity.round(2)}"
+                +"VSIDS activity: ${activity.round(2)}"
             }
             if (data.frozen) Box { +"Frozen" }
             if (value == LBool.TRUE) Box { +"Assigned to TRUE at level ${data.level}" }
