@@ -89,7 +89,6 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
 
     useEffect(solver) {
         document.onkeydown = { event ->
-            console.log(event.key)
             when {
                 event.ctrlKey && event.key == "z" && solver.canExecute(WrapperCommand.Undo) ->
                     dispatch(WrapperCommand.Undo)

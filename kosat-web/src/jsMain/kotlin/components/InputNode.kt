@@ -1,14 +1,22 @@
 package components
 
 import WrapperCommand
+import cdclDispatchContext
 import js.core.jso
 import mui.material.Box
+import mui.material.Button
+import mui.material.ButtonVariant
+import mui.material.Dialog
+import mui.material.DialogContent
+import mui.material.DialogContentText
+import mui.material.DialogTitle
 import mui.material.TextField
 import mui.system.sx
 import org.kosat.cnf.CNF
 import react.FC
 import react.Props
 import react.dom.onChange
+import react.useContext
 import react.useState
 import web.cssom.Auto
 import web.cssom.FontFamily
@@ -21,6 +29,10 @@ import web.cssom.pt
 external interface InputProps : Props
 
 val InputNode: FC<InputProps> = FC {
+    val dispatch = useContext(cdclDispatchContext)!!
+    var error by useState<String?>(null)
+    var errorShown by useState(false)
+
     var request by useState(
         """
             p cnf 9 13
@@ -63,17 +75,30 @@ val InputNode: FC<InputProps> = FC {
         }
     }
 
-    val cnf: CNF?
-
-    try {
-        cnf = CNF.fromString(request)
-    } finally {
+    Button {
+        +"Create Solver"
+        variant = ButtonVariant.contained
+        onClick = {
+            run {
+                val cnf: CNF
+                try {
+                    cnf = CNF.fromString(request)
+                } catch (e: Exception) {
+                    error = e.message
+                    errorShown = true
+                    return@run
+                }
+                dispatch(WrapperCommand.Recreate(cnf))
+            }
+        }
     }
 
-    if (cnf != null) {
-        CommandButton {
-            +"Recreate"
-            command = WrapperCommand.Recreate(cnf)
+    Dialog {
+        open = errorShown
+        onClose = { _, _ -> errorShown = false }
+
+        DialogContent {
+            +"Parsing error: $error"
         }
     }
 }
