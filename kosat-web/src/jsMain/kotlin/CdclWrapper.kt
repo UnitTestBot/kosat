@@ -18,15 +18,7 @@ data class CdclWrapper(
     )
 
     fun canExecute(command: WrapperCommand): Boolean {
-        return when (command) {
-            is WrapperCommand.Recreate -> true
-            is WrapperCommand.Undo -> history.isNotEmpty()
-            is WrapperCommand.Redo -> redoHistory.isNotEmpty()
-            is WrapperCommand.TimeTravel ->
-                command.historyIndex in 0 until history.size + redoHistory.size
-            is WrapperCommand.SetRunEagerly -> true
-            is SolverCommand -> state.canExecute(command)
-        }
+        return requirementsFor(command).all { it.fulfilled }
     }
 
     fun requirementsFor(command: WrapperCommand): List<Requirement> {
@@ -162,7 +154,7 @@ data class CdclWrapper(
                     val commandToRun = runEagerly.sortedByDescending {
                         it.priority
                     }.firstOrNull {
-                        state.canExecute(it)
+                        canExecute(it)
                     } ?: break
                     state.execute(commandToRun)
                     newHistory.add(commandToRun)

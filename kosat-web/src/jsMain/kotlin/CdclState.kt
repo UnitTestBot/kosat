@@ -2,6 +2,7 @@ import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.LBool
 import org.kosat.SolveResult
+import org.kosat.Var
 import org.kosat.cnf.CNF
 import org.kosat.get
 import org.kosat.set
@@ -25,7 +26,10 @@ class CdclState(initialProblem: CNF) {
 
     init {
         // FIXME: workaround
-        inner.variableSelector.build(inner.db.clauses)
+        inner.variableSelector.build(
+            inner.db.clauses +
+                Clause(MutableList(inner.assignment.numberOfVariables) { Var(it).posLit })
+        )
     }
 
     private val propagated
@@ -34,7 +38,7 @@ class CdclState(initialProblem: CNF) {
             && inner.assignment.qhead == inner.assignment.trail.size
 
     fun execute(command: SolverCommand) {
-        check(canExecute(command))
+        check(requirementsFor(command).all { it.fulfilled })
         when (command) {
             is SolverCommand.Solve -> inner.solve()
 
@@ -213,70 +217,6 @@ class CdclState(initialProblem: CNF) {
                     "Literal is not assigned",
                 ),
             )
-        }
-    }
-
-    fun canExecute(command: SolverCommand): Boolean {
-        inner.run {
-            val conflictLitsFromLastLevel = conflict?.lits?.count {
-                assignment.level(it) == assignment.decisionLevel
-            } ?: 0
-
-            return when (command) {
-                is SolverCommand.Solve ->
-                    propagated
-
-                is SolverCommand.Search ->
-                    propagated
-                        && assignment.decisionLevel == 0
-
-                is SolverCommand.Propagate ->
-                    ok
-                        && conflict == null
-                        && inner.assignment.qhead < inner.assignment.trail.size
-
-                is SolverCommand.PropagateOne ->
-                    ok
-                        && conflict == null
-                        && inner.assignment.qhead < inner.assignment.trail.size
-
-                is SolverCommand.PropagateUpTo ->
-                    ok
-                        && conflict == null
-                        && command.trailIndex >= inner.assignment.qhead
-                        && command.trailIndex < inner.assignment.trail.size
-
-                is SolverCommand.AnalyzeConflict ->
-                    ok
-                        && conflict != null
-                        && conflictLitsFromLastLevel > 1
-
-                is SolverCommand.AnalyzeOne ->
-                    ok
-                        && conflict != null
-                        && conflictLitsFromLastLevel > 1
-
-                is SolverCommand.AnalysisMinimize ->
-                    ok
-                        && conflict != null
-                        && conflictLitsFromLastLevel == 1
-                        && inner.checkIfLearntCanBeMinimized(conflict!!)
-
-                is SolverCommand.LearnAndBacktrack ->
-                    ok
-                        && conflict != null
-                        && conflictLitsFromLastLevel == 1
-
-                is SolverCommand.Backtrack ->
-                    ok
-                        && command.level in 0 until assignment.decisionLevel
-
-                is SolverCommand.Enqueue ->
-                    propagated
-                        && command.lit.variable.index in 0 until assignment.numberOfVariables
-                        && assignment.isActive(command.lit)
-                        && assignment.value(command.lit) == LBool.UNDEF
-            }
         }
     }
 
