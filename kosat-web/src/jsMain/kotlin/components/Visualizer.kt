@@ -1,5 +1,7 @@
 package components
 
+import SolverCommand
+import cdclDispatchContext
 import cdclWrapperContext
 import emotion.react.css
 import mui.icons.material.Help
@@ -14,6 +16,8 @@ import react.Props
 import react.PropsWithChildren
 import react.create
 import react.useContext
+import react.useEffect
+import react.useEffectOnce
 import web.cssom.AlignSelf
 import web.cssom.Display
 import web.cssom.FlexDirection
@@ -27,6 +31,7 @@ import web.cssom.ident
 import web.cssom.pct
 import web.cssom.pt
 import web.cssom.scale
+import web.dom.document
 
 external interface SectionPaperProps : PropsWithChildren {
     var gridArea: GridArea
@@ -80,6 +85,31 @@ external interface VisualizerProps : Props
 
 val Visualizer: FC<VisualizerProps> = FC { _ ->
     val solver = useContext(cdclWrapperContext)!!
+    val dispatch = useContext(cdclDispatchContext)!!
+
+    useEffect(solver) {
+        document.onkeydown = { event ->
+            console.log(event.key)
+            when {
+                event.ctrlKey && event.key == "z" && solver.canExecute(WrapperCommand.Undo) ->
+                    dispatch(WrapperCommand.Undo)
+                event.key == "ArrowUp" && solver.canExecute(WrapperCommand.Undo) ->
+                    dispatch(WrapperCommand.Undo)
+                event.ctrlKey && event.key == "y" && solver.canExecute(WrapperCommand.Redo) ->
+                    dispatch(WrapperCommand.Redo)
+                event.ctrlKey && event.key == "Z" && solver.canExecute(WrapperCommand.Redo) ->
+                    dispatch(WrapperCommand.Redo)
+                event.key == "ArrowDown" && solver.canExecute(WrapperCommand.Redo) ->
+                    dispatch(WrapperCommand.Redo)
+                event.key == " " && solver.canExecute(SolverCommand.Propagate) ->
+                    dispatch(SolverCommand.Propagate)
+            }
+        }
+
+        cleanup {
+            document.onkeydown = null
+        }
+    }
 
     Box {
         sx {
