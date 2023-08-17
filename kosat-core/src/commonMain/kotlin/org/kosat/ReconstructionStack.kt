@@ -59,7 +59,7 @@ class ReconstructionStack {
      * Pushes a binary clause from a given literal and its witness to the stack.
      */
     fun pushBinary(lit: Lit, witness: Lit) {
-        stack.add(ReconstructionStackEntry(Clause(mutableListOf(lit, witness)), witness))
+        stack.add(ReconstructionStackEntry(Clause(LitStore.of(lit, witness)), witness))
     }
 
     /**

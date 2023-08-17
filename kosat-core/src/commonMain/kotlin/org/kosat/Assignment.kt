@@ -35,7 +35,7 @@ class Assignment(private val solver: CDCL) {
      * @return the value of the variable, assuming that it is not substituted.
      */
     fun value(v: Var): LBool {
-        require(isActive(v))
+        // require(isActive(v))
         return value[v]
     }
 
@@ -43,7 +43,7 @@ class Assignment(private val solver: CDCL) {
      * @return the value of the literal, assuming that it is not substituted.
      */
     fun value(lit: Lit): LBool {
-        require(isActive(lit))
+        // require(isActive(lit))
         return value[lit.variable] xor lit.isNeg
     }
 
@@ -148,7 +148,7 @@ class Assignment(private val solver: CDCL) {
         require(value(lit) == LBool.UNDEF)
         require(isActive(lit))
 
-        if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(mutableListOf(lit)))
+        if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(LitStore.of(lit)))
 
         value[lit.variable] = LBool.from(lit.isPos)
         varData[lit.variable].reason = reason

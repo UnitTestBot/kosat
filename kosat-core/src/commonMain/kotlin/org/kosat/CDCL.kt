@@ -642,8 +642,8 @@ class CDCL {
                                     "Discovered UNSAT due to complement literals being in the same SCC"
                                 )
                                 // Adding unit clauses is required for the proof
-                                dratBuilder.addClause(Clause(mutableListOf(w)))
-                                dratBuilder.addClause(Clause(mutableListOf(w.neg)))
+                                dratBuilder.addClause(Clause(LitStore.of(w)))
+                                dratBuilder.addClause(Clause(LitStore.of(w.neg)))
                                 return null
                             }
                             marks[w] = markProcessed
@@ -707,7 +707,7 @@ class CDCL {
             val willChange = clause.lits.any { representatives[it.variable] != null }
             if (!willChange) continue
 
-            val newLits = clause.lits.map { representatives[it.variable]?.xor(it.isNeg) ?: it }.toMutableList()
+            val newLits = LitStore(clause.lits.map { representatives[it.variable]?.xor(it.isNeg) ?: it })
             val containsComplementary = sortDedupAndCheckComplimentary(newLits)
             // Note that clause cannot become empty,
             // however, it can contain complementary literals.
@@ -1046,7 +1046,7 @@ class CDCL {
         }
 
         requireNotNull(lca)
-        return Clause(mutableListOf(lca.neg, clause[0]), true)
+        return Clause(LitStore.of(lca.neg, clause[0]), true)
     }
 
     /**
@@ -1055,8 +1055,8 @@ class CDCL {
      * obtained by [bveVariableScore].
      */
     class VariableMinPriorityQueue(var size: Int) {
-        private val keys: MutableList<Double> = MutableList(size) { 0.0 }
-        private val heap: MutableList<Var> = MutableList(size) { Var(it) }
+        private val keys: DoubleArray = DoubleArray(size)
+        private val heap: IntArray = IntArray(size) { it }
         private val indices: MutableList<Int?> = MutableList(size) { it }
 
         fun contains(x: Var): Boolean = indices[x] != null
@@ -1106,10 +1106,10 @@ class CDCL {
 
         fun pop(): Var {
             require(size > 0)
-            val result = heap[0]
+            val result = Var(heap[0])
             swap(0, size - 1)
             size--
-            siftDown(heap[0])
+            siftDown(Var(heap[0]))
             indices[result] = null
             return result
         }
@@ -1133,7 +1133,7 @@ class CDCL {
          * This is the "real" amount of occurrences of each literal in the
          * problem.
          */
-        val occurrenceNumbers: MutableList<Int> = MutableList(numberOfVariables * 2) { 0 }
+        val occurrenceNumbers: IntArray = IntArray(numberOfVariables * 2)
 
         /**
          * We use this queue to find the next variable to eliminate.
@@ -1157,13 +1157,13 @@ class CDCL {
          * that contain pivot literal. It is too expensive to create a new list
          * for each pivot, so we reuse this one for the entire BVE.
          */
-        val gateMarks: MutableList<Int> = MutableList(numberOfVariables * 2) { 0 }
+        val gateMarks: IntArray = IntArray(numberOfVariables * 2)
 
         /**
          * In [removeSubsumedBy] we mark literals from the clause to
          * quickly check if other clauses contain all literals from it.
          */
-        val subsumptionMarks: MutableList<Boolean> = MutableList(numberOfVariables * 2) { false }
+        val subsumptionMarks: BooleanArray = BooleanArray(numberOfVariables * 2)
     }
 
     /**
@@ -1347,7 +1347,7 @@ class CDCL {
                 val needsShrink = learnt.lits.any { assignment.value(it) == LBool.UNDEF }
                 if (!needsShrink) continue
 
-                val newLearnt = learnt.copy(lits = learnt.lits.toMutableList())
+                val newLearnt = learnt.copy(lits = learnt.lits.copy())
                 newLearnt.lits.removeAll { assignment.value(it) == LBool.FALSE }
 
                 when (newLearnt.size) {
@@ -1642,7 +1642,7 @@ class CDCL {
                 bveMarkDeleted(state, otherClause)
             } else if (state.subsumptionMarks[mismatch.neg]) {
                 // Otherwise, we can strengthen the clause.
-                val strengthenedClause = Clause(otherClause.lits.filter { it != mismatch }.toMutableList())
+                val strengthenedClause = Clause(LitStore(otherClause.lits.filter { it != mismatch }))
                 // Note that we don't reset marks here with a hope that those
                 // will never be used after UNSAT anyway.
                 bveStats.clausesStrengthened++
@@ -1694,7 +1694,7 @@ class CDCL {
             return null
         }
 
-        return Clause(resolvent)
+        return Clause(LitStore(resolvent))
     }
 
     /**
@@ -1805,14 +1805,14 @@ class CDCL {
      * conflict occurs.
      */
     private fun propagate(): Clause? {
-        check(ok)
+        // check(ok)
 
         var conflict: Clause? = null
 
         while (assignment.qhead < assignment.trail.size) {
             val lit = assignment.dequeue()!!
 
-            check(value(lit) == LBool.TRUE)
+            // check(value(lit) == LBool.TRUE)
 
             // Checking the list of clauses watching the negation of the literal.
             // In those clauses, both of the watched literals might be false,
@@ -1971,7 +1971,7 @@ class CDCL {
         // next propagate (only the first two literals are watched).
         learntLits.sortByDescending { assignment.level(it) }
 
-        val learnt = Clause(learntLits, learnt = true)
+        val learnt = Clause(LitStore(learntLits), learnt = true)
 
         // Sorting also helps to calculate the LBD of the learnt
         // without additional memory.
