@@ -9,6 +9,7 @@ import mui.icons.material.CheckBoxOutlineBlank
 import mui.icons.material.SmartToy
 import mui.material.Box
 import mui.material.Button
+import mui.material.ButtonColor
 import mui.material.ButtonVariant
 import mui.material.IconButton
 import mui.material.IconButtonColor
@@ -18,7 +19,9 @@ import mui.material.ToggleButton
 import mui.material.ToggleButtonColor
 import mui.material.Tooltip
 import mui.material.Typography
+import mui.material.styles.Theme
 import mui.material.styles.TypographyVariant
+import mui.material.styles.useTheme
 import mui.system.PropsWithSx
 import mui.system.responsive
 import mui.system.sx
@@ -28,6 +31,7 @@ import react.create
 import react.dom.html.ReactHTML.span
 import react.useContext
 import web.cssom.AlignItems
+import web.cssom.BoxShadow
 import web.cssom.Display
 import web.cssom.number
 import web.cssom.pct
@@ -81,6 +85,19 @@ val ButtonRequirements: FC<ButtonRequirementsProps> = FC { props ->
                     }
                 }
             }
+
+            if (solver.nextAction == props.command) {
+                Typography {
+                    sx {
+                        flexGrow = number(1.0)
+                        color = Colors.truth.main
+                    }
+
+                    variant = TypographyVariant.caption
+
+                    +"This is what a simple CDCL solver would do next"
+                }
+            }
         }
 
         +props.children
@@ -102,7 +119,6 @@ val CommandButton = FC<CommandButtonProps> { props ->
         this.command = command
         descriptionOverride = props.descriptionOverride
 
-
         Box {
             component = span
             sx = props.sx
@@ -110,7 +126,11 @@ val CommandButton = FC<CommandButtonProps> { props ->
             Button {
                 sx {
                     width = 100.pct
+                    if (command == solver.nextAction) {
+                        boxShadow = BoxShadow(0.pt, 0.pt, 4.pt, 4.pt, Colors.truth.light)
+                    }
                 }
+
                 size = props.size
                 variant = ButtonVariant.contained
                 disabled = !solver.canExecute(command)
@@ -135,9 +155,15 @@ val IconCommandButton: FC<CommandButtonProps> = FC { props ->
             sx = props.sx
 
             IconButton {
+                sx {
+                    if (command == solver.nextAction) {
+                        boxShadow = BoxShadow(0.pt, 0.pt, 4.pt, 4.pt, Colors.truth.light)
+                    }
+                }
                 size = props.size
-                color = IconButtonColor.primary
+
                 disabled = !solver.canExecute(command)
+                color = IconButtonColor.primary
                 onClick = { dispatch(command) }
                 +props.children
             }

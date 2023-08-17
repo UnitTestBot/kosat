@@ -2,6 +2,7 @@ import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.LBool
 import org.kosat.SolveResult
+import org.kosat.VSIDS
 import org.kosat.Var
 import org.kosat.cnf.CNF
 import org.kosat.get
@@ -217,6 +218,57 @@ class CdclState(initialProblem: CNF) {
                     "Literal is not assigned",
                 ),
             )
+        }
+    }
+
+    fun guessNextSolverAction(): SolverCommand? = inner.run {
+        val conflictLitsFromLastLevel = conflict?.lits?.count {
+            assignment.level(it) == assignment.decisionLevel
+        }
+
+        when {
+            !ok -> null
+
+            conflict != null
+                && conflictLitsFromLastLevel?.let { it > 1 } ?: false ->
+                SolverCommand.AnalyzeConflict
+
+            conflict != null
+                && conflictLitsFromLastLevel?.let { it == 1 } ?: false
+                && checkIfLearntCanBeMinimized(conflict!!) ->
+                SolverCommand.AnalysisMinimize
+
+            conflict != null
+                && conflictLitsFromLastLevel?.let { it == 1 } ?: false ->
+                SolverCommand.LearnAndBacktrack
+
+            conflict != null -> error("Unreachable")
+
+            assignment.qhead < assignment.trail.size ->
+                SolverCommand.Propagate
+
+            assignment.qhead == assignment.trail.size
+                && assignment.trail.size < assignment.numberOfActiveVariables ->
+                SolverCommand.Enqueue(run {
+                    val activities = (variableSelector as VSIDS).activity
+                    var bestVariable: Var? = null
+                    for (i in 0 until assignment.numberOfVariables) {
+                        val v = Var(i)
+                        if (assignment.isActive(v) && assignment.value(v) == LBool.UNDEF) {
+                            if (bestVariable == null || activities[v] > activities[bestVariable]) {
+                                bestVariable = v
+                            }
+                        }
+                    }
+
+                    if (polarity[bestVariable!!] == LBool.FALSE) {
+                        bestVariable.negLit
+                    } else {
+                        bestVariable.posLit
+                    }
+                })
+
+            else -> null
         }
     }
 

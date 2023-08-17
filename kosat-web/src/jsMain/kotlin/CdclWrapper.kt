@@ -8,6 +8,7 @@ data class CdclWrapper(
     val runEagerly: List<SolverCommand>,
 ) {
     val result by lazy { state.result }
+    val nextAction by lazy { state.guessNextSolverAction() }
 
     constructor() : this(
         history = emptyList(),

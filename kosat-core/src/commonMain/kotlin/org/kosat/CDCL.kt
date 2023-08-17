@@ -240,7 +240,7 @@ class CDCL {
      * Used for phase saving heuristic. Memorizes the polarity of
      * the given variable when it was last assigned, but reset during backtracking.
      */
-    private var polarity: MutableList<LBool> = mutableListOf()
+    var polarity: MutableList<LBool> = mutableListOf()
 
     /**
      * The assumptions given to an incremental solver.
