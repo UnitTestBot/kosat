@@ -173,6 +173,7 @@ val EagerlyRunButton: FC<EagerlyRunButtonProps> = FC { props ->
                 this.selected = selected
                 size = Size.small
                 color = ToggleButtonColor.primary
+                value = "placeholder"
 
                 onChange = { _, _ ->
                     dispatch(WrapperCommand.SetRunEagerly(props.command, !selected))

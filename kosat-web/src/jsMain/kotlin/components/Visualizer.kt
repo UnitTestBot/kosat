@@ -3,9 +3,7 @@ package components
 import cdclWrapperContext
 import emotion.react.css
 import mui.icons.material.Help
-import mui.icons.material.HelpOutline
 import mui.material.Box
-import mui.material.Icon
 import mui.material.Paper
 import mui.material.Tooltip
 import mui.material.Typography
@@ -94,7 +92,7 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
                 arrayOf(ident("input"), ident("state"), ident("trail")),
                 arrayOf(ident("input"), ident("db"), ident("trail")),
                 arrayOf(ident("assignment"), ident("assignment"), ident("trail")),
-                arrayOf(ident("history"), ident("actions"), ident("trail")),
+                arrayOf(ident("history"), ident("analysis"), ident("actions")),
             )
         }
 
@@ -140,6 +138,12 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
             gridArea = ident("trail")
             title = "Trail"
             TrailNode {}
+        }
+
+        SectionPaper {
+            gridArea = ident("analysis")
+            title = "Conflict Analysis"
+            AnalysisNode {}
         }
 
         SectionPaper {
