@@ -8,7 +8,9 @@ import mui.material.Typography
 import mui.system.sx
 import org.kosat.LBool
 import org.kosat.Lit
+import org.kosat.VSIDS
 import org.kosat.get
+import org.kosat.round
 import react.FC
 import react.Props
 import react.create
@@ -69,6 +71,10 @@ val LitNode: FC<LitProps> = FC { props ->
             }
 
             if (!data.active) Box { +"Inactive (eliminated)" }
+            if (data.active) Box {
+                val activity = (solver.state.inner.variableSelector as VSIDS).activity[lit.variable]
+                +"Active, VSIDS activity: ${activity.round(2)}"
+            }
             if (data.frozen) Box { +"Frozen" }
             if (value == LBool.TRUE) Box { +"Assigned to TRUE at level ${data.level}" }
             if (value == LBool.FALSE) Box { +"Assigned to FALSE at level ${data.level}" }
