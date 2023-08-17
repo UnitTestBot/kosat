@@ -15,9 +15,11 @@ import react.FC
 import react.Props
 import react.PropsWithChildren
 import react.create
+import react.dom.html.ReactHTML.h1
 import react.useContext
 import react.useEffect
 import react.useEffectOnce
+import react.useState
 import web.cssom.AlignSelf
 import web.cssom.Display
 import web.cssom.FlexDirection
@@ -108,6 +110,17 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
         cleanup {
             document.onkeydown = null
         }
+    }
+
+    Typography {
+        variant = TypographyVariant.h3
+        component = h1
+
+        css {
+            textAlign = TextAlign.center
+        }
+
+        +"KoSAT Visualizer"
     }
 
     Box {
