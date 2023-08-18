@@ -1,6 +1,9 @@
 package components
 
 import SolverCommand
+import bindings.FixedSizeGrid
+import bindings.FixedSizeGridItemParams
+import bindings.FixedSizeGridProps
 import cdclWrapperContext
 import mui.icons.material.Add
 import mui.icons.material.Remove
@@ -13,12 +16,59 @@ import mui.system.sx
 import org.kosat.Var
 import react.FC
 import react.Props
+import react.PropsWithStyle
+import react.create
 import react.useContext
 import web.cssom.AlignItems
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display
 import web.cssom.number
 import web.cssom.pt
+
+external interface AssignmentItemProps : PropsWithStyle {
+    @Suppress("INLINE_CLASS_IN_EXTERNAL_DECLARATION_WARNING")
+    var variable: Var
+}
+
+val AssignmentItem: FC<AssignmentItemProps> = FC { props ->
+    val v = props.variable
+    val varIndex = v.index
+
+    Stack {
+        key = varIndex.toString()
+        style = props.style
+
+        sx {
+            alignItems = AlignItems.center
+        }
+
+        LitNode {
+            lit = v.posLit
+        }
+
+        Stack {
+            direction = responsive(StackDirection.row)
+
+            IconCommandButton {
+                size = Size.small
+                command = SolverCommand.Enqueue(v.posLit)
+                descriptionOverride = """
+                                Assign this variable to true on a new decision level.
+                            """.trimIndent()
+                Add {}
+            }
+
+            IconCommandButton {
+                size = Size.small
+                command = SolverCommand.Enqueue(v.negLit)
+                descriptionOverride = """
+                                Assign this variable to false on a new decision level.
+                            """.trimIndent()
+                Remove {}
+            }
+        }
+    }
+}
 
 external interface AssignmentProps : Props
 
@@ -42,38 +92,29 @@ val AssignmentNode: FC<AssignmentProps> = FC {
             direction = responsive(StackDirection.row)
             spacing = responsive(8.pt)
 
-            for (varIndex in 0 until assignment.numberOfVariables) {
-                val v = Var(varIndex)
+            if (assignment.numberOfVariables < 30) {
+                for (varIndex in 0 until assignment.numberOfVariables) {
+                    val v = Var(varIndex)
 
-                Stack {
-                    key = varIndex.toString()
-                    sx {
-                        alignItems = AlignItems.center
+                    AssignmentItem {
+                        variable = v
                     }
+                }
+            } else {
+                FixedSizeGrid {
+                    columnCount = assignment.numberOfVariables
+                    columnWidth = 64
+                    height = 100
+                    rowCount = 1
+                    rowHeight = 64
+                    width = 1200
+                    children = { params: FixedSizeGridItemParams ->
+                        val varIndex = params.columnIndex
+                        val v = Var(varIndex)
 
-                    LitNode {
-                        lit = v.posLit
-                    }
-
-                    Stack {
-                        direction = responsive(StackDirection.row)
-
-                        IconCommandButton {
-                            size = Size.small
-                            command = SolverCommand.Enqueue(v.posLit)
-                            descriptionOverride = """
-                                Assign this variable to true on a new decision level.
-                            """.trimIndent()
-                            Add {}
-                        }
-
-                        IconCommandButton {
-                            size = Size.small
-                            command = SolverCommand.Enqueue(v.negLit)
-                            descriptionOverride = """
-                                Assign this variable to false on a new decision level.
-                            """.trimIndent()
-                            Remove {}
+                        AssignmentItem.create {
+                            style = params.style
+                            variable = v
                         }
                     }
                 }

@@ -3,15 +3,20 @@ package components
 import Colors
 import cdclWrapperContext
 import mui.material.Box
+import mui.material.Tooltip
+import mui.material.Typography
+import mui.material.styles.TypographyVariant
 import mui.system.sx
 import org.kosat.Clause
 import org.kosat.LBool
 import react.FC
 import react.Props
+import react.create
 import react.dom.html.ReactHTML.span
 import react.useContext
 import web.cssom.AlignItems
 import web.cssom.Display
+import web.cssom.FontWeight
 import web.cssom.JustifyContent
 import web.cssom.pt
 import web.cssom.scale
@@ -59,10 +64,27 @@ val ClauseNode: FC<ClauseProps> = FC { props ->
             }
         }
 
-        for (lit in clause.lits) {
+        for (lit in clause.lits.take(8)) {
             LitNode {
                 key = lit.toString()
                 this.lit = lit
+            }
+        }
+
+        if (clause.lits.size > 8) {
+            Tooltip {
+                Typography {
+                    variant = TypographyVariant.subtitle2
+                    sx {
+                        fontSize = 8.pt
+                        fontWeight = FontWeight.bolder
+                    }
+                    +"..."
+                }
+
+                title = Box.create {
+                    +clause.lits.map { it.toDimacs() }.joinToString(separator = " ")
+                }
             }
         }
     }

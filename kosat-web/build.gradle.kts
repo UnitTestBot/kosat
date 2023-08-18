@@ -19,6 +19,7 @@ kotlin {
                 implementation("org.jetbrains.kotlin-wrappers:kotlin-mui")
                 implementation("org.jetbrains.kotlin-wrappers:kotlin-mui-icons")
                 implementation("org.jetbrains.kotlin-wrappers:kotlin-emotion")
+                implementation(npm("react-window", "1.8.9"))
             }
         }
     }

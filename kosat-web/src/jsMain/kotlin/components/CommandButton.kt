@@ -1,5 +1,6 @@
 package components
 
+import Colors
 import SolverCommand
 import WrapperCommand
 import cdclDispatchContext

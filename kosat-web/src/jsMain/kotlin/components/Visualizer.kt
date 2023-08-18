@@ -92,16 +92,16 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
     useEffect(solver) {
         document.onkeydown = { event ->
             when {
-                event.ctrlKey && event.key == "z" && solver.canExecute(WrapperCommand.Undo) ->
-                    dispatch(WrapperCommand.Undo)
-                event.key == "ArrowUp" && solver.canExecute(WrapperCommand.Undo) ->
-                    dispatch(WrapperCommand.Undo)
-                event.ctrlKey && event.key == "y" && solver.canExecute(WrapperCommand.Redo) ->
-                    dispatch(WrapperCommand.Redo)
-                event.ctrlKey && event.key == "Z" && solver.canExecute(WrapperCommand.Redo) ->
-                    dispatch(WrapperCommand.Redo)
-                event.key == "ArrowDown" && solver.canExecute(WrapperCommand.Redo) ->
-                    dispatch(WrapperCommand.Redo)
+                event.ctrlKey && event.key == "z" && solver.canExecute(WrapperCommand.Undo()) ->
+                    dispatch(WrapperCommand.Undo())
+                event.key == "ArrowUp" && solver.canExecute(WrapperCommand.Undo(weak = true)) ->
+                    dispatch(WrapperCommand.Undo(weak = true))
+                event.ctrlKey && event.key == "y" && solver.canExecute(WrapperCommand.Redo()) ->
+                    dispatch(WrapperCommand.Redo())
+                event.ctrlKey && event.key == "Z" && solver.canExecute(WrapperCommand.Redo()) ->
+                    dispatch(WrapperCommand.Redo())
+                event.key == "ArrowDown" && solver.canExecute(WrapperCommand.Redo(weak = true)) ->
+                    dispatch(WrapperCommand.Redo(weak = true))
                 event.key == " " && solver.canExecute(SolverCommand.Propagate) ->
                     dispatch(SolverCommand.Propagate)
             }

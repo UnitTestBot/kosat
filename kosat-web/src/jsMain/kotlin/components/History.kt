@@ -2,6 +2,8 @@ package components
 
 import SolverCommand
 import WrapperCommand
+import bindings.FixedSizeList
+import bindings.FixedSizeListItemParams
 import cdclDispatchContext
 import cdclWrapperContext
 import mui.icons.material.SmartToy
@@ -14,6 +16,8 @@ import mui.material.styles.useTheme
 import mui.system.sx
 import react.FC
 import react.Props
+import react.PropsWithStyle
+import react.create
 import react.useContext
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display
@@ -21,7 +25,7 @@ import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
 
-external interface HistoryEntryProps : Props {
+external interface HistoryEntryProps : PropsWithStyle {
     var command: SolverCommand
     var historyIndex: Int
     var inFuture: Boolean
@@ -33,6 +37,8 @@ val HistoryEntry = FC<HistoryEntryProps> { props ->
     val theme = useTheme<Theme>()
 
     ListItemButton {
+        style = props.style
+
         if (props.command in solver.runEagerly) {
             ListItemIcon {
                 SmartToy {}
@@ -75,41 +81,86 @@ val History = FC<HistoryProps> { _ ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
 
-    mui.material.List {
-        sx {
-            flexGrow = number(1.0)
-            overflow = auto
-        }
-
-        dense = true
-
-        ListItemButton {
-            ListItemText {
-                +"Initial state"
+    if (solver.history.size + solver.redoHistory.size < 30) {
+        mui.material.List {
+            sx {
+                flexGrow = number(1.0)
+                overflow = auto
             }
 
-            onClick = {
-                dispatch(WrapperCommand.TimeTravel(0))
+            dense = true
+
+            ListItemButton {
+                ListItemText {
+                    +"Initial state"
+                }
+
+                onClick = {
+                    dispatch(WrapperCommand.TimeTravel(0))
+                }
+            }
+
+            for ((i, command) in solver.history.withIndex()) {
+                HistoryEntry {
+                    key = i.toString()
+                    historyIndex = i
+                    this.command = command
+                    inFuture = false
+                }
+            }
+
+            for ((i, command) in solver.redoHistory.withIndex()) {
+                val index = solver.history.size + i
+
+                HistoryEntry {
+                    key = index.toString()
+                    historyIndex = index
+                    this.command = command
+                    inFuture = true
+                }
             }
         }
+    } else {
+        FixedSizeList {
+            width = 400
+            height = 200
+            itemSize = 42
+            itemCount = solver.history.size + solver.redoHistory.size + 1
 
-        for ((i, command) in solver.history.withIndex()) {
-            HistoryEntry {
-                key = i.toString()
-                historyIndex = i
-                this.command = command
-                inFuture = false
-            }
-        }
+            children = { params: FixedSizeListItemParams ->
+                val index = params.index
 
-        for ((i, command) in solver.redoHistory.withIndex()) {
-            val index = solver.history.size + i
+                if (index == 0) {
+                    ListItemButton.create {
+                        style = params.style
 
-            HistoryEntry {
-                key = index.toString()
-                historyIndex = index
-                this.command = command
-                inFuture = true
+                        ListItemText {
+                            +"Initial state"
+                        }
+
+                        onClick = {
+                            dispatch(WrapperCommand.TimeTravel(0))
+                        }
+                    }
+                } else if (index - 1 < solver.history.size) {
+                    val command = solver.history[index - 1]
+
+                    HistoryEntry.create {
+                        style = params.style
+                        historyIndex = index - 1
+                        this.command = command
+                        inFuture = false
+                    }
+                } else {
+                    val command = solver.redoHistory[index - solver.history.size - 1]
+
+                    HistoryEntry.create {
+                        style = params.style
+                        historyIndex = index - 1
+                        this.command = command
+                        inFuture = true
+                    }
+                }
             }
         }
     }
@@ -126,7 +177,7 @@ val History = FC<HistoryProps> { _ ->
                 flexGrow = number(1.0)
             }
 
-            command = WrapperCommand.Undo
+            command = WrapperCommand.Undo()
             +"Undo"
         }
         CommandButton{
@@ -134,7 +185,7 @@ val History = FC<HistoryProps> { _ ->
                 flexGrow = number(1.0)
             }
 
-            command = WrapperCommand.Redo
+            command = WrapperCommand.Redo()
             +"Redo"
         }
     }

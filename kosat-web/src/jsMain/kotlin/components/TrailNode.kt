@@ -1,6 +1,8 @@
 package components
 
 import SolverCommand
+import bindings.FixedSizeList
+import bindings.FixedSizeListItemParams
 import cdclWrapperContext
 import mui.icons.material.Download
 import mui.icons.material.ExpandLess
@@ -21,6 +23,7 @@ import mui.material.styles.useTheme
 import mui.system.sx
 import react.FC
 import react.Props
+import react.create
 import react.useContext
 import react.useState
 import web.cssom.AlignItems
@@ -185,9 +188,7 @@ val TrailLevelNode: FC<TrailLevelProps> = FC { props ->
     }
 }
 
-external interface TrailProps : Props
-
-val TrailNode = FC<TrailProps> { _ ->
+val TrailNode = FC<Props> { _ ->
     val solver = useContext(cdclWrapperContext)!!
     val theme = useTheme<Theme>()
     val assignment = solver.state.inner.assignment
@@ -200,6 +201,7 @@ val TrailNode = FC<TrailProps> { _ ->
             overflow = auto
             padding = 8.pt
             margin = (-8).pt
+            minHeight = 48.pt
         }
 
         IconCommandButton {
@@ -225,14 +227,69 @@ val TrailNode = FC<TrailProps> { _ ->
         }
     }
 
-    List {
-        sx {
-            overflow = auto
-        }
+    if (assignment.trail.size < 30) {
+        List {
+            sx {
+                overflow = auto
+            }
 
-        for (level in 0..assignment.decisionLevel) {
-            TrailLevelNode {
-                this.level = level
+            for (level in 0..assignment.decisionLevel) {
+                TrailLevelNode {
+                    this.level = level
+                }
+            }
+        }
+    } else {
+        FixedSizeList {
+            width = 300
+            height = 600
+            itemSize = 42
+            itemCount = assignment.trail.size
+            children = { params: FixedSizeListItemParams ->
+                val index = params.index
+                val lit = assignment.trail[index]
+                val level = assignment.level(lit)
+                val reason = assignment.reason(lit.variable)
+
+                val firstInLevel = level == 0 && index == 0 || level > 0 && reason == null
+
+                Box.create {
+                    sx {
+                        display = Display.flex
+                        alignItems = AlignItems.center
+                        gap = 8.pt
+                    }
+
+                    style = params.style
+
+                    if (firstInLevel) {
+                        IconCommandButton {
+                            RestartAlt {}
+                            command = SolverCommand.Backtrack(level)
+                        }
+
+                        Typography {
+                            variant = TypographyVariant.subtitle2
+                            sx {
+                                fontSize = 14.pt
+                                fontWeight = FontWeight.bolder
+                                color = theme.palette.primary.main
+                            }
+                            +"Level $level"
+                        }
+                    }
+
+                    LitNode {
+                        this.lit = lit
+                    }
+
+                    if (reason != null) {
+                        ClauseNode {
+                            clause = reason
+                            scale = 0.8
+                        }
+                    }
+                }
             }
         }
     }
@@ -255,102 +312,4 @@ val TrailNode = FC<TrailProps> { _ ->
             }
         }
     }
-
-    /*
-
-    Box {
-        sx {
-            display = Display.flex
-            flexDirection = FlexDirection.column
-        }
-
-        for (level in 0..assignment.decisionLevel) {
-            Box {
-                sx {
-                    display = Display.flex
-                    flexDirection = FlexDirection.row
-                    backgroundColor = if (level % 2 == 0) {
-                        colors.evenLevel
-                    } else {
-                        colors.oddLevel
-                    }
-                }
-
-                key = level.toString()
-
-                LabelledNumber {
-                    label = "Level"
-                    value = level
-                }
-
-                Box {
-                    sx {
-                        flexGrow = number(1.0)
-                    }
-
-                    for (i in 0 until assignment.trail.size) {
-                        val lit = assignment.trail[i]
-                        if (assignment.level(lit) != level) continue
-
-                        Box {
-                            key = lit.toString()
-
-                            sx {
-                                display = Display.flex
-                                alignItems = AlignItems.center
-
-                                backgroundColor = when {
-                                    level % 2 == 0 && i % 2 == 0 -> colors.evenLevelEvenLit
-                                    level % 2 == 0 && i % 2 == 1 -> colors.evenLevelOddLit
-                                    level % 2 == 1 && i % 2 == 0 -> colors.oddLevelEvenLit
-                                    level % 2 == 1 && i % 2 == 1 -> colors.oddLevelOddLit
-                                    else -> null
-                                }
-
-                                if (i == assignment.qhead) {
-                                    border = Border(3.pt, LineStyle.solid, NamedColor.black)
-                                }
-                            }
-
-                            LitNode {
-                                this.lit = lit
-                            }
-
-                            if (assignment.reason(lit.variable) != null) {
-                                ClauseNode {
-                                    clause = assignment.reason(lit.variable)!!
-                                }
-                            }
-
-                            if (i == assignment.qhead) {
-                                Typography {
-                                    sx {
-                                        fontStyle = FontStyle.italic
-                                        fontSize = 10.pt
-                                        margin = 3.pt
-                                    }
-
-                                    +"qhead"
-                                }
-                            }
-
-                            if (i == assignment.qhead) {
-                                css {
-                                    backgroundColor = rgb(200, 200, 200)
-                                }
-                                Box {
-                                    component = span
-                                    css {
-                                        fontStyle = FontStyle.italic
-                                        margin = 3.pt
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-     */
 }

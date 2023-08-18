@@ -18,12 +18,12 @@ data class CdclWrapper(
         runEagerly = emptyList(),
     )
 
-    fun canExecute(command: WrapperCommand): Boolean {
-        return requirementsFor(command).all { it.fulfilled }
-    }
+    val canExecute: Memo<WrapperCommand, Boolean> = { command: WrapperCommand ->
+        requirementsFor(command).all { it.fulfilled }
+    }.memoized()
 
-    fun requirementsFor(command: WrapperCommand): List<Requirement> {
-        return when (command) {
+    val requirementsFor: Memo<WrapperCommand, List<Requirement>> = { command: WrapperCommand ->
+        when (command) {
             is WrapperCommand.Recreate -> emptyList()
 
             is WrapperCommand.Undo -> listOf(
@@ -54,7 +54,7 @@ data class CdclWrapper(
 
             is SolverCommand -> state.requirementsFor(command)
         }
-    }
+    }.memoized()
 
     fun execute(command: WrapperCommand): CdclWrapper {
         when (command) {
@@ -69,8 +69,10 @@ data class CdclWrapper(
                 val newUndoHistory = history.toMutableList()
                 val newRedoHistory = redoHistory.toMutableList()
 
-                while (newUndoHistory.lastOrNull() in runEagerly) {
-                    newRedoHistory.add(0, newUndoHistory.removeLast())
+                if (!command.weak) {
+                    while (newUndoHistory.lastOrNull() in runEagerly) {
+                        newRedoHistory.add(0, newUndoHistory.removeLast())
+                    }
                 }
 
                 if (newUndoHistory.isNotEmpty()) {
@@ -97,10 +99,12 @@ data class CdclWrapper(
                 state.execute(lastCommand)
                 newUndoHistory.add(lastCommand)
 
-                while (newRedoHistory.firstOrNull() in runEagerly) {
-                    val commandToRun = newRedoHistory.removeFirst()
-                    state.execute(commandToRun)
-                    newUndoHistory.add(commandToRun)
+                if (!command.weak) {
+                    while (newRedoHistory.firstOrNull() in runEagerly) {
+                        val commandToRun = newRedoHistory.removeFirst()
+                        state.execute(commandToRun)
+                        newUndoHistory.add(commandToRun)
+                    }
                 }
 
                 return copy(
@@ -155,7 +159,7 @@ data class CdclWrapper(
                     val commandToRun = runEagerly.sortedByDescending {
                         it.priority
                     }.firstOrNull {
-                        canExecute(it)
+                        state.requirementsFor(it).all { req -> req.fulfilled }
                     } ?: break
                     state.execute(commandToRun)
                     newHistory.add(commandToRun)

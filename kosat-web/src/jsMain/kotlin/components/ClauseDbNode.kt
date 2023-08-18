@@ -1,5 +1,7 @@
 package components
 
+import bindings.FixedSizeList
+import bindings.FixedSizeListItemParams
 import cdclWrapperContext
 import mui.material.Box
 import mui.material.Paper
@@ -11,6 +13,8 @@ import mui.system.sx
 import org.kosat.Clause
 import react.FC
 import react.Props
+import react.create
+import react.dom.html.ReactHTML.div
 import react.dom.html.ReactHTML.h3
 import react.useContext
 import web.cssom.Auto.Companion.auto
@@ -30,12 +34,30 @@ val ClauseList: FC<ClauseListProps> = FC { props ->
             display = Display.flex
             flexWrap = FlexWrap.wrap
             overflow = auto
+            minWidth = 200.pt
         }
 
-        for (clause in props.clauses) {
-            ClauseNode {
-                key = clause.toString()
-                this.clause = clause
+        if (props.clauses.size < 20) {
+            for (clause in props.clauses) {
+                ClauseNode {
+                    this.clause = clause
+                }
+            }
+        } else {
+            FixedSizeList {
+                children = { params: FixedSizeListItemParams ->
+                    val clause = props.clauses[params.index]
+                    div.create {
+                        style = params.style
+                        ClauseNode {
+                            this.clause = clause
+                        }
+                    }
+                }
+                height = 200
+                width = 400
+                itemSize = 42
+                itemCount = props.clauses.size
             }
         }
     }
@@ -50,7 +72,7 @@ val ClauseDbNode: FC<ClauseDbProps> = FC {
     Box {
         sx {
             display = Display.flex
-            flexDirection = FlexDirection.column
+            flexDirection = FlexDirection.row
             gap = 8.pt
             flexGrow = number(1.0)
             overflow = auto
@@ -64,6 +86,8 @@ val ClauseDbNode: FC<ClauseDbProps> = FC {
             sx {
                 padding = 8.pt
                 flexGrow = number(1.0)
+                minWidth = 200.pt
+                overflow = auto
             }
 
             Typography {
@@ -88,6 +112,8 @@ val ClauseDbNode: FC<ClauseDbProps> = FC {
             sx {
                 padding = 8.pt
                 flexGrow = number(1.0)
+                minWidth = 200.pt
+                overflow = auto
             }
 
             Typography {

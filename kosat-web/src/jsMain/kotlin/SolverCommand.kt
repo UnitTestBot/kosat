@@ -8,11 +8,11 @@ sealed interface WrapperCommand {
         override val description = "Create a new solver instance"
     }
 
-    data object Undo : WrapperCommand {
+    data class Undo(val weak: Boolean = false) : WrapperCommand {
         override val description = "Undo the last command"
     }
 
-    data object Redo : WrapperCommand {
+    data class Redo(val weak: Boolean = false) : WrapperCommand {
         override val description = "Redo the last undone command"
     }
 
