@@ -246,7 +246,7 @@ class CDCL {
     /**
      * The assumptions given to an incremental solver.
      */
-    private var assumptions: MutableList<Lit> = mutableListOf()
+    private var assumptions: DenseLitVec = DenseLitVec.empty
 
     /**
      * Solves the CNF problem using the CDCL algorithm.
@@ -258,7 +258,7 @@ class CDCL {
         // Unfreeze assumptions from the previous solve
         for (assumption in assumptions) assignment.unfreeze(assumption)
         // and assign new assumptions
-        assumptions = currentAssumptions.toMutableList()
+        assumptions = DenseLitVec(currentAssumptions)
 
         // If given clauses are already cause UNSAT, no need to do anything
         if (!ok) return finishWithUnsat()
@@ -642,8 +642,8 @@ class CDCL {
                                     "Discovered UNSAT due to complement literals being in the same SCC"
                                 )
                                 // Adding unit clauses is required for the proof
-                                dratBuilder.addClause(Clause(LitStore.of(w)))
-                                dratBuilder.addClause(Clause(LitStore.of(w.neg)))
+                                dratBuilder.addClause(Clause(DenseLitVec.of(w)))
+                                dratBuilder.addClause(Clause(DenseLitVec.of(w.neg)))
                                 return null
                             }
                             marks[w] = markProcessed
@@ -707,7 +707,7 @@ class CDCL {
             val willChange = clause.lits.any { representatives[it.variable] != null }
             if (!willChange) continue
 
-            val newLits = LitStore(clause.lits.map { representatives[it.variable]?.xor(it.isNeg) ?: it })
+            val newLits = DenseLitVec(clause.lits.map { representatives[it.variable]?.xor(it.isNeg) ?: it })
             val containsComplementary = sortDedupAndCheckComplimentary(newLits)
             // Note that clause cannot become empty,
             // however, it can contain complementary literals.
@@ -1046,7 +1046,7 @@ class CDCL {
         }
 
         requireNotNull(lca)
-        return Clause(LitStore.of(lca.neg, clause[0]), true)
+        return Clause(DenseLitVec.of(lca.neg, clause[0]), true)
     }
 
     /**
@@ -1642,7 +1642,7 @@ class CDCL {
                 bveMarkDeleted(state, otherClause)
             } else if (state.subsumptionMarks[mismatch.neg]) {
                 // Otherwise, we can strengthen the clause.
-                val strengthenedClause = Clause(LitStore(otherClause.lits.filter { it != mismatch }))
+                val strengthenedClause = Clause(DenseLitVec(otherClause.lits.filter { it != mismatch }))
                 // Note that we don't reset marks here with a hope that those
                 // will never be used after UNSAT anyway.
                 bveStats.clausesStrengthened++
@@ -1670,7 +1670,7 @@ class CDCL {
     private fun resolve(clause1: Clause, clause2: Clause, pivot: Var): Clause? {
         require(!clause1.learnt && !clause2.learnt)
         require(!clause1.deleted && !clause2.deleted)
-        val resolvent = mutableListOf<Lit>()
+        val resolvent = DenseLitVec.emptyOfCapacity(clause1.size + clause2.size - 2)
 
         for (lit in clause1.lits) {
             if (lit.variable == pivot) continue
@@ -1694,7 +1694,7 @@ class CDCL {
             return null
         }
 
-        return Clause(LitStore(resolvent))
+        return Clause(DenseLitVec(resolvent))
     }
 
     /**
@@ -1971,7 +1971,7 @@ class CDCL {
         // next propagate (only the first two literals are watched).
         learntLits.sortByDescending { assignment.level(it) }
 
-        val learnt = Clause(LitStore(learntLits), learnt = true)
+        val learnt = Clause(DenseLitVec(learntLits), learnt = true)
 
         // Sorting also helps to calculate the LBD of the learnt
         // without additional memory.
@@ -1991,8 +1991,8 @@ class CDCL {
  * then checks if the list contains a literal and its negation
  * and returns true if so.
  */
-private fun sortDedupAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
-    lits.sortBy { it.inner }
+private fun sortDedupAndCheckComplimentary(lits: DenseLitVec): Boolean {
+    lits.sort()
 
     var i = 0
     for (j in 1 until lits.size) {
@@ -2003,9 +2003,7 @@ private fun sortDedupAndCheckComplimentary(lits: MutableList<Lit>): Boolean {
         }
     }
 
-    while (lits.size > i + 1) {
-        lits.removeLast()
-    }
+    lits.retainFirst(i + 1)
 
     return false
 }

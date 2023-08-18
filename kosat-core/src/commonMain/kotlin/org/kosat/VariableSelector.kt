@@ -243,7 +243,7 @@ class FixedOrder : VariableSelector() {
 
     override fun nextDecision(assignment: Assignment): Lit? {
         // TODO: check indices
-        for (i in 1..assignment.value.lastIndex) {
+        for (i in 1 until assignment.numberOfVariables) {
             if (assignment.value(Var(i)) == LBool.UNDEF) return Lit(i)
         }
         return null
