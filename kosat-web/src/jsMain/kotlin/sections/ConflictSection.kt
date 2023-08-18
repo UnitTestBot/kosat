@@ -1,7 +1,10 @@
-package components
+package sections
 
 import SolverCommand
 import cdclWrapperContext
+import components.ClauseNode
+import components.CommandButton
+import components.EagerlyRunButton
 import mui.material.Box
 import mui.material.Stack
 import mui.material.Typography
@@ -21,9 +24,10 @@ import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
 
-external interface ActionsProps : Props
-
-val AnalysisNode: FC<ActionsProps> = FC {
+/**
+ * Section of the visualizer for analyzing the conflict.
+ */
+val ConflictSection: FC<Props> = FC("ConflictSection") {
     val solver = useContext(cdclWrapperContext)!!
     val theme = useTheme<Theme>()
 

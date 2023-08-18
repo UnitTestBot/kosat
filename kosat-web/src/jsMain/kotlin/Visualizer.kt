@@ -1,8 +1,3 @@
-package components
-
-import SolverCommand
-import cdclDispatchContext
-import cdclWrapperContext
 import emotion.react.css
 import mui.icons.material.Help
 import mui.material.Box
@@ -18,8 +13,14 @@ import react.create
 import react.dom.html.ReactHTML.h1
 import react.useContext
 import react.useEffect
-import react.useEffectOnce
-import react.useState
+import sections.ActionsSection
+import sections.AssignmentSection
+import sections.ClauseDbSection
+import sections.ConflictSection
+import sections.HistorySection
+import sections.InputSection
+import sections.StateSection
+import sections.TrailSection
 import web.cssom.AlignSelf
 import web.cssom.Display
 import web.cssom.FlexDirection
@@ -42,7 +43,10 @@ external interface SectionPaperProps : PropsWithChildren {
     var maxHeight: Length?
 }
 
-val SectionPaper: FC<SectionPaperProps> = FC { props ->
+/**
+ * A [Paper] for each section of the visualizer.
+ */
+private val SectionPaper: FC<SectionPaperProps> = FC("SectionPaper") { props ->
     Paper {
         elevation = 3
 
@@ -83,9 +87,13 @@ val SectionPaper: FC<SectionPaperProps> = FC { props ->
     }
 }
 
-external interface VisualizerProps : Props
-
-val Visualizer: FC<VisualizerProps> = FC { _ ->
+/**
+ * The main visualizer component.
+ *
+ * It is composed of several sections, each of which displays a different
+ * aspect of the solver.
+ */
+val Visualizer: FC<Props> = FC("Visualizer") { _ ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
 
@@ -142,7 +150,7 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
             gridArea = ident("input")
             title = "Input"
 
-            InputNode {}
+            InputSection {}
 
             description = """
                 Input clauses are parsed from the input text field. 
@@ -153,45 +161,45 @@ val Visualizer: FC<VisualizerProps> = FC { _ ->
         SectionPaper {
             gridArea = ident("history")
             title = "Time Travel"
-            History {}
+            HistorySection {}
         }
 
         solver.state.inner.run {
             SectionPaper {
                 gridArea = ident("state")
                 title = "Solver State"
-                StateNode {}
+                StateSection {}
             }
 
             SectionPaper {
                 gridArea = ident("db")
                 title = "Clause Database"
-                ClauseDbNode {}
+                ClauseDbSection {}
             }
 
             SectionPaper {
                 gridArea = ident("assignment")
                 title = "Assignment"
-                AssignmentNode {}
+                AssignmentSection {}
             }
         }
 
         SectionPaper {
             gridArea = ident("trail")
             title = "Trail"
-            TrailNode {}
+            TrailSection {}
         }
 
         SectionPaper {
             gridArea = ident("analysis")
             title = "Conflict Analysis"
-            AnalysisNode {}
+            ConflictSection {}
         }
 
         SectionPaper {
             gridArea = ident("actions")
             title = "Actions"
-            ActionsNode {}
+            ActionsSection {}
         }
     }
 }

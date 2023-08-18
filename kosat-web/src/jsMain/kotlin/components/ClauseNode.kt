@@ -26,7 +26,10 @@ external interface ClauseProps : Props {
     var scale: Double?
 }
 
-val ClauseNode: FC<ClauseProps> = FC { props ->
+/**
+ * Component for displaying a single clause.
+ */
+val ClauseNode: FC<ClauseProps> = FC("ClauseNode") { props ->
     val clause = props.clause
     val solver = useContext(cdclWrapperContext)!!
 
@@ -76,8 +79,9 @@ val ClauseNode: FC<ClauseProps> = FC { props ->
                 Typography {
                     variant = TypographyVariant.subtitle2
                     sx {
-                        fontSize = 8.pt
+                        fontSize = 16.pt
                         fontWeight = FontWeight.bolder
+                        paddingLeft = 4.pt
                     }
                     +"..."
                 }

@@ -1,4 +1,4 @@
-package components
+package sections
 
 import WrapperCommand
 import cdclDispatchContext
@@ -8,8 +8,6 @@ import mui.material.Button
 import mui.material.ButtonVariant
 import mui.material.Dialog
 import mui.material.DialogContent
-import mui.material.DialogContentText
-import mui.material.DialogTitle
 import mui.material.TextField
 import mui.system.sx
 import org.kosat.cnf.CNF
@@ -18,17 +16,15 @@ import react.Props
 import react.dom.onChange
 import react.useContext
 import react.useState
-import web.cssom.Auto
 import web.cssom.FontFamily
-import web.cssom.Length
 import web.cssom.Overflow
 import web.cssom.number
 import web.cssom.pct
-import web.cssom.pt
 
-external interface InputProps : Props
-
-val InputNode: FC<InputProps> = FC {
+/**
+ * A section dedicated to inputting a CNF.
+ */
+val InputSection: FC<Props> = FC("InputSection") {
     val dispatch = useContext(cdclDispatchContext)!!
     var error by useState<String?>(null)
     var errorShown by useState(false)

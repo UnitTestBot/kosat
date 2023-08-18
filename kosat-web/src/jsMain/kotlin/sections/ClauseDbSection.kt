@@ -1,8 +1,9 @@
-package components
+package sections
 
 import bindings.FixedSizeList
 import bindings.FixedSizeListItemParams
 import cdclWrapperContext
+import components.ClauseNode
 import mui.material.Box
 import mui.material.Paper
 import mui.material.Typography
@@ -24,11 +25,15 @@ import web.cssom.FlexWrap
 import web.cssom.number
 import web.cssom.pt
 
-external interface ClauseListProps : Props {
+private external interface ClauseListProps : Props {
     var clauses: List<Clause>
 }
 
-val ClauseList: FC<ClauseListProps> = FC { props ->
+/**
+ * Component for displaying a list of clauses. Falls back to a fixed size list
+ * if there are too many clauses.
+ */
+private val ClauseList: FC<ClauseListProps> = FC("ClauseList") { props ->
     Box {
         sx {
             display = Display.flex
@@ -63,9 +68,10 @@ val ClauseList: FC<ClauseListProps> = FC { props ->
     }
 }
 
-external interface ClauseDbProps : Props
-
-val ClauseDbNode: FC<ClauseDbProps> = FC {
+/**
+ * Section of the visualizer for displaying the clause database.
+ */
+val ClauseDbSection: FC<Props> = FC("ClauseDbSection") {
     val theme = useTheme<Theme>()
     val solver = useContext(cdclWrapperContext)!!
 

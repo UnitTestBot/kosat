@@ -1,9 +1,14 @@
-package components
+package sections
 
 import SolverCommand
 import bindings.FixedSizeList
 import bindings.FixedSizeListItemParams
 import cdclWrapperContext
+import components.ClauseNode
+import components.CommandButton
+import components.EagerlyRunButton
+import components.IconCommandButton
+import components.LitNode
 import mui.icons.material.Download
 import mui.icons.material.ExpandLess
 import mui.icons.material.ExpandMore
@@ -38,11 +43,17 @@ import web.cssom.pct
 import web.cssom.pt
 import web.cssom.rgb
 
-external interface TrailLevelProps : Props {
+private external interface TrailLevelProps : Props {
     var level: Int
 }
 
-val TrailLevelNode: FC<TrailLevelProps> = FC { props ->
+/**
+ * A level of the trail, when the trail is displayed as a list.
+ *
+ * If there are too many literals on the trail, a [FixedSizeList] is used
+ * instead with a similar representation.
+ */
+private val TrailLevel: FC<TrailLevelProps> = FC("TrailLevel") { props ->
     var opened by useState(true)
     val solver = useContext(cdclWrapperContext)!!
     val assignment = solver.state.inner.assignment
@@ -188,7 +199,11 @@ val TrailLevelNode: FC<TrailLevelProps> = FC { props ->
     }
 }
 
-val TrailNode = FC<Props> { _ ->
+/**
+ * Section for displaying the trail of the solver, propagating, and
+ * backtracking.
+ */
+val TrailSection: FC<Props> = FC("TrailSection") { _ ->
     val solver = useContext(cdclWrapperContext)!!
     val theme = useTheme<Theme>()
     val assignment = solver.state.inner.assignment
@@ -234,7 +249,7 @@ val TrailNode = FC<Props> { _ ->
             }
 
             for (level in 0..assignment.decisionLevel) {
-                TrailLevelNode {
+                TrailLevel {
                     this.level = level
                 }
             }

@@ -1,7 +1,8 @@
-package components
+package sections
 
 import Colors
 import cdclWrapperContext
+import components.LabelledNumber
 import mui.material.Box
 import mui.material.Card
 import mui.material.Stack
@@ -24,11 +25,15 @@ import web.cssom.FlexDirection
 import web.cssom.number
 import web.cssom.pt
 
-external interface StateNodeCardProps : PropsWithChildren {
+private external interface StateCardProps : PropsWithChildren {
     var title: String
 }
 
-val StateNodeCard: FC<StateNodeCardProps> = FC { props ->
+/**
+ * A card that displays a single piece of information about the current state
+ * of the solver.
+ */
+private val StateCard: FC<StateCardProps> = FC("StateCard") { props ->
     Card {
         elevation = 3
 
@@ -49,10 +54,12 @@ val StateNodeCard: FC<StateNodeCardProps> = FC { props ->
     }
 }
 
-
-external interface StateProps : Props
-
-val StateNode: FC<StateProps> = FC {
+/**
+ * Section for displaying the general information about the current state of the
+ * solver, such as the current decision level, the number of unassigned
+ * variables, etc.
+ */
+val StateSection: FC<Props> = FC("StateSection") {
     val solver = useContext(cdclWrapperContext)!!
 
     Box {
@@ -61,7 +68,7 @@ val StateNode: FC<StateProps> = FC {
             gap = 8.pt
         }
 
-        StateNodeCard {
+        StateCard {
             title = "Result"
 
             when (solver.result) {
@@ -88,7 +95,7 @@ val StateNode: FC<StateProps> = FC {
         }
 
         solver.state.inner.run {
-            StateNodeCard {
+            StateCard {
                 title = "Level"
 
                 Typography {
@@ -98,7 +105,7 @@ val StateNode: FC<StateProps> = FC {
                 }
             }
 
-            StateNodeCard {
+            StateCard {
                 title = "Variables"
 
                 Stack {

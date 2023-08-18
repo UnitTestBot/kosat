@@ -1,10 +1,11 @@
-package components
+package sections
 
 import SolverCommand
 import bindings.FixedSizeGrid
 import bindings.FixedSizeGridItemParams
-import bindings.FixedSizeGridProps
 import cdclWrapperContext
+import components.IconCommandButton
+import components.LitNode
 import mui.icons.material.Add
 import mui.icons.material.Remove
 import mui.material.Box
@@ -25,12 +26,15 @@ import web.cssom.Display
 import web.cssom.number
 import web.cssom.pt
 
-external interface AssignmentItemProps : PropsWithStyle {
+private external interface AssignmentItemProps : PropsWithStyle {
     @Suppress("INLINE_CLASS_IN_EXTERNAL_DECLARATION_WARNING")
     var variable: Var
 }
 
-val AssignmentItem: FC<AssignmentItemProps> = FC { props ->
+/**
+ * Component for displaying a single variable in the assignment.
+ */
+private val AssignmentItem: FC<AssignmentItemProps> = FC("AssigmentItem") { props ->
     val v = props.variable
     val varIndex = v.index
 
@@ -70,9 +74,11 @@ val AssignmentItem: FC<AssignmentItemProps> = FC { props ->
     }
 }
 
-external interface AssignmentProps : Props
-
-val AssignmentNode: FC<AssignmentProps> = FC {
+/**
+ * Section of the visualizer for displaying the current assignment and assigning
+ * values to variables.
+ */
+val AssignmentSection: FC<Props> = FC("AssignmentSection") {
     val solver = useContext(cdclWrapperContext)!!
     val assignment = solver.state.inner.assignment
 
@@ -92,6 +98,7 @@ val AssignmentNode: FC<AssignmentProps> = FC {
             direction = responsive(StackDirection.row)
             spacing = responsive(8.pt)
 
+            // We fall back to a fixed size grid if there are too many variables
             if (assignment.numberOfVariables < 30) {
                 for (varIndex in 0 until assignment.numberOfVariables) {
                     val v = Var(varIndex)

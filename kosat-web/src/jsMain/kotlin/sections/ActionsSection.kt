@@ -1,7 +1,8 @@
-package components
+package sections
 
 import cdclDispatchContext
 import cdclWrapperContext
+import components.CommandButton
 import mui.material.Button
 import mui.material.ButtonVariant
 import mui.material.Stack
@@ -11,7 +12,12 @@ import react.Props
 import react.useContext
 import web.cssom.pt
 
-val ActionsNode: FC<Props> = FC {
+/**
+ * Section of the visualizer that contains primary buttons to control the
+ * solver, which is currently only the "Search" button, and "Next action"
+ * button.
+ */
+val ActionsSection: FC<Props> = FC("ActionsSection") {
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
 

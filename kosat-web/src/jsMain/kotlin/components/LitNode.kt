@@ -31,7 +31,10 @@ external interface LitProps : Props {
     var lit: Lit
 }
 
-val LitNode: FC<LitProps> = FC { props ->
+/**
+ * Displays a literal and its information in the tooltip.
+ */
+val LitNode: FC<LitProps> = FC("LitNode") { props ->
     val solver = useContext(cdclWrapperContext)!!
 
     val lit = props.lit

@@ -1,4 +1,4 @@
-package components
+package sections
 
 import SolverCommand
 import WrapperCommand
@@ -6,6 +6,7 @@ import bindings.FixedSizeList
 import bindings.FixedSizeListItemParams
 import cdclDispatchContext
 import cdclWrapperContext
+import components.CommandButton
 import mui.icons.material.SmartToy
 import mui.material.ButtonGroup
 import mui.material.ListItemButton
@@ -25,13 +26,16 @@ import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
 
-external interface HistoryEntryProps : PropsWithStyle {
+private external interface HistoryEntryProps : PropsWithStyle {
     var command: SolverCommand
     var historyIndex: Int
     var inFuture: Boolean
 }
 
-val HistoryEntry = FC<HistoryEntryProps> { props ->
+/**
+ * Displays a single command in the history and allows the user to jump to it.
+ */
+private val HistoryEntry: FC<HistoryEntryProps> = FC("HistoryEntry") { props ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
     val theme = useTheme<Theme>()
@@ -75,9 +79,14 @@ val HistoryEntry = FC<HistoryEntryProps> { props ->
     }
 }
 
-external interface HistoryProps : Props
-
-val History = FC<HistoryProps> { _ ->
+/**
+ * Displays a list of all commands that have been run, and allows the user
+ * to undo or redo them.
+ *
+ * @see CdclWrapper.history
+ * @see WrapperCommand.TimeTravel
+ */
+val HistorySection: FC<Props> = FC("HistorySection") { _ ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
 

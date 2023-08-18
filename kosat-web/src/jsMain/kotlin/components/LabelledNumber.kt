@@ -15,7 +15,10 @@ external interface LabelledNumberProps : Props {
     var value: Int
 }
 
-val LabelledNumber: FC<LabelledNumberProps> = FC { props ->
+/**
+ * Displays a number with a label above it.
+ */
+val LabelledNumber: FC<LabelledNumberProps> = FC("LabelledNumber") { props ->
     Box {
         sx {
             alignItems = AlignItems.center

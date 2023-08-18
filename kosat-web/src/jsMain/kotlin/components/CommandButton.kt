@@ -1,5 +1,6 @@
 package components
 
+import CdclWrapper
 import Colors
 import SolverCommand
 import WrapperCommand
@@ -35,12 +36,16 @@ import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
 
-external interface ButtonRequirementsProps : PropsWithChildren {
+private external interface ButtonRequirementsProps : PropsWithChildren {
     var command: WrapperCommand
     var descriptionOverride: String?
 }
 
-val ButtonRequirements: FC<ButtonRequirementsProps> = FC { props ->
+/**
+ * Displays a tooltip with a description of a command, and the requirements
+ * to run it with a checkbox for each requirement.
+ */
+private val ButtonRequirements: FC<ButtonRequirementsProps> = FC("ButtonRequirements") { props ->
     val solver = useContext(cdclWrapperContext)!!
 
     val requirements = solver.requirementsFor(props.command)
@@ -108,7 +113,17 @@ external interface CommandButtonProps : PropsWithChildren, PropsWithSx {
     var descriptionOverride: String?
 }
 
-val CommandButton = FC<CommandButtonProps> { props ->
+/**
+ * Displays a button that dispatches a command when clicked, and automatically
+ * disables the button when the command cannot be executed.
+ *
+ * The tooltip is attached to the button, and displays the command description
+ * and the requirements to run it.
+ *
+ * @see IconCommandButton
+ * @see WrapperCommand
+ */
+val CommandButton: FC<CommandButtonProps> = FC("CommandButton") { props ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
 
@@ -139,7 +154,17 @@ val CommandButton = FC<CommandButtonProps> { props ->
     }
 }
 
-val IconCommandButton: FC<CommandButtonProps> = FC { props ->
+/**
+ * Displays an icon button that dispatches a command when clicked, and
+ * automatically disables the button when the command cannot be executed.
+ *
+ * The tooltip is attached to the button, and displays the command description
+ * and the requirements to run it.
+ *
+ * @see CommandButton
+ * @see WrapperCommand
+ */
+val IconCommandButton: FC<CommandButtonProps> = FC("IconCommandButton") { props ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
 
@@ -174,7 +199,12 @@ external interface EagerlyRunButtonProps : PropsWithSx {
     var description: String
 }
 
-val EagerlyRunButton: FC<EagerlyRunButtonProps> = FC { props ->
+/**
+ * Displays a toggle button that toggles eagerly running a command when clicked.
+ *
+ * @see CdclWrapper.runEagerly
+ */
+val EagerlyRunButton: FC<EagerlyRunButtonProps> = FC("EagerlyRunButton") { props ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
     val selected = solver.runEagerly.contains(props.command)
