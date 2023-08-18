@@ -18,7 +18,7 @@ data class VarState(
 )
 
 class Assignment(private val solver: CDCL) {
-    val value: DenseLBoolVec = DenseLBoolVec(0)
+    val value: MutableList<LBool> = mutableListOf()
     val varData: MutableList<VarState> = mutableListOf()
     val trail: DenseLitVec = DenseLitVec.empty
     val numberOfVariables get() = value.size
@@ -36,7 +36,7 @@ class Assignment(private val solver: CDCL) {
      */
     fun value(v: Var): LBool {
         // require(isActive(v))
-        return value[v.index]
+        return value[v]
     }
 
     /**
@@ -44,7 +44,7 @@ class Assignment(private val solver: CDCL) {
      */
     fun value(lit: Lit): LBool {
         // require(isActive(lit))
-        return value[lit.variable.index] xor lit.isNeg
+        return value[lit.variable] xor lit.isNeg
     }
 
     /** @return whether the variable is [VarState.frozen] */
@@ -96,7 +96,7 @@ class Assignment(private val solver: CDCL) {
     fun markInactive(lit: Lit) = markInactive(lit.variable)
 
     fun unassign(v: Var) {
-        value[v.index] = LBool.UNDEF
+        value[v] = LBool.UNDEF
         varData[v].reason = null
         varData[v].level = -1
         varData[v].trailIndex = -1
@@ -136,7 +136,7 @@ class Assignment(private val solver: CDCL) {
 
     fun addVariable() {
         check(decisionLevel == 0)
-        value.add()
+        value.add(LBool.UNDEF)
         varData.add(VarState(null, -1))
         if (numberOfActiveVariables > trail.capacity) {
             trail.grow()
@@ -153,7 +153,7 @@ class Assignment(private val solver: CDCL) {
 
         if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(DenseLitVec.of(lit)))
 
-        value[lit.variable.index] = LBool.from(lit.isPos)
+        value[lit.variable] = LBool.from(lit.isPos)
         varData[lit.variable].reason = reason
         varData[lit.variable].level = decisionLevel
         varData[lit.variable].trailIndex = trail.size
@@ -185,46 +185,5 @@ class Assignment(private val solver: CDCL) {
         } else {
             null
         }
-    }
-}
-
-class DenseLBoolVec(size: Int) {
-    private var raw = LongArray(64)
-    var size: Int = size
-        private set
-    private val capacity get() = raw.size shl 5
-
-    fun add() {
-        if (size == capacity) {
-            raw = raw.copyOf(raw.size * 2)
-        }
-        size++
-    }
-
-    operator fun get(index: Int): LBool {
-        val word = raw[index shr 5]
-        val offset = (index and 0b11111) shl 1
-        val mask = 0b11L shl offset
-        val result = when ((word and mask) ushr offset) {
-            0b01L -> LBool.FALSE
-            0b10L -> LBool.TRUE
-            else -> LBool.UNDEF
-        }
-        return result
-    }
-
-    operator fun set(index: Int, value: LBool) {
-        val encoded = when (value) {
-            LBool.UNDEF -> 0b00L
-            LBool.FALSE -> 0b01L
-            LBool.TRUE -> 0b10L
-        }
-
-        val wordIndex = index shr 5
-        val word = raw[wordIndex]
-        val offset = (index and 0b11111) shl 1
-        val mask = 0b11L shl offset
-
-        raw[wordIndex] = (word and mask.inv()) or (encoded shl offset)
     }
 }
