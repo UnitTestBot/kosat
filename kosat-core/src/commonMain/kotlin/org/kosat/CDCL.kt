@@ -1065,17 +1065,15 @@ class CDCL {
         private fun left(v: Int) = 2 * v + 1
         private fun right(v: Int) = 2 * v + 2
 
-        private fun swap(v: Int, u: Int) {
-            indices[heap[v]] = u
-            indices[heap[u]] = v
-            heap.swap(v, u)
-        }
-
         private fun siftUp(x: Var) {
             var v = indices[x]!!
             var p = parent(v)
-            while (v > 0 && keys[heap[p]] < keys[heap[v]]) {
-                swap(v, p)
+            val hp = heap[p]
+            val hv = heap[v]
+            while (v > 0 && keys[hp] < keys[hv]) {
+                indices[hv] = p
+                indices[hp] = v
+                heap.swap(v, p)
                 v = p
                 p = parent(v)
             }
@@ -1087,10 +1085,13 @@ class CDCL {
                 val l = left(v)
                 val r = right(v)
                 var smallest = v
-                if (l < size && keys[heap[l]] < keys[heap[smallest]]) smallest = l
+                val hv = heap[v]
+                if (l < size && keys[heap[l]] < keys[hv]) smallest = l
                 if (r < size && keys[heap[r]] < keys[heap[smallest]]) smallest = r
                 if (smallest == v) break
-                swap(v, smallest)
+                indices[hv] = smallest
+                indices[heap[smallest]] = v
+                heap.swap(v, smallest)
                 v = smallest
             }
         }
@@ -1107,7 +1108,10 @@ class CDCL {
         fun pop(): Var {
             require(size > 0)
             val result = Var(heap[0])
-            swap(0, size - 1)
+            val u = size - 1
+            indices[heap[0]] = u
+            indices[heap[u]] = 0
+            heap.swap(0, u)
             size--
             siftDown(Var(heap[0]))
             indices[result] = null

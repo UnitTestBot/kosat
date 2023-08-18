@@ -32,7 +32,7 @@ data class Clause(
     }
 }
 
-class DenseLitVec private constructor(var raw: IntArray, size: Int) : List<Lit> {
+class DenseLitVec(var raw: IntArray, size: Int) : List<Lit> {
     override var size = size
 
     val capacity get() = raw.size
