@@ -43,7 +43,14 @@ class CdclState(initialProblem: CNF) {
         when (command) {
             is SolverCommand.Solve -> inner.solve()
 
-            is SolverCommand.Search -> inner.search()
+            is SolverCommand.Search -> {
+                // FIXME: workaround, same as above
+                inner.variableSelector.build(
+                    inner.db.clauses +
+                        Clause(MutableList(inner.assignment.numberOfVariables) { Var(it).posLit })
+                )
+                inner.search()
+            }
 
             is SolverCommand.Propagate -> {
                 conflict = inner.propagate()
