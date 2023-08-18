@@ -197,6 +197,9 @@ val TrailNode = FC<TrailProps> { _ ->
             display = Display.flex
             gap = 8.pt
             alignItems = AlignItems.center
+            overflow = auto
+            padding = 8.pt
+            margin = (-8).pt
         }
 
         IconCommandButton {
