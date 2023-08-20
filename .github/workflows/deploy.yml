@@ -1,0 +1,41 @@
+name: Deploy site
+
+on:
+  push:
+    branches: [main, feature/deploy]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: zulu
+          java-version: 11
+
+      - name: Setup build cache
+        uses: actions/cache/save@v3
+        if: always()
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - name: Build project using Gradle
+        run: ./gradlew build -x test -x jvmTest --stacktrace --scan
+
+      - name: Deploy web app
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        uses: JamesIves/github-pages-deploy-action@4
+        with:
+          folder: kosat-web/build/dist
+          target-folder: docs
