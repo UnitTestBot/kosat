@@ -37,7 +37,7 @@ jobs:
         run: ./gradlew build -x test -x jvmTest --stacktrace --scan
 
       - name: Deploy web app
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        # if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: kosat-web/build/dist
