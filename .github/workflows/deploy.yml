@@ -22,13 +22,16 @@ jobs:
           distribution: zulu
           java-version: 11
 
-      - name: Setup build cache
-        uses: actions/cache/save@v3
-        if: always()
+      - name: Restore build cache
+        uses: actions/cache/restore@v3
+        id: restore-build-cache
         with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
-          restore-keys: ${{ runner.os }}-gradle-
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
       - name: Build project using Gradle
         run: ./gradlew build -x test -x jvmTest --stacktrace --scan
@@ -39,3 +42,12 @@ jobs:
         with:
           folder: kosat-web/build/dist
           target-folder: docs
+
+      - name: Save build cache
+        uses: actions/cache/save@v3
+        if: always()
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
