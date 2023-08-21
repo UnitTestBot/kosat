@@ -68,6 +68,7 @@ class ClauseDatabase(private val solver: CDCL) {
      * in the remaining clauses.
      */
     fun simplify() {
+        solver.dratBuilder.addComment("Simplifying clauses")
         outer@ for (clause in clauses + learnts) {
             if (clause.deleted) continue
 
@@ -84,19 +85,19 @@ class ClauseDatabase(private val solver: CDCL) {
 
             if (!needsShrink) continue
 
-            val clauseClone = Clause(clause.lits.toMutableList())
+            val newClause = clause.copy(lits = clause.lits.toMutableList())
 
-            clause.lits.removeAll {
+            newClause.lits.removeAll {
                 solver.assignment.fixed(it) == LBool.FALSE
             }
 
-            if (clause.learnt) {
-                solver.dratBuilder.addClause(clause)
-                solver.dratBuilder.deleteClause(clauseClone)
-            }
+            solver.attachClause(newClause)
+            solver.markDeleted(clause)
 
-            check(clause.size >= 2)
+            check(newClause.size >= 2)
         }
+
+        solver.dratBuilder.addComment("Simplification done")
     }
 
     /**

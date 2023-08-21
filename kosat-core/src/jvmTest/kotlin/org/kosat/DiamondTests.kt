@@ -6,9 +6,9 @@ import korlibs.time.measureTimeWithResult
 import korlibs.time.roundMilliseconds
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
+import okio.Sink
 import okio.buffer
 import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -35,6 +35,7 @@ internal class DiamondTests {
         private val testsPath = workingDir.resolve("src/jvmTest/resources")
         private val assumptionTestsPath = testsPath.resolve("testCover")
         private val benchmarksPath = testsPath.resolve("benchmarks")
+        private val incrementalTestsPath = testsPath.resolve("testCover")
 
         private val dratTrimExecutable: Path = Paths.get("drat-trim")
         private val generateAndCheckDrat = System.getenv()["TEST_CHECK_UNSAT_PROOF"]?.let { it == "true" } ?: false
@@ -77,6 +78,14 @@ internal class DiamondTests {
         }
 
         @JvmStatic
+        private fun getIncrementalFiles(): List<Arguments> {
+            return Files.walk(incrementalTestsPath)
+                .filter { isTestFile(it) }
+                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .toList()
+        }
+
+        @JvmStatic
         private fun getBenchmarkFiles(): List<Arguments> {
             return Files.walk(benchmarksPath)
                 .filter { isTestFile(it) }
@@ -86,20 +95,18 @@ internal class DiamondTests {
     }
 
     private fun solveWithMiniSat(cnf: CNF): SolveResult {
-        MiniSatSolver().close()
-
-        return with(MiniSatSolver()) {
-            val lits = List(cnf.numVars) { newLiteral() }
+        return MiniSatSolver().use { minisat ->
+            val lits = List(cnf.numVars) { minisat.newLiteral() }
             for (clause in cnf.clauses) {
-                addClause(clause.map { it.sign * lits[abs(it) - 1] })
+                minisat.addClause(clause.map { it.sign * lits[abs(it) - 1] })
             }
-            val result = if (solve()) {
+            val result = if (minisat.solve()) {
                 SolveResult.SAT
             } else {
                 SolveResult.UNSAT
             }
-            println("MiniSat conflicts: ${backend.numberOfConflicts}")
-            println("Minisat decisions: ${backend.numberOfDecisions}")
+            println("MiniSat conflicts: ${minisat.backend.numberOfConflicts}")
+            println("Minisat decisions: ${minisat.backend.numberOfDecisions}")
             println("MiniSat result: $result")
 
             result
@@ -114,10 +121,18 @@ internal class DiamondTests {
         val solver = CDCL(cnf)
 
         val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
+        var dratSink: Sink? = null
+        var dratBufferedSink: okio.BufferedSink? = null
 
-        if (generateAndCheckDrat) {
-            solver.dratBuilder = DratBuilder(FileSystem.SYSTEM.sink(dratPath).buffer())
+        val dratBuilder = if (generateAndCheckDrat) {
+            dratSink = FileSystem.SYSTEM.sink(dratPath)
+            dratBufferedSink = dratSink.buffer()
+            DratBuilder(dratBufferedSink)
+        } else {
+            NoOpDratBuilder()
         }
+
+        solver.dratBuilder = dratBuilder
 
         val (resultActual, timeKoSat) = measureTimeWithResult {
             solver.solve()
@@ -178,6 +193,9 @@ internal class DiamondTests {
             }
         }
 
+        dratSink?.close()
+        dratBufferedSink?.close()
+
         println("MiniSat time: ${timeMiniSat.roundMilliseconds()}")
         println("KoSat time: ${timeKoSat.roundMilliseconds()}")
     }
@@ -226,6 +244,54 @@ internal class DiamondTests {
         }
     }
 
+    private fun runIncrementalTest(cnf: CNF) {
+        val solver = CDCL(cnf)
+        var fullCnf = cnf
+
+        val getInstances = 10
+        val results = mutableListOf<List<Boolean>>()
+
+        for (i in 0 until getInstances) {
+            val expectedResult = solveWithMiniSat(fullCnf)
+
+            val actualResult = solver.solve()
+
+            Assertions.assertEquals(expectedResult, actualResult) { "MiniSat and KoSat results are different" }
+            println("MiniSat and KoSat results are the same: $actualResult")
+
+            if (actualResult == SolveResult.SAT) {
+                val model = solver.getModel()
+
+                for (clause in fullCnf.clauses) {
+                    var satisfied = false
+                    for (lit in clause) {
+                        if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                            satisfied = true
+                            break
+                        }
+                    }
+
+                    Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                }
+
+                results.add(model)
+
+                val incrementalDimacsClause = model.mapIndexed { index, value ->
+                    if (value) index + 1 else -(index + 1)
+                }
+
+                fullCnf = CNF(fullCnf.clauses + listOf(incrementalDimacsClause), fullCnf.numVars)
+
+                val incrementalClause = Clause.fromDimacs(incrementalDimacsClause)
+
+                solver.newClause(incrementalClause)
+            } else {
+                break
+            }
+        }
+
+    }
+
     @ParameterizedTest(name = "{1}")
     @MethodSource("getAllNotBenchmarks")
     fun test(file: File, testName: String) {
@@ -235,7 +301,7 @@ internal class DiamondTests {
 
     @ParameterizedTest(name = "{1}")
     @MethodSource("getBenchmarkFiles")
-    @Disabled
+    // @Disabled
     fun testOnBenchmarks(file: File, testName: String) {
         println("# Testing on: $file")
         runTest(file, CNF.from(file.toOkioPath()))
@@ -253,7 +319,7 @@ internal class DiamondTests {
             return
         }
 
-        val assumptionSets = List(5) { i ->
+        val assumptionSets = List(15) { i ->
             val random = Random(i)
 
             List(i) {
@@ -266,5 +332,15 @@ internal class DiamondTests {
         runTestWithAssumptions(cnf, assumptionSets)
 
         println()
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("getIncrementalFiles")
+    fun incrementalTest(file: File, testName: String) {
+        val cnf = CNF.from(file.toOkioPath())
+        val clauseCount = cnf.clauses.size
+        println("# Testing on: $file ($clauseCount clauses, ${cnf.numVars} variables)")
+
+        runIncrementalTest(cnf)
     }
 }
