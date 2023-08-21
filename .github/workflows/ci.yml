@@ -47,7 +47,7 @@ jobs:
           echo "$(realpath .)" >> $GITHUB_PATH
 
       - name: Run tests
-        run: ./gradlew check --no-build-cache --stacktrace
+        run: ./gradlew check --no-build-cache --stacktrace --scan
         env:
           TEST_CHECK_UNSAT_PROOF: true
 
@@ -93,7 +93,7 @@ jobs:
           ldd kosat-core/src/jvmTest/resources/lib/win64/*.dll
 
       - name: Run tests
-        run: ./gradlew check --no-build-cache --stacktrace
+        run: ./gradlew check --no-build-cache --stacktrace --scan
         env:
           TEST_CHECK_UNSAT_PROOF: true
 
