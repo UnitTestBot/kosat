@@ -39,6 +39,12 @@ jobs:
       - name: Build project using Gradle
         run: ./gradlew assemble --stacktrace --scan
 
+      - name: Upload web distribution
+        uses: actions/upload-artifact@v3
+        with:
+          name: web-dist
+          path: kosat-web/build/dist/
+
       - name: Install drat-trim
         run: |
           git clone https://github.com/marijnheule/drat-trim
@@ -126,3 +132,25 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
+
+
+  deploy:
+    needs: build-linux
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'ref/heads/feature/deploy')
+
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v2
+
+      - name: Download web distribution
+        uses: actions/download-artifact@v3
+        with:
+          name: web-dist
+
+      - name: Deploy to gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: kosat-web/build/dist/js/productionExecutable
+          target-folder: docs
