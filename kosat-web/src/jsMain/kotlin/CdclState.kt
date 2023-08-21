@@ -9,17 +9,61 @@ import org.kosat.get
 import org.kosat.set
 import org.kosat.swap
 
+/**
+ * To allow user to interact with the solver in a granular way, we have to
+ * extend the state of the solver with additional information on top level,
+ * which is usually contained in the local variables of the solver, and
+ * unavailable from the outside.
+ *
+ * This class is a wrapper around the CDCL solver, which exposes the [conflict]
+ * variable, allowing to analyze the conflict clause step by step.
+ *
+ * The outside mutations are performed through the [execute] method, which takes
+ * a [SolverCommand] and performs the corresponding action on the solver. To
+ * check if the command is valid, use [requirementsFor]. It returns a list of
+ * [Requirement]s, which are either fulfilled or not. If they are not fulfilled,
+ * the command is not valid. If they are fulfilled, the command is valid, and
+ * **it must cause instance to irreversibly change its state.** See
+ * [CdclWrapper.commandsToRunEagerly] and [requirementsFor] for more information on this.
+ *
+ * This class also provides functionality to "guess" the next action of the
+ * solver, which is used to highlight the next action in the UI. It is
+ * relatively simple and does not take a lot of things into account, but it is
+ * good enough for the simplest CDCL.
+ *
+ * Note that this class is mutable, and therefore cannot be used in React as is.
+ * It is wrapped in [CdclWrapper] to provide immutability.
+ *
+ * @see SolverCommand
+ * @see CdclWrapper
+ */
 class CdclState(initialProblem: CNF) {
+    /**
+     * The wrapped solver.
+     */
     var inner: CDCL = CDCL(initialProblem)
+
+    /**
+     * The last conflict clause occurred, if there is one. We use it to try to
+     * emulate the conflict analysis step by step. At first, it is the conflict
+     * returned by [CDCL.propagate]. After either [CDCL.analyzeConflict] or
+     * possibly multiple calls to [CDCL.analyzeOne] it turns into a learnt
+     * clause, which sometimes can be minimized with
+     * [SolverCommand.AnalysisMinimize]. After that, it is used to learn a new
+     * clause with [SolverCommand.LearnAndBacktrack], and we reset to null.
+     */
     var conflict: Clause? = null
 
+    /**
+     * The result of the solver as it is known at the moment.
+     */
     val result: SolveResult
         get() {
             return when {
                 !inner.ok -> SolveResult.UNSAT
                 !propagated -> SolveResult.UNKNOWN
                 inner.assignment.trail.size == inner.assignment.numberOfActiveVariables ->
-                    inner.finishWithSatIfAssumptionsOk()
+                    SolveResult.SAT
 
                 else -> SolveResult.UNKNOWN
             }
@@ -33,11 +77,20 @@ class CdclState(initialProblem: CNF) {
         )
     }
 
+    /**
+     * Whether all literals are propagated, and there is no conflict.
+     */
     private val propagated
         get() = inner.ok
             && conflict == null
             && inner.assignment.qhead == inner.assignment.trail.size
 
+    /**
+     * Executes the given command on the solver, mutating it. The command must
+     * be valid, i.e. all requirements must be fulfilled.
+     *
+     * @see requirementsFor
+     */
     fun execute(command: SolverCommand) {
         check(requirementsFor(command).all { it.fulfilled })
         when (command) {
@@ -109,6 +162,20 @@ class CdclState(initialProblem: CNF) {
         }
     }
 
+    /**
+     * This method must return a list of [Requirement]s for the given command.
+     * All returned requirements are fulfilled if and only if the command is
+     * valid, can be performed on the current state of the solver, **and will
+     * cause some changes in the solver.**
+     *
+     * **Transitive closure of applying commands with fulfilled requirements
+     * must lead to an eventual termination.** Note that this is already true
+     * for a normal and functioning CDCL implementation. See
+     * [CdclWrapper.commandsToRunEagerly] for more information on this.
+     *
+     * @return A list of [Requirement]s for the given command. If all of them
+     *         are fulfilled, the command is valid.
+     */
     fun requirementsFor(command: SolverCommand): List<Requirement> = inner.run {
         val leftToPropagate = assignment.qhead < assignment.trail.size
         val propagatedRequirements = listOf(
@@ -228,6 +295,12 @@ class CdclState(initialProblem: CNF) {
         }
     }
 
+    /**
+     * Guesses the next action of the solver. This is used to highlight the next
+     * action in the UI.
+     *
+     * @return The next action of the solver, or null if no action is possible.
+     */
     fun guessNextSolverAction(): SolverCommand? = inner.run {
         val conflictLitsFromLastLevel = conflict?.lits?.count {
             assignment.level(it) == assignment.decisionLevel
@@ -279,6 +352,12 @@ class CdclState(initialProblem: CNF) {
         }
     }
 
+    /**
+     * A one iteration of outer loop in [CDCL.propagate]. It is used to perform
+     * the propagation step by step in the UI.
+     *
+     * @return The conflict clause, if there is one.
+     */
     private fun CDCL.propagateOne(): Clause? {
         var conflict: Clause? = null
 
@@ -323,6 +402,13 @@ class CdclState(initialProblem: CNF) {
         return conflict
     }
 
+    /**
+     * A one iteration of the analysis loop in [CDCL.analyzeConflict]. It is
+     * used to perform the conflict analysis step by step in the UI.
+     *
+     * @param conflict The conflict clause.
+     * @return The conflict clause, if there is one.
+     */
     private fun CDCL.analyzeOne(conflict: Clause): Clause {
         val lits = conflict.lits.toMutableList()
         lits.sortBy { assignment.trailIndex(it.variable) }
@@ -334,6 +420,11 @@ class CdclState(initialProblem: CNF) {
         return Clause(lits.toSet().toMutableList(), learnt = true)
     }
 
+    /**
+     * Part of [CDCL.propagateAnalyzeBacktrack] loop. It takes a learnt clause
+     * and backtracks to the lowest decision level on which the clause can be
+     * satisfied. It does not propagate anything yet.
+     */
     private fun CDCL.learnAndBacktrack(learnt: Clause) {
         learnt.lits.sortByDescending { assignment.trailIndex(it.variable) }
         val level = if (learnt.size > 1) assignment.level(learnt[1]) else 0
@@ -349,6 +440,10 @@ class CdclState(initialProblem: CNF) {
         db.clauseDecayActivity()
     }
 
+    /**
+     * Checks if the given learnt clause can be minimized. This is used to
+     * generate correct requirements for [SolverCommand.AnalysisMinimize].
+     */
     private fun CDCL.checkIfLearntCanBeMinimized(learnt: Clause): Boolean {
         return learnt.lits.any { lit ->
             val reason = assignment.reason(lit.variable) ?: return@any false

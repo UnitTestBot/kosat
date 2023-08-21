@@ -202,12 +202,12 @@ external interface EagerlyRunButtonProps : PropsWithSx {
 /**
  * Displays a toggle button that toggles eagerly running a command when clicked.
  *
- * @see CdclWrapper.runEagerly
+ * @see CdclWrapper.commandsToRunEagerly
  */
 val EagerlyRunButton: FC<EagerlyRunButtonProps> = FC("EagerlyRunButton") { props ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
-    val selected = solver.runEagerly.contains(props.command)
+    val selected = solver.commandsToRunEagerly.contains(props.command)
 
     Tooltip {
         disableInteractive = true

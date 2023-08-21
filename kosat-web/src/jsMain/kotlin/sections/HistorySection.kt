@@ -43,7 +43,7 @@ private val HistoryEntry: FC<HistoryEntryProps> = FC("HistoryEntry") { props ->
     ListItemButton {
         style = props.style
 
-        if (props.command in solver.runEagerly) {
+        if (props.command in solver.commandsToRunEagerly) {
             ListItemIcon {
                 SmartToy {}
             }
