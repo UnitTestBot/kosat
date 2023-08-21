@@ -18,11 +18,14 @@ jobs:
           distribution: zulu
           java-version: 11
 
-      - name: Setup build cache
-        uses: pat-s/always-upload-cache@v2
+      - name: Restore build cache
+        uses: actions/cache/restore@v3
+        id: restore-build-cache
         with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
 
@@ -48,6 +51,16 @@ jobs:
         env:
           TEST_CHECK_UNSAT_PROOF: true
 
+      - name: Save build cache
+        uses: actions/cache/save@v3
+        if: always()
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
+
+
   build-windows:
     runs-on: windows-latest
 
@@ -67,11 +80,14 @@ jobs:
           distribution: zulu
           java-version: 11
 
-      - name: Setup build cache
-        uses: pat-s/always-upload-cache@v2
+      - name: Restore build cache
+        uses: actions/cache/restore@v3
+        id: restore-build-cache
         with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
 
@@ -100,3 +116,12 @@ jobs:
       # Note: on Windows, you must stop the Gradle daemon at the end of CI process in order to release the lock on Gradle caches. Otherwise, cache-upload post-action step will fail, and your build cache won't be updated.
       - name: Stop Gradle daemon
         run: ./gradlew --stop
+
+      - name: Save build cache
+        uses: actions/cache/save@v3
+        if: always()
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
