@@ -1,9 +1,54 @@
-name: Build (Windows)
+name: Build
 
 on: [ push, pull_request ]
 
 jobs:
-  build:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: zulu
+          java-version: 11
+
+      - name: Setup build cache
+        uses: pat-s/always-upload-cache@v2
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Setup ld cache
+        run: sudo ldconfig $(realpath libs)
+
+      - name: Check dependencies
+        run: |
+          ldd kosat-core/src/jvmTest/resources/lib/linux64/*.so
+
+      - name: Build project using Gradle
+        run: ./gradlew assemble --stacktrace --scan
+
+      - name: Install drat-trim
+        run: |
+          git clone https://github.com/marijnheule/drat-trim
+          cd drat-trim
+          make drat-trim
+          echo "$(realpath .)" >> $GITHUB_PATH
+
+      - name: Run tests
+        run: ./gradlew check --no-build-cache --stacktrace
+        env:
+          TEST_CHECK_UNSAT_PROOF: true
+
+  build-windows:
     runs-on: windows-latest
 
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
