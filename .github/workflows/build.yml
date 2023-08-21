@@ -115,6 +115,7 @@ jobs:
 
       # Note: on Windows, you must stop the Gradle daemon at the end of CI process in order to release the lock on Gradle caches. Otherwise, cache-upload post-action step will fail, and your build cache won't be updated.
       - name: Stop Gradle daemon
+        if: always()
         run: ./gradlew --stop
 
       - name: Save build cache
