@@ -18,16 +18,8 @@ jobs:
           distribution: zulu
           java-version: 11
 
-      - name: Restore build cache
-        uses: actions/cache/restore@v3
-        id: restore-build-cache
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
 
       - name: Setup ld cache
         run: sudo ldconfig $(realpath libs)
@@ -57,15 +49,6 @@ jobs:
         env:
           TEST_CHECK_UNSAT_PROOF: true
 
-      - name: Save build cache
-        uses: actions/cache/save@v3
-        if: always()
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
-
   build-windows:
     runs-on: windows-latest
 
@@ -85,16 +68,8 @@ jobs:
           distribution: zulu
           java-version: 11
 
-      - name: Restore build cache
-        uses: actions/cache/restore@v3
-        id: restore-build-cache
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
 
       - name: Install drat-trim
         run: |
@@ -117,20 +92,6 @@ jobs:
         run: ./gradlew check --no-build-cache --stacktrace
         env:
           TEST_CHECK_UNSAT_PROOF: true
-
-      # Note: on Windows, you must stop the Gradle daemon at the end of CI process in order to release the lock on Gradle caches. Otherwise, cache-upload post-action step will fail, and your build cache won't be updated.
-      - name: Stop Gradle daemon
-        if: always()
-        run: ./gradlew --stop
-
-      - name: Save build cache
-        uses: actions/cache/save@v3
-        if: always()
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
 
   deploy:
     needs: build-linux
