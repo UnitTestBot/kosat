@@ -43,7 +43,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: web-dist
-          path: kosat-web/build/dist/
+          path: kosat-web/build/dist/js/productionExecutable/
 
       - name: Install drat-trim
         run: |
@@ -148,9 +148,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: web-dist
+          path: dist
 
       - name: Deploy to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: kosat-web/build/dist/js/productionExecutable
+          folder: dist
           target-folder: docs
