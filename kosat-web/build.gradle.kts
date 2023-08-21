@@ -2,6 +2,9 @@ plugins {
     kotlin("multiplatform")
 }
 
+fun kotlinw(target: String): String =
+    "org.jetbrains.kotlin-wrappers:kotlin-$target"
+
 kotlin {
     js(IR) {
         browser()
@@ -13,13 +16,13 @@ kotlin {
             dependencies {
                 implementation(project(":core"))
                 implementation(Libs.KotlinxCoroutines.kotlinx_coroutines_core)
-                implementation(enforcedPlatform("org.jetbrains.kotlin-wrappers:kotlin-wrappers-bom:1.0.0-pre.612"))
-                implementation("org.jetbrains.kotlin-wrappers:kotlin-react")
-                implementation("org.jetbrains.kotlin-wrappers:kotlin-react-dom")
-                implementation("org.jetbrains.kotlin-wrappers:kotlin-mui")
-                implementation("org.jetbrains.kotlin-wrappers:kotlin-mui-icons")
-                implementation("org.jetbrains.kotlin-wrappers:kotlin-emotion")
-                implementation(npm("react-window", "1.8.9"))
+                implementation(enforcedPlatform(kotlinw("wrappers-bom:${Versions.kotlin_wrappers}")))
+                implementation(kotlinw("react"))
+                implementation(kotlinw("react-dom"))
+                implementation(kotlinw("mui"))
+                implementation(kotlinw("mui-icons"))
+                implementation(kotlinw("emotion"))
+                implementation(npm("react-window", Versions.react_window))
             }
         }
     }
