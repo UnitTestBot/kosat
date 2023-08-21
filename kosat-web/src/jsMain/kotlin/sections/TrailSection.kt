@@ -236,8 +236,7 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
             command = SolverCommand.Propagate
             description = """
                 Automatically propagate all literals that can be 
-                propagated without making any decisions, every time
-                the assignment changes.
+                propagated every time the assignment changes.
             """.trimIndent()
         }
     }

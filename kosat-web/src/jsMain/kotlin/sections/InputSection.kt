@@ -9,17 +9,21 @@ import mui.material.ButtonVariant
 import mui.material.Dialog
 import mui.material.DialogContent
 import mui.material.TextField
+import mui.material.TextFieldClasses
 import mui.system.sx
 import org.kosat.cnf.CNF
 import react.FC
 import react.Props
 import react.dom.onChange
 import react.useContext
+import react.useEffectOnce
+import react.useRef
 import react.useState
 import web.cssom.FontFamily
 import web.cssom.Overflow
 import web.cssom.number
 import web.cssom.pct
+import web.html.HTMLDivElement
 
 /**
  * A section dedicated to inputting a CNF.
@@ -28,6 +32,7 @@ val InputSection: FC<Props> = FC("InputSection") {
     val dispatch = useContext(cdclDispatchContext)!!
     var error by useState<String?>(null)
     var errorShown by useState(false)
+    val inputField = useRef<HTMLDivElement>(null)
 
     var request by useState(
         """
@@ -48,6 +53,38 @@ val InputSection: FC<Props> = FC("InputSection") {
         """.trimIndent()
     )
 
+    fun recreate() {
+        val cnf: CNF
+        try {
+            cnf = CNF.fromString(request)
+        } catch (e: Exception) {
+            error = e.message
+            errorShown = true
+            return
+        }
+        dispatch(WrapperCommand.Recreate(cnf))
+    }
+
+    useEffectOnce {
+        recreate()
+    }
+
+    // This event handler serves two purposes:
+    // First, it allows the user to press Ctrl+Enter to create a solver.
+    // Second, it prevents the input events from propagating further, causing
+    // key presses to be registered as input events in the other sections.
+    // This is important for time traveling, where arrow keys are used to
+    // navigate the history.
+    inputField.current?.let {
+        it.onkeydown = { event ->
+            if (event.ctrlKey && event.key == "Enter") {
+                recreate()
+            }
+
+            event.stopPropagation()
+        }
+    }
+
     Box {
         sx {
             overflowY = Overflow.scroll
@@ -55,6 +92,8 @@ val InputSection: FC<Props> = FC("InputSection") {
         }
 
         TextField {
+            ref = inputField
+
             sx {
                 width = 100.pct
             }
@@ -75,17 +114,7 @@ val InputSection: FC<Props> = FC("InputSection") {
         +"Create Solver"
         variant = ButtonVariant.contained
         onClick = {
-            run {
-                val cnf: CNF
-                try {
-                    cnf = CNF.fromString(request)
-                } catch (e: Exception) {
-                    error = e.message
-                    errorShown = true
-                    return@run
-                }
-                dispatch(WrapperCommand.Recreate(cnf))
-            }
+            recreate()
         }
     }
 

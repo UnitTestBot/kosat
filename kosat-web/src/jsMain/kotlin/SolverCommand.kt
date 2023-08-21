@@ -126,7 +126,7 @@ sealed interface SolverCommand : WrapperCommand {
         override val eagerPriority: Int get() = 1000
 
         override val description = """
-            Propagate all literals that can be propagated without making any decisions.
+            Propagate all literals that can be propagated.
         """.trimIndent().replace("\n", " ")
     }
 
@@ -138,7 +138,7 @@ sealed interface SolverCommand : WrapperCommand {
      */
     data object PropagateOne : SolverCommand {
         override val description = """
-            Propagate the next literal on the trail.
+            Propagate the first not propagated literal on the trail.
         """.trimIndent().replace("\n", " ")
     }
 

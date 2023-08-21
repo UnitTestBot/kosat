@@ -1,16 +1,19 @@
+import components.HelpTooltip
 import emotion.react.css
-import mui.icons.material.Help
+import js.core.jso
 import mui.material.Box
 import mui.material.Paper
-import mui.material.Tooltip
 import mui.material.Typography
 import mui.material.styles.TypographyVariant
 import mui.system.sx
 import react.FC
+import react.Fragment
 import react.Props
 import react.PropsWithChildren
+import react.ReactNode
 import react.create
 import react.dom.html.ReactHTML.h1
+import react.dom.html.ReactHTML.pre
 import react.useContext
 import react.useEffect
 import sections.ActionsSection
@@ -33,13 +36,12 @@ import web.cssom.fr
 import web.cssom.ident
 import web.cssom.pct
 import web.cssom.pt
-import web.cssom.scale
 import web.dom.document
 
 external interface SectionPaperProps : PropsWithChildren {
     var gridArea: GridArea
     var title: String
-    var description: String?
+    var help: ReactNode?
     var maxHeight: Length?
 }
 
@@ -67,18 +69,9 @@ private val SectionPaper: FC<SectionPaperProps> = FC("SectionPaper") { props ->
             variant = TypographyVariant.h2
             +props.title
 
-            if (props.description != null) {
-                Tooltip {
-                    title = Typography.create {
-                        variant = TypographyVariant.body1
-                        +props.description
-                    }
-
-                    Help {
-                        sx {
-                            transform = scale(0.7)
-                        }
-                    }
+            if (props.help != null) {
+                HelpTooltip {
+                    +props.help
                 }
             }
         }
@@ -102,14 +95,19 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
             when {
                 event.ctrlKey && event.key == "z" && solver.canExecute(WrapperCommand.Undo()) ->
                     dispatch(WrapperCommand.Undo())
+
                 event.key == "ArrowUp" && solver.canExecute(WrapperCommand.Undo(weak = true)) ->
                     dispatch(WrapperCommand.Undo(weak = true))
+
                 event.ctrlKey && event.key == "y" && solver.canExecute(WrapperCommand.Redo()) ->
                     dispatch(WrapperCommand.Redo())
+
                 event.ctrlKey && event.key == "Z" && solver.canExecute(WrapperCommand.Redo()) ->
                     dispatch(WrapperCommand.Redo())
+
                 event.key == "ArrowDown" && solver.canExecute(WrapperCommand.Redo(weak = true)) ->
                     dispatch(WrapperCommand.Redo(weak = true))
+
                 event.key == " " && solver.canExecute(SolverCommand.Propagate) ->
                     dispatch(SolverCommand.Propagate)
             }
@@ -130,7 +128,6 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
 
         +"KoSAT Visualizer"
     }
-
     Box {
         sx {
             display = Display.grid
@@ -152,16 +149,71 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
 
             InputSection {}
 
-            description = """
-                Input clauses are parsed from the input text field. 
-                The input is parsed as a DIMACS CNF file.
-            """.trimIndent()
+            help = Fragment.create {
+                Typography {
+                    +"The input is parsed as a DIMACS CNF."
+                }
+
+                Typography {
+                    +"""
+                        The file starts with a header, which is a line starting with "p cnf",
+                        followed by the number of variables and the number of clauses.
+                    """.trimIndent()
+                }
+
+                Typography {
+                    +"""
+                        The rest of the file consists of clauses, one per line. Each clause
+                        is a list of literals, separated by spaces. A literal is a positive
+                        or negative integer, where the absolute value is the variable number,
+                        and the sign indicates the polarity of the literal.
+                    """.trimIndent()
+                }
+
+                Typography {
+                    +"""
+                        For example, the following is a valid input file:
+                    """.trimIndent()
+                }
+
+                Box {
+                    component = pre
+                    +"""
+                        p cnf 3 2
+                        1 -2 3 0
+                        2 0
+                    """.trimIndent()
+                }
+            }
         }
 
         SectionPaper {
             gridArea = ident("history")
             title = "Time Travel"
             HistorySection {}
+
+            help = Fragment.create {
+                Typography {
+                    +"""
+                        The history shows the state of the solver at each step. You can
+                        click on a step to go back or forth in time and see the state 
+                        of the solver at that point.
+                    """.trimIndent()
+                }
+
+                Typography {
+                    dangerouslySetInnerHTML = jso {
+                        // language=html
+                        __html = """
+                            You can also use the arrow keys (up and down) to go back and 
+                            forth in time, or the undo and redo buttons, with their respective
+                            keyboard shortcuts: <kbd>Ctrl</kbd>+<kbd>Z</kbd> and 
+                            <kbd>Ctrl</kbd>+<kbd>Y</kbd> 
+                            (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>).
+                        """.trimIndent()
+                    }
+                }
+            }
         }
 
         solver.state.inner.run {
@@ -169,18 +221,69 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
                 gridArea = ident("state")
                 title = "Solver State"
                 StateSection {}
+
+                help = Fragment.create {
+                    Typography {
+                        +"""
+                            General information about the current solver state.
+                        """.trimIndent()
+                    }
+                }
             }
 
             SectionPaper {
                 gridArea = ident("db")
                 title = "Clause Database"
                 ClauseDbSection {}
+
+                help = Fragment.create {
+                    Typography {
+                        +"""
+                            The clause database contains all the clauses that are currently
+                            known to the solver. Clauses are separated into two categories:
+                            irredundant (or original) and redundant (or learnts). 
+                        """.trimIndent()
+                    }
+
+                    Typography {
+                        +"""
+                            Irredundant clauses are the clauses that were present in the
+                            input, and in the implementation used here, they don't change.
+                        """.trimIndent()
+                    }
+
+                    Typography {
+                        +"""
+                            Redundant clauses are the clauses that were learned by the solver
+                            during the search. They are generated by the conflict analysis
+                            procedure, and are used to guide the search. They can be removed
+                            from the database at almost any time, and the CNF problem will 
+                            still be equivalent to the original one.
+                        """.trimIndent()
+                    }
+                }
             }
 
             SectionPaper {
                 gridArea = ident("assignment")
                 title = "Assignment"
                 AssignmentSection {}
+
+                help = Fragment.create {
+                    Typography {
+                        +"""
+                            The assignment is a mapping from variables to truth values. It
+                            represents the current state of the solver.
+                            
+                            Click on "+" and "-" icons to assign a variable to true or false,
+                            respectively. Use backtracking (see Trail) to undo assignments.
+                            
+                            Assigned literals are shown are outlined in green or red,
+                            if they are true or false, respectively, and fully filled if 
+                            the assignment is fixed (that is, assigned at level 0).
+                        """.trimIndent()
+                    }
+                }
             }
         }
 
@@ -188,12 +291,64 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
             gridArea = ident("trail")
             title = "Trail"
             TrailSection {}
+
+            help = Fragment.create {
+                Typography {
+                    +"""
+                        The trail is a list of literals that were assigned during the
+                        search, in the order they were assigned. It has a lot of uses,
+                        but the most important ones are propagating and backtracking.
+                    """.trimIndent()
+                }
+
+                Typography {
+                    +"""
+                        Propagating is the process of assigning literals that are implied
+                        by the current assignment.
+                    """.trimIndent()
+                }
+
+                Typography {
+                    +"""
+                        Backtracking is the process of undoing assignments by un-assigning
+                        literals from the trail, until the given decision level is reached.
+                    """.trimIndent()
+                }
+            }
         }
 
         SectionPaper {
             gridArea = ident("analysis")
             title = "Conflict Analysis"
             ConflictSection {}
+
+            help = Fragment.create {
+                Typography {
+                    +"""
+                        When propagation causes a clause to be falsified, a conflict is
+                        observed. The conflict analysis procedure is to "trace back" the
+                        reason for the conflict, and learn a new clause that prevents the
+                        same conflict from happening again.
+                    """.trimIndent()
+                }
+
+                Typography {
+                    +"""
+                        Analysis is done by repeatedly replacing a literal in the conflict
+                        clause with its reason, until only one literal from the last
+                        decision level remains. This literal is called the UIP (Unique 
+                        Implication Point) literal. By backtracking to the second highest level
+                        of the resulting clause, we are able to assign the UIP literal to
+                        true.
+                    """.trimIndent()
+                }
+
+                Typography {
+                    +"""
+                        If the conflict occurs at level 0, the problem is unsatisfiable.
+                    """.trimIndent()
+                }
+            }
         }
 
         SectionPaper {
