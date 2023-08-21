@@ -38,7 +38,9 @@ data class CNF(
                 } else {
                     // Clause
                     val tokens = line.split(RE_SPACE)
-                    check(tokens.last() == "0")
+                    check(tokens.last() == "0") {
+                        "Last token of clause must be '0': \"$line\""
+                    }
                     val lits = tokens.map { it.toInt() }
                     val clause = lits.dropLast(1)
                     clauses.add(clause)
