@@ -33,10 +33,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Build project using Gradle
-        run: ./gradlew build -x test -x jvmTest --stacktrace --scan
+      - name: Build distribution
+        run: ./gradlew :web:jsBrowserDistribution --stacktrace --scan
 
-      - name: Deploy web app
+      - name: Deploy
         # if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
