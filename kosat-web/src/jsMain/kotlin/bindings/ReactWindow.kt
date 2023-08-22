@@ -33,7 +33,7 @@ external interface FixedSizeGridItemParams {
 /**
  * Props for [FixedSizeGrid].
  */
-external interface FixedSizeGridProps: Props {
+external interface FixedSizeGridProps : Props {
     /**
      * Represents the function that renders each element in the grid.
      */
@@ -97,7 +97,7 @@ external interface FixedSizeListItemParams {
 /**
  * Props for [FixedSizeList].
  */
-external interface FixedSizeListProps: Props {
+external interface FixedSizeListProps : Props {
     /**
      * Represents the function that renders each element in the list.
      */

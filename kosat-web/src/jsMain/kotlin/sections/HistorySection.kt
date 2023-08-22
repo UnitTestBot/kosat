@@ -1,5 +1,6 @@
 package sections
 
+import CdclWrapper
 import SolverCommand
 import WrapperCommand
 import bindings.FixedSizeList
@@ -190,7 +191,7 @@ val HistorySection: FC<Props> = FC("HistorySection") { _ ->
             command = WrapperCommand.Undo()
             +"Undo"
         }
-        CommandButton{
+        CommandButton {
             sx {
                 flexGrow = number(1.0)
             }

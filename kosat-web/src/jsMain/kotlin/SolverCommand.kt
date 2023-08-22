@@ -1,6 +1,6 @@
+import org.kosat.CDCL
 import org.kosat.Lit
 import org.kosat.cnf.CNF
-import org.kosat.CDCL
 
 /**
  * A command to the [CdclWrapper] or [CdclState].

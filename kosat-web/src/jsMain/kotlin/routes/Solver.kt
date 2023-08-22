@@ -18,26 +18,26 @@ import mui.material.styles.TypographyVariant
 import mui.material.styles.useTheme
 import mui.system.sx
 import org.kosat.SolveResult
+import org.kosat.cnf.CNF
 import react.FC
 import react.Props
 import react.dom.html.ReactHTML
+import react.dom.html.ReactHTML.span
 import react.dom.onChange
+import react.router.useNavigate
 import react.useContext
 import react.useState
+import web.cssom.AlignItems
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display
 import web.cssom.FlexDirection
 import web.cssom.FontFamily
+import web.cssom.JustifyContent
 import web.cssom.TextAlign
 import web.cssom.array
+import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
-import org.kosat.cnf.CNF
-import react.dom.html.ReactHTML.span
-import react.router.useNavigate
-import web.cssom.AlignItems
-import web.cssom.JustifyContent
-import web.cssom.number
 
 /**
  * Main solver component. This is the page user sees when they open the app.
