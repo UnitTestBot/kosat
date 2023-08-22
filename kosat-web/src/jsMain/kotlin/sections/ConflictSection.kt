@@ -5,6 +5,8 @@ import cdclWrapperContext
 import components.ClauseNode
 import components.CommandButton
 import components.EagerlyRunButton
+import components.LitNode
+import kotlinx.coroutines.flow.combineTransform
 import mui.material.Box
 import mui.material.Stack
 import mui.material.Typography
@@ -14,15 +16,25 @@ import mui.material.styles.useTheme
 import mui.system.sx
 import react.FC
 import react.Props
+import react.dom.html.ReactHTML.span
 import react.useContext
 import web.cssom.AlignItems
 import web.cssom.Auto.Companion.auto
+import web.cssom.BoxSizing
 import web.cssom.Display
 import web.cssom.FlexDirection
+import web.cssom.FontWeight
 import web.cssom.JustifyItems
+import web.cssom.Position
+import web.cssom.ZIndex
+import web.cssom.array
+import web.cssom.integer
+import web.cssom.max
 import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
+import web.cssom.scale
+import web.cssom.translate
 
 /**
  * Section of the visualizer for analyzing the conflict.
@@ -30,6 +42,32 @@ import web.cssom.pt
 val ConflictSection: FC<Props> = FC("ConflictSection") {
     val solver = useContext(cdclWrapperContext)!!
     val theme = useTheme<Theme>()
+
+    val lastLevelLits = solver.state.inner.run {
+        solver.state.conflict?.lits?.count {
+            assignment.level(it) == assignment.decisionLevel
+        } ?: 0
+    }
+
+    val backtrackingLevel = solver.state.inner.run {
+        if (lastLevelLits != 1 || solver.state.conflict == null) {
+            return@run null
+        }
+        var result = 0
+        for (lit in solver.state.conflict!!.lits) {
+            val level = assignment.level(lit)
+            if (result < level && level < assignment.decisionLevel) {
+                result = level
+            }
+        }
+        result
+    }
+
+    val lastOnTrail = solver.state.inner.run {
+        solver.state.conflict?.lits?.maxBy {
+            assignment.trailIndex(it.variable)
+        }
+    }
 
     Box {
         sx {
@@ -66,10 +104,75 @@ val ConflictSection: FC<Props> = FC("ConflictSection") {
                     display = Display.flex
                     justifyItems = JustifyItems.center
                     alignItems = AlignItems.center
+                    gap = 8.pt
                 }
 
-                ClauseNode {
-                    clause = solver.state.conflict!!
+                for (lit in solver.state.conflict!!.lits) {
+                    Box {
+                        sx {
+                            display = Display.flex
+                            alignItems = AlignItems.center
+                            height = 50.pt
+                            justifyItems = JustifyItems.end
+                            gap = 2.pt
+                            flexDirection = FlexDirection.column
+                        }
+                        Box {
+                            sx {
+                                display = Display.flex
+                                alignItems = AlignItems.center
+                                flexDirection = FlexDirection.column
+                            }
+                            if (lastLevelLits > 1 && lit == lastOnTrail) {
+                                Box {
+                                    sx {
+                                        position = Position.relative
+                                        display = Display.flex
+                                        alignItems = AlignItems.center
+                                        justifyItems = JustifyItems.end
+                                        height = 0.pt
+                                        transform = array(scale(0.5), translate(0.pt, (-10).pt))
+                                        zIndex = integer(1)
+                                    }
+
+                                    ClauseNode {
+                                        clause = solver.state.inner.assignment.reason(lit.variable)!!
+                                    }
+                                }
+                            }
+                            Typography {
+                                sx {
+                                    color = theme.palette.text.secondary
+                                    fontSize = 8.pt
+                                }
+                                component = span
+                                +"trail index: ${solver.state.inner.assignment.trailIndex(lit.variable)}"
+                            }
+                        }
+                        LitNode {
+                            this.lit = lit
+                        }
+                        if (lastLevelLits == 1 && solver.state.inner.assignment.level(lit) == solver.state.inner.assignment.decisionLevel) {
+                            Typography {
+                                sx {
+                                    color = theme.palette.text.primary
+                                    fontSize = 8.pt
+                                    fontWeight = FontWeight.bold
+                                }
+                                component = span
+                                +"UIP"
+                            }
+                        } else {
+                            Typography {
+                                sx {
+                                    color = theme.palette.text.secondary
+                                    fontSize = 8.pt
+                                }
+                                component = span
+                                +"level: ${solver.state.inner.assignment.level(lit)}"
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -142,6 +245,11 @@ val ConflictSection: FC<Props> = FC("ConflictSection") {
                     }
 
                     +"Learn and Backtrack"
+
+                    if (backtrackingLevel != null) {
+                        +" to level $backtrackingLevel"
+                    }
+
                     command = SolverCommand.LearnAndBacktrack
                 }
 

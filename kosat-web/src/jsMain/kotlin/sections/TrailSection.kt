@@ -254,18 +254,23 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
             }
         }
     } else {
+        val levelZeroIsEmpty = assignment.trail.getOrNull(0)?.let {
+            assignment.level(it) != 0
+        } ?: true
+
         FixedSizeList {
             width = 300
             height = 600
             itemSize = 42
-            itemCount = assignment.trail.size
+            itemCount = assignment.trail.size + if (levelZeroIsEmpty) 1 else 0
             children = { params: FixedSizeListItemParams ->
+                val litIndex = params.index - if (levelZeroIsEmpty) 1 else 0
                 val index = params.index
-                val lit = assignment.trail[index]
-                val level = assignment.level(lit)
-                val reason = assignment.reason(lit.variable)
+                val lit = assignment.trail.getOrNull(litIndex)
+                val level = lit?.let { assignment.level(it) } ?: 0
+                val reason = lit?.let { assignment.reason(it.variable) }
 
-                val firstInLevel = level == 0 && index == 0 || level > 0 && reason == null
+                val firstInLevel = index == 0 || level > 0 && reason == null
 
                 Box.create {
                     sx {
@@ -293,8 +298,10 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
                         }
                     }
 
-                    LitNode {
-                        this.lit = lit
+                    if (lit != null) {
+                        LitNode {
+                            this.lit = lit
+                        }
                     }
 
                     if (reason != null) {

@@ -421,7 +421,10 @@ class CdclState(initialProblem: CNF) {
             if (lit == replaceWithReason.neg) continue
             lits.add(lit)
         }
-        return Clause(lits.toSet().toMutableList(), learnt = true)
+        val orderedLits = lits.toSet().sortedByDescending {
+            assignment.trailIndex(it.variable)
+        }.toMutableList()
+        return Clause(orderedLits, learnt = true)
     }
 
     /**

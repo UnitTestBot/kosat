@@ -129,8 +129,9 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
     Typography {
         variant = TypographyVariant.h1
 
-        css {
+        sx {
             textAlign = TextAlign.center
+            marginBottom = (-8).pt
         }
 
         +"KoSAT Visualization"
