@@ -200,12 +200,7 @@ class CdclState(initialProblem: CNF) {
         when (command) {
             is SolverCommand.Solve -> propagatedRequirements
 
-            is SolverCommand.Search -> propagatedRequirements + listOf(
-                Requirement(
-                    assignment.decisionLevel == 0,
-                    "Solver is at decision level 0"
-                ),
-            )
+            is SolverCommand.Search -> propagatedRequirements
 
             is SolverCommand.Propagate -> listOf(
                 Requirement(ok, "Solver is not in UNSAT state", obvious = true),

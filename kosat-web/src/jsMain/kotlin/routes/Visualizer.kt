@@ -17,7 +17,6 @@ import react.Props
 import react.PropsWithChildren
 import react.ReactNode
 import react.create
-import react.dom.html.ReactHTML.h1
 import react.dom.html.ReactHTML.pre
 import react.useContext
 import react.useEffect
@@ -363,6 +362,20 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
             gridArea = ident("actions")
             title = "Actions"
             ActionsSection {}
+
+            help = Fragment.create {
+                Typography {
+                    dangerouslySetInnerHTML = jso {
+                        // language=html
+                        __html = """
+                            General solver functionality.
+                            
+                            Press the "Next" button (or press <kbd>Space</kbd>) to
+                            execute the next action in the solver.
+                        """.trimIndent()
+                    }
+                }
+            }
         }
     }
 }

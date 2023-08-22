@@ -4,14 +4,19 @@ import SolverCommand
 import cdclDispatchContext
 import cdclWrapperContext
 import components.CommandButton
+import js.core.jso
 import mui.material.Box
 import mui.material.Button
 import mui.material.ButtonVariant
 import mui.material.Stack
+import mui.material.Tooltip
+import mui.material.Typography
 import mui.system.responsive
 import mui.system.sx
 import react.FC
+import react.Fragment
 import react.Props
+import react.create
 import react.router.useNavigate
 import react.useContext
 import web.cssom.number
@@ -40,13 +45,38 @@ val ActionsSection: FC<Props> = FC("ActionsSection") {
             +"Search"
         }
 
-        Button {
-            variant = ButtonVariant.contained
-            disabled = solver.nextAction == null
-            onClick = {
-                solver.nextAction?.let { dispatch(it) }
+        Tooltip {
+            title = Fragment.create {
+                Typography {
+                    +"The next action is: "
+                    +(solver.nextAction?.description ?: "none")
+                }
+
+                Typography {
+                    +"""
+                        This is what the most basic CDCL solver with VSIDS 
+                        variable selector and without restarts would do next.
+                    """.trimIndent()
+                }
+
+                Typography {
+                    dangerouslySetInnerHTML = jso {
+                        // language=html
+                        __html = """
+                            Hotkey: <kbd>Space</kbd>
+                        """.trimIndent()
+                    }
+                }
             }
-            +"Next CDCL action"
+
+            Button {
+                variant = ButtonVariant.contained
+                disabled = solver.nextAction == null
+                onClick = {
+                    solver.nextAction?.let { dispatch(it) }
+                }
+                +"Next CDCL action"
+            }
         }
 
         Box {

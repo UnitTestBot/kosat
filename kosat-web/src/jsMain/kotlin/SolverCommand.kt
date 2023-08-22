@@ -173,7 +173,7 @@ sealed interface SolverCommand : WrapperCommand {
      */
     data class Backtrack(val level: Int) : SolverCommand {
         override val description = """
-            Backtrack to the this level, undoing all decisions made after this level.
+            Backtrack to level $level, undoing all decisions made after this level.
         """.trimIndent().replace("\n", " ")
     }
 
@@ -183,7 +183,7 @@ sealed interface SolverCommand : WrapperCommand {
      */
     data class Enqueue(val lit: Lit) : SolverCommand {
         override val description = """
-            Assign this literal to be true on the new decision level. 
+            Assign variable ${lit.variable.index + 1} to be ${lit.isPos} on the new decision level. 
         """.trimIndent().replace("\n", " ")
     }
 

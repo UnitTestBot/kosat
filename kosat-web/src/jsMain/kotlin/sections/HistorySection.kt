@@ -186,6 +186,7 @@ val HistorySection: FC<Props> = FC("HistorySection") { _ ->
                 flexGrow = number(1.0)
             }
 
+            descriptionOverride = "Undo the last command. Hotkey: Ctrl+Z or Arrow Up"
             command = WrapperCommand.Undo()
             +"Undo"
         }
@@ -194,6 +195,7 @@ val HistorySection: FC<Props> = FC("HistorySection") { _ ->
                 flexGrow = number(1.0)
             }
 
+            descriptionOverride = "Redo the last command. Hotkey: Ctrl+Y, Ctrl+Shift+Z or Arrow Down"
             command = WrapperCommand.Redo()
             +"Redo"
         }
