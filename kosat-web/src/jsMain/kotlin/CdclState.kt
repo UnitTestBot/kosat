@@ -86,6 +86,15 @@ class CdclState(initialProblem: CNF) {
             && inner.assignment.qhead == inner.assignment.trail.size
 
     /**
+     * Get the satisfying assignment from the solver. This is only possible if
+     * the solver is in SAT state.
+     */
+    fun getModel(): List<Boolean> {
+        check(result == SolveResult.SAT)
+        return inner.getModel()
+    }
+
+    /**
      * Executes the given command on the solver, mutating it. The command must
      * be valid, i.e. all requirements must be fulfilled.
      *

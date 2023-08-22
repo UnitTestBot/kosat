@@ -2,6 +2,7 @@ package sections
 
 import WrapperCommand
 import cdclDispatchContext
+import cdclWrapperContext
 import js.core.jso
 import mui.material.Box
 import mui.material.Button
@@ -9,7 +10,6 @@ import mui.material.ButtonVariant
 import mui.material.Dialog
 import mui.material.DialogContent
 import mui.material.TextField
-import mui.material.TextFieldClasses
 import mui.system.sx
 import org.kosat.cnf.CNF
 import react.FC
@@ -30,33 +30,17 @@ import web.html.HTMLDivElement
  */
 val InputSection: FC<Props> = FC("InputSection") {
     val dispatch = useContext(cdclDispatchContext)!!
+    val solver = useContext(cdclWrapperContext)!!
     var error by useState<String?>(null)
     var errorShown by useState(false)
     val inputField = useRef<HTMLDivElement>(null)
 
-    var request by useState(
-        """
-            p cnf 9 13
-            -1 2 0
-            -1 3 0
-            -2 -3 4 0
-            -4 5 0
-            -4 6 0
-            -5 -6 7 0
-            -7 1 0
-            1 4 7 8 0
-            -1 -4 -7 -8 0
-            1 4 7 9 0
-            -1 -4 -7 -9 0
-            8 9 0
-            -8 -9 0
-        """.trimIndent()
-    )
+    var problem by useState(solver.problem.toString(includeHeader = true))
 
     fun recreate() {
         val cnf: CNF
         try {
-            cnf = CNF.fromString(request)
+            cnf = CNF.fromString(problem)
         } catch (e: Exception) {
             error = e.message
             errorShown = true
@@ -93,6 +77,7 @@ val InputSection: FC<Props> = FC("InputSection") {
 
         TextField {
             ref = inputField
+            minRows = 16
 
             sx {
                 width = 100.pct
@@ -104,9 +89,9 @@ val InputSection: FC<Props> = FC("InputSection") {
                 }
             }
 
-            value = request
+            value = problem
             multiline = true
-            onChange = { event -> request = event.target.asDynamic().value as String }
+            onChange = { event -> problem = event.target.asDynamic().value as String }
         }
     }
 

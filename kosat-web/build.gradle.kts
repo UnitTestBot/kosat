@@ -22,6 +22,7 @@ kotlin {
                 implementation(kotlinw("mui"))
                 implementation(kotlinw("mui-icons"))
                 implementation(kotlinw("emotion"))
+                implementation(kotlinw("react-router-dom"))
                 implementation(npm("react-window", Versions.react_window))
             }
         }

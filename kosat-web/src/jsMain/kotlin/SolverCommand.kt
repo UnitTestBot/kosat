@@ -25,6 +25,15 @@ sealed interface WrapperCommand {
     }
 
     /**
+     * Creates a new [CdclWrapper] instance with the given CNF as the problem,
+     * and solves it. This is used in the landing page to simply solve the
+     * problem without visualization.
+     */
+    data class RecreateAndSolve(val cnf: CNF) : WrapperCommand {
+        override val description = "Create a new solver instance and solve it"
+    }
+
+    /**
      * [SolverCommand]s can be undone by creating a new solver instance and
      * replaying all commands up to the point where the command was executed.
      * We use this to undo commands. From [CdclWrapper], this action is

@@ -8,6 +8,22 @@ data class CNF(
     val clauses: List<List<Int>>,
     val numVars: Int = determineNumberOfVariables(clauses),
 ) {
+    fun toString(includeHeader: Boolean): String {
+        val builder = StringBuilder()
+        if (includeHeader) {
+            builder.appendLine("p cnf $numVars ${clauses.size}")
+        }
+        for (clause in clauses) {
+            for (lit in clause) {
+                builder.append(lit)
+                builder.append(' ')
+            }
+            builder.append('0')
+            builder.appendLine()
+        }
+        return builder.toString()
+    }
+
     companion object {
         private val RE_SPACE: Regex = """\s""".toRegex()
 

@@ -108,8 +108,12 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
                 event.key == "ArrowDown" && solver.canExecute(WrapperCommand.Redo(weak = true)) ->
                     dispatch(WrapperCommand.Redo(weak = true))
 
-                event.key == " " && solver.canExecute(SolverCommand.Propagate) ->
-                    dispatch(SolverCommand.Propagate)
+                event.key == " " -> {
+                    val next = solver.nextAction
+                    if (next != null) {
+                        dispatch(next)
+                    }
+                }
             }
         }
 
