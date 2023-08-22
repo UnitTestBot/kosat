@@ -58,7 +58,7 @@ val ActionsSection: FC<Props> = FC("ActionsSection") {
             onClick = {
                 navigate("/")
             }
-            +"Back to landing page"
+            +"Back to the landing page..."
         }
     }
 }

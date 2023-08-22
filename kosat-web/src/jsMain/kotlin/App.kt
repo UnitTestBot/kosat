@@ -6,9 +6,14 @@ import react.Props
 import react.StrictMode
 import react.create
 import react.createContext
+import react.dom.client.createRoot
 import react.router.RouterProvider
 import react.router.dom.createHashRouter
 import react.useReducer
+import routes.Solver
+import routes.Visualizer
+import web.dom.document
+import web.html.HTML
 
 /**
  * Universal context for the [CdclWrapper]. This is used to pass the immutable
@@ -89,4 +94,11 @@ val App: FC<Props> = FC("App") {
             }
         }
     }
+}
+
+fun main() {
+    val container = document.createElement(HTML.div)
+    document.body.appendChild(container)
+    val app = App.create()
+    createRoot(container).render(app)
 }

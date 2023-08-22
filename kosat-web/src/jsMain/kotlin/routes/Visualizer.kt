@@ -1,3 +1,8 @@
+package routes
+
+import WrapperCommand
+import cdclDispatchContext
+import cdclWrapperContext
 import components.HelpTooltip
 import emotion.react.css
 import js.core.jso
@@ -123,14 +128,13 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
     }
 
     Typography {
-        variant = TypographyVariant.h3
-        component = h1
+        variant = TypographyVariant.h1
 
         css {
             textAlign = TextAlign.center
         }
 
-        +"KoSAT Visualizer"
+        +"KoSAT Visualization"
     }
     Box {
         sx {
