@@ -92,7 +92,7 @@ val ClauseDbSection: FC<Props> = FC("ClauseDbSection") {
             sx {
                 padding = 8.pt
                 flexGrow = number(1.0)
-                minWidth = 200.pt
+                minWidth = 300.pt
                 overflow = auto
             }
 
@@ -118,7 +118,7 @@ val ClauseDbSection: FC<Props> = FC("ClauseDbSection") {
             sx {
                 padding = 8.pt
                 flexGrow = number(1.0)
-                minWidth = 200.pt
+                minWidth = 300.pt
                 overflow = auto
             }
 

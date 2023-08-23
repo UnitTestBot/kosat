@@ -23,6 +23,7 @@ import react.useContext
 import web.cssom.AlignItems
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display
+import web.cssom.Overflow
 import web.cssom.number
 import web.cssom.pt
 
@@ -87,7 +88,7 @@ val AssignmentSection: FC<Props> = FC("AssignmentSection") {
             display = Display.flex
             flexGrow = number(1.0)
             // justifyContent = JustifyContent.center
-            overflow = auto
+            overflowX = auto
         }
 
         Stack {

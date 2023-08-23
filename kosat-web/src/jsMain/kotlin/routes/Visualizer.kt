@@ -160,7 +160,7 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
             gap = 8.pt
             padding = 8.pt
             gridTemplateColumns = array(30.pct, 1.fr, 20.pct)
-            gridTemplateRows = array(130.pt, 250.pt, 120.pt, 190.pt)
+            gridTemplateRows = array(125.pt, 240.pt, 130.pt, 180.pt)
             gridTemplateAreas = GridTemplateAreas(
                 arrayOf(ident("input"), ident("state"), ident("trail")),
                 arrayOf(ident("input"), ident("db"), ident("trail")),

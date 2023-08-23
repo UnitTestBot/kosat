@@ -22,6 +22,7 @@ import web.cssom.Auto.Companion.auto
 import web.cssom.Display
 import web.cssom.FlexDirection
 import web.cssom.FontWeight
+import web.cssom.JustifyContent
 import web.cssom.JustifyItems
 import web.cssom.Position
 import web.cssom.array
@@ -68,6 +69,7 @@ val ConflictSection: FC<Props> = FC("ConflictSection") {
     Box {
         sx {
             padding = 8.pt
+            margin = (-8).pt
             height = 100.pct
             display = Display.flex
             flexDirection = FlexDirection.column
@@ -98,78 +100,101 @@ val ConflictSection: FC<Props> = FC("ConflictSection") {
                 sx {
                     flexGrow = number(1.0)
                     display = Display.flex
-                    justifyItems = JustifyItems.center
-                    alignItems = AlignItems.center
                     gap = 8.pt
+                    width = 100.pct
                 }
+                Box {
+                    sx {
+                        flexGrow = number(1.0)
+                        display = Display.flex
+                        justifyContent = JustifyContent.center
+                        alignItems = AlignItems.center
+                        gap = 8.pt
+                    }
 
-                for (lit in solver.state.conflict!!.lits) {
-                    Box {
-                        sx {
-                            display = Display.flex
-                            alignItems = AlignItems.center
-                            height = 50.pt
-                            justifyItems = JustifyItems.end
-                            gap = 2.pt
-                            flexDirection = FlexDirection.column
-                        }
+                    for (lit in solver.state.conflict!!.lits) {
                         Box {
                             sx {
                                 display = Display.flex
                                 alignItems = AlignItems.center
+                                height = 50.pt
+                                justifyItems = JustifyItems.end
+                                gap = 2.pt
                                 flexDirection = FlexDirection.column
                             }
-                            if (lastLevelLits > 1 && lit == lastOnTrail) {
-                                Box {
+                            Box {
+                                sx {
+                                    display = Display.flex
+                                    alignItems = AlignItems.center
+                                    flexDirection = FlexDirection.column
+                                }
+                                Typography {
                                     sx {
-                                        position = Position.relative
-                                        display = Display.flex
-                                        alignItems = AlignItems.center
-                                        justifyItems = JustifyItems.end
-                                        height = 0.pt
-                                        transform = array(scale(0.5), translate(0.pt, (-10).pt))
-                                        zIndex = integer(1)
+                                        color = theme.palette.text.secondary
+                                        fontSize = 8.pt
                                     }
+                                    component = span
+                                    variant = TypographyVariant.body2
+                                    +"trail index: ${solver.state.inner.assignment.trailIndex(lit.variable)}"
+                                }
+                            }
+                            LitNode {
+                                this.lit = lit
+                            }
+                            if (lastLevelLits == 1 && solver.state.inner.assignment.level(lit) == solver.state.inner.assignment.decisionLevel) {
+                                Typography {
+                                    sx {
+                                        color = theme.palette.text.primary
+                                        fontSize = 8.pt
+                                        fontWeight = FontWeight.bold
+                                    }
+                                    component = span
+                                    variant = TypographyVariant.body2
+                                    +"UIP"
+                                }
+                            } else {
+                                Typography {
+                                    sx {
+                                        color = theme.palette.text.secondary
+                                        fontSize = 8.pt
+                                    }
+                                    component = span
+                                    variant = TypographyVariant.body2
+                                    +"level: ${solver.state.inner.assignment.level(lit)}"
+                                }
+                            }
+                        }
+                    }
+                }
+                if (lastLevelLits > 1) {
+                    Box {
+                        sx {
+                            display = Display.flex
+                            alignItems = AlignItems.center
+                            flexDirection = FlexDirection.column
+                            transform = scale(0.8)
+                            minWidth = 120.pt
+                        }
 
-                                    ClauseNode {
-                                        clause = solver.state.inner.assignment.reason(lit.variable)!!
-                                    }
-                                }
+                        val firstLit = solver.state.conflict!!.lits.first()
+
+                        Typography {
+                            sx {
+                                color = theme.palette.text.secondary
+                                margin = 0.pt
+                                transform = scale(0.8)
                             }
-                            Typography {
-                                sx {
-                                    color = theme.palette.text.secondary
-                                    fontSize = 8.pt
-                                }
-                                component = span
-                                variant = TypographyVariant.body2
-                                +"trail index: ${solver.state.inner.assignment.trailIndex(lit.variable)}"
+                            component = span
+                            variant = TypographyVariant.body2
+                            +"Reason of "
+                            LitNode {
+                                lit = firstLit
                             }
+                            +": "
                         }
-                        LitNode {
-                            this.lit = lit
-                        }
-                        if (lastLevelLits == 1 && solver.state.inner.assignment.level(lit) == solver.state.inner.assignment.decisionLevel) {
-                            Typography {
-                                sx {
-                                    color = theme.palette.text.primary
-                                    fontSize = 8.pt
-                                    fontWeight = FontWeight.bold
-                                }
-                                component = span
-                                variant = TypographyVariant.body2
-                                +"UIP"
-                            }
-                        } else {
-                            Typography {
-                                sx {
-                                    color = theme.palette.text.secondary
-                                    fontSize = 8.pt
-                                }
-                                component = span
-                                variant = TypographyVariant.body2
-                                +"level: ${solver.state.inner.assignment.level(lit)}"
-                            }
+
+                        ClauseNode {
+                            clause = solver.state.inner.assignment.reason(firstLit.variable)!!
                         }
                     }
                 }
@@ -210,7 +235,23 @@ val ConflictSection: FC<Props> = FC("ConflictSection") {
                         flexGrow = number(1.0)
                     }
 
-                    +"Analyze One"
+                    if (lastLevelLits > 1) {
+                        +"Analyze One (replace "
+                        Box {
+                            component = span
+                            sx {
+                                transform = scale(0.8)
+                                padding = array(4.pt, 7.pt)
+                                margin = (-8).pt
+                            }
+                            LitNode {
+                                lit = lastOnTrail!!
+                            }
+                        }
+                        +" with reason)"
+                    } else {
+                        +"Analyze One"
+                    }
                     command = SolverCommand.AnalyzeOne
                 }
             }
