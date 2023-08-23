@@ -30,6 +30,8 @@ import react.FC
 import react.Props
 import react.create
 import react.useContext
+import react.useEffect
+import react.useRef
 import react.useState
 import web.cssom.AlignItems
 import web.cssom.AlignSelf
@@ -42,6 +44,7 @@ import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
 import web.cssom.rgb
+import web.html.HTMLElement
 
 private external interface TrailLevelProps : Props {
     var level: Int
@@ -207,6 +210,12 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
     val solver = useContext(cdclWrapperContext)!!
     val theme = useTheme<Theme>()
     val assignment = solver.state.inner.assignment
+    val listRef = useRef<HTMLElement>(null)
+
+    // FIXME: does not scroll :(
+    useEffect(assignment.trail) {
+        listRef.current?.scrollTop = listRef.current?.scrollHeight?.toDouble() ?: 0.0
+    }
 
     Box {
         sx {
@@ -243,6 +252,8 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
 
     if (assignment.trail.size < 30) {
         List {
+            ref = listRef
+
             sx {
                 overflow = auto
             }
@@ -259,6 +270,8 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
         } ?: true
 
         FixedSizeList {
+            ref = listRef
+
             width = 300
             height = 600
             itemSize = 42

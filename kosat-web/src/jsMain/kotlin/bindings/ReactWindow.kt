@@ -6,7 +6,9 @@ package bindings
 import react.CSSProperties
 import react.FC
 import react.Props
+import react.PropsWithRef
 import react.ReactNode
+import web.html.HTMLElement
 
 // https://github.com/bvaughn/react-window
 // Since rendering of thousands of DOM nodes can be slow (and we have to render
@@ -97,7 +99,7 @@ external interface FixedSizeListItemParams {
 /**
  * Props for [FixedSizeList].
  */
-external interface FixedSizeListProps : Props {
+external interface FixedSizeListProps : PropsWithRef<HTMLElement> {
     /**
      * Represents the function that renders each element in the list.
      */

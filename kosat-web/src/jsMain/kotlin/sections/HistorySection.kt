@@ -8,11 +8,13 @@ import bindings.FixedSizeListItemParams
 import cdclDispatchContext
 import cdclWrapperContext
 import components.CommandButton
+import js.core.jso
 import mui.icons.material.SmartToy
 import mui.material.ButtonGroup
 import mui.material.ListItemButton
 import mui.material.ListItemIcon
 import mui.material.ListItemText
+import mui.material.TypographyProps
 import mui.material.styles.Theme
 import mui.material.styles.useTheme
 import mui.system.sx
@@ -21,16 +23,24 @@ import react.Props
 import react.PropsWithStyle
 import react.create
 import react.useContext
+import react.useEffect
+import react.useEffectOnce
+import react.useRef
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display
+import web.cssom.FontWeight
 import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
+import web.html.HTMLElement
+import web.scroll.ScrollBehavior
+import web.scroll.ScrollLogicalPosition
 
 private external interface HistoryEntryProps : PropsWithStyle {
-    var command: SolverCommand
+    var command: SolverCommand?
     var historyIndex: Int
     var inFuture: Boolean
+    var isCurrent: Boolean
 }
 
 /**
@@ -40,9 +50,27 @@ private val HistoryEntry: FC<HistoryEntryProps> = FC("HistoryEntry") { props ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
     val theme = useTheme<Theme>()
+    val button = useRef<HTMLElement>(null)
+
+    useEffect(props.isCurrent) {
+        if (props.isCurrent) {
+            button.current?.scrollIntoView(jso {
+                behavior = ScrollBehavior.auto
+                block = ScrollLogicalPosition.nearest
+                inline = ScrollLogicalPosition.nearest
+            })
+        }
+    }
 
     ListItemButton {
         style = props.style
+        ref = button
+
+        sx {
+            if (props.isCurrent) {
+                backgroundColor = theme.palette.action.selected
+            }
+        }
 
         if (props.command in solver.commandsToRunEagerly) {
             ListItemIcon {
@@ -51,12 +79,16 @@ private val HistoryEntry: FC<HistoryEntryProps> = FC("HistoryEntry") { props ->
         }
 
         ListItemText {
-            sx {
-                color = if (props.inFuture) {
-                    theme.palette.text.secondary
-                } else {
-                    theme.palette.text.primary
+            this.primaryTypographyProps = jso {
+                sx {
+                    if (props.inFuture) {
+                        color = theme.palette.text.secondary
+                    } else {
+                        color = theme.palette.text.primary
+                        fontWeight = FontWeight.bold
+                    }
                 }
+
             }
 
             +when (val command = props.command) {
@@ -71,11 +103,13 @@ private val HistoryEntry: FC<HistoryEntryProps> = FC("HistoryEntry") { props ->
                 is SolverCommand.AnalyzeOne -> "Analyze single conflict literal"
                 is SolverCommand.AnalysisMinimize -> "Minimize learned clause"
                 is SolverCommand.LearnAndBacktrack -> "Learn clause and backtrack"
+                null -> "Initial state"
             }
         }
 
         onClick = {
             dispatch(WrapperCommand.TimeTravel(props.historyIndex + 1))
+
         }
     }
 }
@@ -91,7 +125,7 @@ val HistorySection: FC<Props> = FC("HistorySection") { _ ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
 
-    if (solver.history.size + solver.redoHistory.size < 30) {
+    if (solver.history.size + solver.redoHistory.size < 50) {
         mui.material.List {
             sx {
                 flexGrow = number(1.0)
@@ -100,14 +134,12 @@ val HistorySection: FC<Props> = FC("HistorySection") { _ ->
 
             dense = true
 
-            ListItemButton {
-                ListItemText {
-                    +"Initial state"
-                }
-
-                onClick = {
-                    dispatch(WrapperCommand.TimeTravel(0))
-                }
+            HistoryEntry {
+                key = "initial"
+                historyIndex = -1
+                command = null
+                inFuture = false
+                isCurrent = solver.history.isEmpty()
             }
 
             for ((i, command) in solver.history.withIndex()) {
@@ -116,6 +148,7 @@ val HistorySection: FC<Props> = FC("HistorySection") { _ ->
                     historyIndex = i
                     this.command = command
                     inFuture = false
+                    isCurrent = i == solver.history.size - 1
                 }
             }
 
@@ -127,6 +160,7 @@ val HistorySection: FC<Props> = FC("HistorySection") { _ ->
                     historyIndex = index
                     this.command = command
                     inFuture = true
+                    isCurrent = false
                 }
             }
         }

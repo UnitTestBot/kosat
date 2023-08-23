@@ -1,5 +1,6 @@
 package routes
 
+import SolverCommand
 import WrapperCommand
 import cdclDispatchContext
 import cdclWrapperContext
@@ -94,29 +95,46 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
 
+    fun dispatchIfPossible(command: WrapperCommand) {
+        if (solver.canExecute(command)) {
+            dispatch(command)
+        }
+    }
+
     useEffect(solver) {
         document.onkeydown = { event ->
             when {
-                event.ctrlKey && event.key == "z" && solver.canExecute(WrapperCommand.Undo()) ->
-                    dispatch(WrapperCommand.Undo())
+                event.ctrlKey && event.key == "z" -> {
+                    dispatchIfPossible(WrapperCommand.Undo())
+                    event.preventDefault()
+                }
 
-                event.key == "ArrowUp" && solver.canExecute(WrapperCommand.Undo(weak = true)) ->
-                    dispatch(WrapperCommand.Undo(weak = true))
+                event.key == "ArrowUp" -> {
+                    dispatchIfPossible(WrapperCommand.Undo(weak = true))
+                    event.preventDefault()
+                }
 
-                event.ctrlKey && event.key == "y" && solver.canExecute(WrapperCommand.Redo()) ->
-                    dispatch(WrapperCommand.Redo())
+                event.ctrlKey && event.key == "y" -> {
+                    dispatchIfPossible(WrapperCommand.Redo())
+                    event.preventDefault()
+                }
 
-                event.ctrlKey && event.key == "Z" && solver.canExecute(WrapperCommand.Redo()) ->
-                    dispatch(WrapperCommand.Redo())
+                event.ctrlKey && event.key == "Z" -> {
+                    dispatchIfPossible(WrapperCommand.Redo())
+                    event.preventDefault()
+                }
 
-                event.key == "ArrowDown" && solver.canExecute(WrapperCommand.Redo(weak = true)) ->
-                    dispatch(WrapperCommand.Redo(weak = true))
+                event.key == "ArrowDown" -> {
+                    dispatchIfPossible(WrapperCommand.Redo(weak = true))
+                    event.preventDefault()
+                }
 
                 event.key == " " -> {
                     val next = solver.nextAction
                     if (next != null) {
                         dispatch(next)
                     }
+                    event.preventDefault()
                 }
             }
         }
