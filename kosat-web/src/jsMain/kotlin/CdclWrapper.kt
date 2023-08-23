@@ -264,9 +264,14 @@ data class CdclWrapper(
                     newHistory.add(commandToRun)
                 }
 
+                var newRedoHistory = emptyList<SolverCommand>()
+                if (newHistory == history + redoHistory.take(newHistory.size - history.size)) {
+                    newRedoHistory = redoHistory.drop(newHistory.size - history.size)
+                }
+
                 return copy(
                     history = newHistory,
-                    redoHistory = emptyList(),
+                    redoHistory = newRedoHistory,
                 )
             }
         }
