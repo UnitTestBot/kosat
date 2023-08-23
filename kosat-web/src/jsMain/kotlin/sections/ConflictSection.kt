@@ -142,6 +142,7 @@ val ConflictSection: FC<Props> = FC("ConflictSection") {
                                     fontSize = 8.pt
                                 }
                                 component = span
+                                variant = TypographyVariant.body2
                                 +"trail index: ${solver.state.inner.assignment.trailIndex(lit.variable)}"
                             }
                         }
@@ -156,6 +157,7 @@ val ConflictSection: FC<Props> = FC("ConflictSection") {
                                     fontWeight = FontWeight.bold
                                 }
                                 component = span
+                                variant = TypographyVariant.body2
                                 +"UIP"
                             }
                         } else {
@@ -165,6 +167,7 @@ val ConflictSection: FC<Props> = FC("ConflictSection") {
                                     fontSize = 8.pt
                                 }
                                 component = span
+                                variant = TypographyVariant.body2
                                 +"level: ${solver.state.inner.assignment.level(lit)}"
                             }
                         }
