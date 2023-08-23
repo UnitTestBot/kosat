@@ -10,6 +10,8 @@ import mui.material.Box
 import mui.material.Button
 import mui.material.ButtonVariant
 import mui.material.Card
+import mui.material.Dialog
+import mui.material.DialogContent
 import mui.material.Paper
 import mui.material.TextField
 import mui.material.Typography
@@ -316,6 +318,15 @@ val Solver: FC<Props> = FC("Solver") {
                     }
                 }
             }
+        }
+    }
+
+    Dialog {
+        open = errorShown
+        onClose = { _, _ -> errorShown = false }
+
+        DialogContent {
+            +"Parsing error: $error"
         }
     }
 }
