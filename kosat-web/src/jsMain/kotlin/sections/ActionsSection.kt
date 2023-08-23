@@ -46,6 +46,8 @@ val ActionsSection: FC<Props> = FC("ActionsSection") {
         }
 
         Tooltip {
+            disableInteractive = true
+
             title = Fragment.create {
                 Typography {
                     +"The next action is: "
