@@ -45,10 +45,10 @@ val ClauseNode: FC<ClauseProps> = FC("ClauseNode") { props ->
     val falsified = values.all { it == LBool.FALSE }
     val almostFalsified = values.count { it == LBool.FALSE } == values.size - 1
     val color = when {
-        satisfied -> Colors.truth.light
-        falsified -> Colors.falsity.light
-        almostFalsified -> Colors.almostFalsity.light
-        else -> Colors.bg.light
+        satisfied -> Colors.truth.main
+        falsified -> Colors.falsity.main
+        almostFalsified -> Colors.almostFalsity.main
+        else -> Colors.bg.main
     }
 
     Box {
