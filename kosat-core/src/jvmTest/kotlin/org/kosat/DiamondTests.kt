@@ -2,13 +2,11 @@ package org.kosat
 
 import com.github.lipen.satlib.solver.MiniSatSolver
 import korlibs.time.DateTime
-import korlibs.time.TimeSpan
 import korlibs.time.measureTimeWithResult
 import korlibs.time.roundMilliseconds
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import okio.Sink
-import okio.Path.Companion.toPath
 import okio.buffer
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
@@ -27,10 +25,7 @@ import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.random.Random
 import kotlin.streams.toList
-import kotlin.test.Test
 import kotlin.test.assertContains
-import kotlin.time.Duration
-import kotlin.time.measureTime
 
 private const val timeFormat = "yyyy-MM-dd_HH-mm-ss"
 
@@ -347,103 +342,5 @@ internal class DiamondTests {
         println("# Testing on: $file ($clauseCount clauses, ${cnf.numVars} variables)")
 
         runIncrementalTest(cnf)
-    }
-
-    @Test
-    fun justBenchmarkWithSatElite() {
-        var total = Duration.ZERO
-        val files = Files.walk(benchmarksPath).filter { isTestFile(it) }.toList()
-        for ((i, file) in files.withIndex()) {
-            println("${i + 1}/${files.size} # Testing on: $file")
-            val command = "/home/elt/Desktop/SatELite_v1.0_linux $file /tmp/out.cnf"
-            println(command)
-            val preprocessor = Runtime.getRuntime().exec(command)
-            preprocessor.waitFor()
-            val time = measureTime {
-                val solver = CDCL(CNF.from("/tmp/out.cnf".toPath()))
-                val result = solver.solve()
-                println("Result: $result")
-            }
-
-            total += time
-            println("Time: $time")
-        }
-
-        println("Total time: $total")
-    }
-
-    @Test
-    fun justBenchmarkWithMinisat2() {
-        var total = Duration.ZERO
-        val files = Files.walk(benchmarksPath).filter { isTestFile(it) }.toList()
-        for ((i, file) in files.withIndex()) {
-            println("${i + 1}/${files.size} # Testing on: $file")
-            val command = "minisat $file -dimacs=/tmp/out.cnf"
-            println(command)
-            val preprocessor = Runtime.getRuntime().exec(command)
-            preprocessor.waitFor()
-            val time = measureTime {
-                val solver = CDCL(CNF.from("/tmp/out.cnf".toPath()))
-                val result = solver.solve()
-                println("Result: $result")
-            }
-
-            total += time
-            println("Time: $time")
-        }
-
-        println("Total time: $total")
-    }
-
-    fun r1() {
-        println("========== RUN 1 ==========")
-        var total = Duration.ZERO
-        val files = Files.walk(benchmarksPath).filter { isTestFile(it) }.toList()
-        for ((i, file) in files.withIndex()) {
-            println("${i + 1}/${files.size} # Testing on: $file")
-            // val command = "/home/elt/Desktop/SatELite_v1.0_linux $file /tmp/out.cnf"
-            // println(command)
-            // val preprocessor = Runtime.getRuntime().exec(command)
-            // preprocessor.waitFor()
-            val time = measureTime {
-                val solver = CDCL(CNF.from(file.toOkioPath()))
-                val result = solver.solve()
-                println("Result: $result")
-            }
-
-            total += time
-            println("Time: $time")
-        }
-
-        println("Total time: $total")
-    }
-
-    fun r2() {
-        println("========== RUN 2 ==========")
-        var total = Duration.ZERO
-        val files = Files.walk(benchmarksPath).filter { isTestFile(it) }.toList()
-        for ((i, file) in files.withIndex()) {
-            println("${i + 1}/${files.size} # Testing on: $file")
-            // val command = "/home/elt/Desktop/SatELite_v1.0_linux $file /tmp/out.cnf"
-            // println(command)
-            // val preprocessor = Runtime.getRuntime().exec(command)
-            // preprocessor.waitFor()
-            val time = measureTime {
-                val solver = CDCL(CNF.from(file.toOkioPath()))
-                val result = solver.solve()
-                println("Result: $result")
-            }
-
-            total += time
-            println("Time: $time")
-        }
-
-        println("Total time: $total")
-    }
-
-    @Test
-    fun justBenchmark() {
-        r1()
-        r2()
     }
 }
