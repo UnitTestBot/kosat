@@ -6,6 +6,7 @@ import bindings.FixedSizeListItemParams
 import cdclWrapperContext
 import components.ClauseNode
 import components.CommandButton
+import components.CopyButton
 import components.EagerlyRunButton
 import components.IconCommandButton
 import components.LitNode
@@ -40,6 +41,7 @@ import web.cssom.Display
 import web.cssom.FlexDirection
 import web.cssom.FontWeight
 import web.cssom.JustifyContent
+import web.cssom.Position
 import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
@@ -342,6 +344,32 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
                     color = theme.palette.text.secondary
                 }
                 +"fully propagated"
+            }
+        }
+    }
+
+    CopyButton {
+        sx {
+            position = Position.absolute
+            bottom = 8.pt
+            right = 8.pt
+        }
+        lazyText = {
+            assignment.trail.joinToString("\n") { lit ->
+                var result = assignment.level(lit).toString()
+                result += if (assignment.reason(lit.variable) == null) {
+                    " - "
+                } else {
+                    " > "
+                }
+                result += lit.toDimacs().toString()
+                if (assignment.reason(lit.variable) != null) {
+                    result += " "
+                    result += assignment.reason(lit.variable)!!.lits.joinToString(" ", postfix = " 0") {
+                        it.toDimacs().toString()
+                    }
+                }
+                result
             }
         }
     }

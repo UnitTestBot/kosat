@@ -34,6 +34,7 @@ import web.cssom.FlexDirection
 import web.cssom.GridArea
 import web.cssom.GridTemplateAreas
 import web.cssom.Length
+import web.cssom.Position
 import web.cssom.TextAlign
 import web.cssom.array
 import web.cssom.fr
@@ -63,6 +64,7 @@ private val SectionPaper: FC<SectionPaperProps> = FC("SectionPaper") { props ->
             gridArea = props.gridArea
             gap = 8.pt
             maxHeight = props.maxHeight
+            position = Position.relative
         }
 
         Typography {
