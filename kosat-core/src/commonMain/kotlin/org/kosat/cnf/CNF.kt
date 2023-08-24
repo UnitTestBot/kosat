@@ -15,7 +15,7 @@ class CNF(
         return buffer.readUtf8()
     }
 
-    fun writeDimacs(sink: BufferedSink, includeHeader: Boolean) {
+    fun writeDimacs(sink: BufferedSink, includeHeader: Boolean = true) {
         if (includeHeader) {
             sink.writeUtf8("p cnf $numVars ${clauses.size}\n")
         }
