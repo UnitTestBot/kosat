@@ -87,6 +87,8 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
     }
 
     fun sort() {
+        // The only thing we care about for small arrays, is to not reallocate,
+        // so reimplementing a sorting algorithm here is ok.
         if (size <= 32) {
             for (i in 1 until size) {
                 val key = raw[i]
