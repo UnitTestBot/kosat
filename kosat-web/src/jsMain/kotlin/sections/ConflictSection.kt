@@ -185,7 +185,7 @@ val ConflictSection: FC<Props> = FC("ConflictSection") {
                             variant = TypographyVariant.body2
                             +"Reason of "
                             LitNode {
-                                lit = firstLit
+                                lit = firstLit.neg
                             }
                             +": "
                         }
@@ -245,7 +245,7 @@ val ConflictSection: FC<Props> = FC("ConflictSection") {
                                 lit = lastOnTrail!!
                             }
                         }
-                        +" with reason)"
+                        +")"
                     } else {
                         +"Analyze One"
                     }

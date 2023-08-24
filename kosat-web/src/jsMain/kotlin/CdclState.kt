@@ -187,10 +187,17 @@ class CdclState(initialProblem: CNF) {
      */
     fun requirementsFor(command: SolverCommand): List<Requirement> = inner.run {
         val leftToPropagate = assignment.qhead < assignment.trail.size
+
+        val notUnsat = Requirement(
+            ok,
+            "Solver must not be in UNSAT state",
+            obvious = true,
+        )
+
         val propagatedRequirements = listOf(
-            Requirement(ok, "Solver is not in UNSAT state", obvious = true),
-            Requirement(conflict == null, "There is no conflict"),
-            Requirement(!leftToPropagate, "All literals are propagated")
+            notUnsat,
+            Requirement(conflict == null, "There must be no conflict"),
+            Requirement(!leftToPropagate, "All literals must be propagated")
         )
 
         val conflictLitsFromLastLevel = conflict?.lits?.count {
@@ -203,97 +210,111 @@ class CdclState(initialProblem: CNF) {
             is SolverCommand.Search -> propagatedRequirements
 
             is SolverCommand.Propagate -> listOf(
-                Requirement(ok, "Solver is not in UNSAT state", obvious = true),
-                Requirement(conflict == null, "There is no conflict"),
-                Requirement(leftToPropagate, "There are literals not yet propagated")
+                notUnsat,
+                Requirement(conflict == null, "There must be conflict"),
+                Requirement(
+                    leftToPropagate,
+                    "There must be literals left to propagate",
+                    wontCauseEffectIfIgnored = true
+                )
             )
 
             is SolverCommand.PropagateOne -> listOf(
-                Requirement(ok, "Solver is not in UNSAT state", obvious = true),
-                Requirement(conflict == null, "There is no conflict"),
-                Requirement(leftToPropagate, "There are literals not yet propagated")
+                notUnsat,
+                Requirement(conflict == null, "There must be no conflict"),
+                Requirement(
+                    leftToPropagate,
+                    "There must be literals left to propagate",
+                    wontCauseEffectIfIgnored = true
+                )
             )
 
             is SolverCommand.PropagateUpTo -> listOf(
-                Requirement(ok, "Solver is not in UNSAT state", obvious = true),
-                Requirement(conflict == null, "There is no conflict"),
-                Requirement(leftToPropagate, "There are literals not yet propagated"),
+                notUnsat,
+                Requirement(conflict == null, "There must be no conflict"),
+                Requirement(leftToPropagate, "There must be literals left to propagate"),
                 Requirement(
                     command.trailIndex >= assignment.qhead,
-                    "Trail index is not before the current queue head",
+                    "Trail index must be at least the current queue head",
                     obvious = true,
                 ),
                 Requirement(
                     command.trailIndex < assignment.trail.size,
-                    "Trail index is not after the last literal on the trail",
+                    "Trail index must be less than the trail size",
                     obvious = true,
                 ),
             )
 
             is SolverCommand.AnalyzeConflict -> listOf(
-                Requirement(ok, "Solver is not in UNSAT state", obvious = true),
-                Requirement(conflict != null, "There is a conflict"),
+                notUnsat,
+                Requirement(conflict != null, "There must be a conflict"),
                 Requirement(
                     conflictLitsFromLastLevel?.let { it > 1 } ?: false,
-                    "There is more than one literal from the current decision level in the conflict",
+                    "There must be more than one literal from " +
+                        "the current decision level in the conflicting literals list",
                 )
             )
 
             is SolverCommand.AnalyzeOne -> listOf(
-                Requirement(ok, "Solver is not in UNSAT state", obvious = true),
-                Requirement(conflict != null, "There is a conflict"),
+                notUnsat,
+                Requirement(conflict != null, "There must be a conflict"),
                 Requirement(
                     conflictLitsFromLastLevel?.let { it > 1 } ?: false,
-                    "There is more than one literal from the current decision level in the conflict",
+                    "There must be more than one literal from " +
+                        "the current decision level in the conflicting literals list",
                 )
             )
 
             is SolverCommand.AnalysisMinimize -> listOf(
-                Requirement(ok, "Solver is not in UNSAT state", obvious = true),
-                Requirement(conflict != null, "There is a conflict"),
+                notUnsat,
+                Requirement(conflict != null, "There must be a conflict"),
                 Requirement(
                     conflictLitsFromLastLevel?.let { it == 1 } ?: false,
-                    "There is exactly one literal from the current decision level in the conflict",
+                    "There must be exactly one literal from " +
+                        "the current decision level in the learnt",
                 ),
                 Requirement(
                     conflict != null && inner.checkIfLearntCanBeMinimized(conflict!!),
-                    "There is a literal which reason is a subset of the conflict",
+                    "There must be a literal which reason is a subset of literals in the learnt",
+                    wontCauseEffectIfIgnored = true
                 ),
             )
 
             is SolverCommand.LearnAndBacktrack -> listOf(
-                Requirement(ok, "Solver is not in UNSAT state", obvious = true),
-                Requirement(conflict != null, "There is a conflict"),
+                notUnsat,
+                Requirement(conflict != null, "There must be a conflict"),
                 Requirement(
                     conflictLitsFromLastLevel?.let { it == 1 } ?: false,
-                    "There is exactly one literal from the current decision level in the conflict",
+                    "There must be exactly one literal from " +
+                        "the current decision level in the learnt",
                 )
             )
 
             is SolverCommand.Backtrack -> listOf(
-                Requirement(ok, "Solver is not in UNSAT state", obvious = true),
+                notUnsat,
                 Requirement(
                     command.level in 0 until assignment.decisionLevel,
-                    "Backtrack level is between 0 and the current decision level (exclusive)",
+                    "Backtrack level must not be the current decision level",
                     obvious = true,
+                    wontCauseEffectIfIgnored = true,
                 ),
             )
 
-            is SolverCommand.Enqueue -> listOf(
-                Requirement(propagated, "All literals are propagated"),
+            is SolverCommand.Enqueue -> propagatedRequirements + listOf(
                 Requirement(
                     command.lit.variable.index in 0 until assignment.numberOfVariables,
-                    "Literal is in the problem",
+                    "Literal must be in the problem",
                     obvious = true,
                 ),
                 Requirement(
                     assignment.isActive(command.lit),
-                    "Literal is active",
+                    "Literal must be active",
+                    obvious = true
                 ),
                 Requirement(
                     assignment.isActive(command.lit) &&
                         assignment.value(command.lit) == LBool.UNDEF,
-                    "Literal is not assigned",
+                    "Literal must not be assigned",
                 ),
             )
         }

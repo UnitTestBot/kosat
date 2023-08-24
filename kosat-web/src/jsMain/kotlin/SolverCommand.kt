@@ -260,7 +260,14 @@ data class Requirement(
     /**
      * Obvious requirements are not displayed in the tooltip if they are
      * fulfilled. This is useful to avoid cluttering the tooltip with obvious
-     * requirements, such as "Solver is not in UNSAT" state for every command.
+     * requirements, such as "Solver is not in UNSAT state" for every command.
      */
     val obvious: Boolean = false,
+    /**
+     * Whether despite the requirement not being fulfilled, the command can be
+     * executed, but it will not cause any effect. This is useful for commands
+     * which are no-ops if the requirement is not fulfilled, such as
+     * [SolverCommand.Propagate] when there are no literals to propagate.
+     */
+    val wontCauseEffectIfIgnored: Boolean = false,
 )

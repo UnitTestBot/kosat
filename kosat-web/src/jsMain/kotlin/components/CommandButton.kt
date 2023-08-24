@@ -6,8 +6,10 @@ import SolverCommand
 import WrapperCommand
 import cdclDispatchContext
 import cdclWrapperContext
+import mui.icons.material.Check
 import mui.icons.material.CheckBox
 import mui.icons.material.CheckBoxOutlineBlank
+import mui.icons.material.Close
 import mui.icons.material.SmartToy
 import mui.material.Box
 import mui.material.Button
@@ -20,7 +22,9 @@ import mui.material.ToggleButton
 import mui.material.ToggleButtonColor
 import mui.material.Tooltip
 import mui.material.Typography
+import mui.material.styles.Theme
 import mui.material.styles.TypographyVariant
+import mui.material.styles.useTheme
 import mui.system.PropsWithSx
 import mui.system.responsive
 import mui.system.sx
@@ -32,6 +36,7 @@ import react.useContext
 import web.cssom.AlignItems
 import web.cssom.BoxShadow
 import web.cssom.Display
+import web.cssom.FontWeight
 import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
@@ -47,6 +52,7 @@ private external interface ButtonRequirementsProps : PropsWithChildren {
  */
 private val ButtonRequirements: FC<ButtonRequirementsProps> = FC("ButtonRequirements") { props ->
     val solver = useContext(cdclWrapperContext)!!
+    val theme = useTheme<Theme>()
 
     val requirements = solver.requirementsFor(props.command)
 
@@ -68,23 +74,46 @@ private val ButtonRequirements: FC<ButtonRequirementsProps> = FC("ButtonRequirem
                             display = Display.flex
                             alignItems = AlignItems.center
                             gap = 8.pt
+                            if (!requirement.fulfilled) {
+                                color = Colors.falsity.light
+                                fontWeight = FontWeight.bold
+                            }
                         }
 
                         if (requirement.fulfilled) {
-                            CheckBox {}
+                            Check {}
                         } else {
-                            CheckBoxOutlineBlank {}
+                            Close {}
                         }
 
                         Typography {
                             sx {
                                 flexGrow = number(1.0)
+                                if (!requirement.fulfilled) {
+                                    fontWeight = FontWeight.bold
+                                }
                             }
 
                             variant = TypographyVariant.caption
 
                             +requirement.message
                         }
+                    }
+                }
+            }
+
+            if (!requirements.all { it.fulfilled }) {
+                if (requirements.all { it.fulfilled || it.wontCauseEffectIfIgnored }) {
+                    Typography {
+                        variant = TypographyVariant.caption
+
+                        +"Technically, this can be executed, but it won't have any effect."
+                    }
+                } else {
+                    Typography {
+                        variant = TypographyVariant.caption
+
+                        +"This cannot be executed because not all requirements are fulfilled."
                     }
                 }
             }
