@@ -358,13 +358,13 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
             assignment.trail.joinToString("\n") { lit ->
                 var result = assignment.level(lit).toString()
                 result += if (assignment.reason(lit.variable) == null) {
-                    " - "
+                    " | "
                 } else {
-                    " > "
+                    " | "
                 }
                 result += lit.toDimacs().toString()
                 if (assignment.reason(lit.variable) != null) {
-                    result += " "
+                    result += " | "
                     result += assignment.reason(lit.variable)!!.lits.joinToString(" ", postfix = " 0") {
                         it.toDimacs().toString()
                     }
