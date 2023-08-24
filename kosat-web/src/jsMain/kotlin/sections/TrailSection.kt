@@ -357,11 +357,7 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
         lazyText = {
             assignment.trail.joinToString("\n") { lit ->
                 var result = assignment.level(lit).toString()
-                result += if (assignment.reason(lit.variable) == null) {
-                    " | "
-                } else {
-                    " | "
-                }
+                result += " | "
                 result += lit.toDimacs().toString()
                 if (assignment.reason(lit.variable) != null) {
                     result += " | "
