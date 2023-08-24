@@ -17,6 +17,7 @@ import react.FC
 import react.Fragment
 import react.Props
 import react.create
+import react.dom.html.ReactHTML.span
 import react.router.useNavigate
 import react.useContext
 import web.cssom.number
@@ -71,13 +72,22 @@ val ActionsSection: FC<Props> = FC("ActionsSection") {
                 }
             }
 
-            Button {
-                variant = ButtonVariant.contained
-                disabled = solver.nextAction == null
-                onClick = {
-                    solver.nextAction?.let { dispatch(it) }
+            Box {
+                component = span
+                sx {
+                    width = 100.pct
                 }
-                +"Next CDCL action"
+                Button {
+                    sx {
+                        width = 100.pct
+                    }
+                    variant = ButtonVariant.contained
+                    disabled = solver.nextAction == null
+                    onClick = {
+                        solver.nextAction?.let { dispatch(it) }
+                    }
+                    +"Next CDCL action"
+                }
             }
         }
 
