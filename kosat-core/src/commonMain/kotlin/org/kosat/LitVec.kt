@@ -5,6 +5,17 @@ import kotlin.math.max
 /**
  * A vector of literals. It is more efficient than a plain `List<Lit>` because
  * it is backed by an array and does not use boxing.
+ *
+ * Unfortunately, making it iterable will force [iterator] method to return an
+ * instance of `Iterable<T>`, which will cause virtual calls due to type
+ * erasure every time it is used (two calls every `for` loop iteration:
+ * `Iterator.hasNext` and `Iterator.next`). We use a custom iterator instead,
+ * making it a bit more efficient. [iterator] function is marked as `operator`.
+ *
+ * Because of this, we cannot use kotlin extension functions on it, like `map`.
+ * So instead some of these functions being used are reimplemented here. This
+ * also makes it more efficient, because we can use primitive types instead of
+ * boxed ones, and have every function inlined.
  */
 class LitVec private constructor(var raw: IntArray, var size: Int) {
     private val capacity get() = raw.size
