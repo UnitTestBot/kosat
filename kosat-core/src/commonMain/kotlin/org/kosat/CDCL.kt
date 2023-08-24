@@ -2,10 +2,6 @@ package org.kosat
 
 import org.kosat.cnf.CNF
 import kotlin.math.min
-import kotlin.time.Duration
-import kotlin.time.TimeMark
-import kotlin.time.measureTime
-import kotlin.time.measureTimedValue
 
 /**
  * Solves [cnf] and returns
@@ -289,15 +285,8 @@ class CDCL {
 
         preprocess()?.let { return it }
 
-        val time = measureTimedValue {
-            search()
-        }
-        totalTime += time.duration
-        println("Solving took ${time.duration} (total: $totalTime)")
-        return time.value
+        return search()
     }
-
-    companion object { var totalTime = Duration.ZERO }
 
     /**
      * The main CDCL search loop.
