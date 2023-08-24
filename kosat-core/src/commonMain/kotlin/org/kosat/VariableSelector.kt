@@ -1,9 +1,9 @@
 package org.kosat
 
 abstract class VariableSelector {
-    protected var assumptions: List<Lit> = emptyList()
+    protected var assumptions: LitVec = LitVec()
 
-    fun initAssumptions(assumptions: List<Lit>) {
+    fun initAssumptions(assumptions: LitVec) {
         this.assumptions = assumptions
     }
 

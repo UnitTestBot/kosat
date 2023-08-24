@@ -20,7 +20,7 @@ data class VarState(
 class Assignment(private val solver: CDCL) {
     val value: MutableList<LBool> = mutableListOf()
     val varData: MutableList<VarState> = mutableListOf()
-    val trail: DenseLitVec = DenseLitVec.empty
+    val trail: LitVec = LitVec()
     val numberOfVariables get() = value.size
     private var numberOfInactiveVariables = 0
 
@@ -138,9 +138,6 @@ class Assignment(private val solver: CDCL) {
         check(decisionLevel == 0)
         value.add(LBool.UNDEF)
         varData.add(VarState(null, -1))
-        if (numberOfActiveVariables > trail.capacity) {
-            trail.grow()
-        }
     }
 
     fun newDecisionLevel() {
@@ -148,10 +145,10 @@ class Assignment(private val solver: CDCL) {
     }
 
     fun uncheckedEnqueue(lit: Lit, reason: Clause?) {
-        require(value(lit) == LBool.UNDEF)
-        require(isActive(lit))
+        // require(value(lit) == LBool.UNDEF)
+        // require(isActive(lit))
 
-        if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(DenseLitVec.of(lit)))
+        if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(LitVec.of(lit)))
 
         value[lit.variable] = LBool.from(lit.isPos)
         varData[lit.variable].reason = reason
@@ -179,11 +176,7 @@ class Assignment(private val solver: CDCL) {
         }
     }
 
-    fun dequeue(): Lit? {
-        return if (qhead < trail.size) {
-            trail[qhead++]
-        } else {
-            null
-        }
+    fun dequeue(): Lit {
+        return trail[qhead++]
     }
 }

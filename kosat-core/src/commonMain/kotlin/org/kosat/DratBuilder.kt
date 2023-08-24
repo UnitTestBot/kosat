@@ -50,7 +50,7 @@ abstract class AbstractDratBuilder {
      * clause and [flush]es the proof.
      */
     fun addEmptyClauseAndFlush() {
-        addClause(Clause(DenseLitVec.empty))
+        addClause(Clause(LitVec()))
         flush()
     }
 }

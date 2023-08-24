@@ -98,11 +98,11 @@ value class Var(val index: Int) {
     val negLit: Lit get() = Lit((index shl 1) or 1)
 }
 
-operator fun <T> List<T>.get(variable: Var): T {
+inline operator fun <reified T> List<T>.get(variable: Var): T {
     return this[variable.index]
 }
 
-operator fun <T> MutableList<T>.set(variable: Var, value: T) {
+inline operator fun <reified T> MutableList<T>.set(variable: Var, value: T) {
     this[variable.index] = value
 }
 
