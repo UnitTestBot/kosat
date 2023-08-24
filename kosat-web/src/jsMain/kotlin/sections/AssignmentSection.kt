@@ -23,7 +23,6 @@ import react.useContext
 import web.cssom.AlignItems
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display
-import web.cssom.Overflow
 import web.cssom.number
 import web.cssom.pt
 

@@ -1,6 +1,5 @@
 package routes
 
-import SolverCommand
 import WrapperCommand
 import cdclDispatchContext
 import cdclWrapperContext

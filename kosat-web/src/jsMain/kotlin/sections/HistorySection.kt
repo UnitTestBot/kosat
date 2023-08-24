@@ -14,7 +14,6 @@ import mui.material.ButtonGroup
 import mui.material.ListItemButton
 import mui.material.ListItemIcon
 import mui.material.ListItemText
-import mui.material.TypographyProps
 import mui.material.styles.Theme
 import mui.material.styles.useTheme
 import mui.system.sx
@@ -24,7 +23,6 @@ import react.PropsWithStyle
 import react.create
 import react.useContext
 import react.useEffect
-import react.useEffectOnce
 import react.useRef
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display

@@ -24,14 +24,11 @@ import web.cssom.FlexDirection
 import web.cssom.FontWeight
 import web.cssom.JustifyContent
 import web.cssom.JustifyItems
-import web.cssom.Position
 import web.cssom.array
-import web.cssom.integer
 import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
 import web.cssom.scale
-import web.cssom.translate
 
 /**
  * Section of the visualizer for analyzing the conflict.
