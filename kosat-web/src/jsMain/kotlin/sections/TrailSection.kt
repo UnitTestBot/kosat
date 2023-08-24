@@ -212,8 +212,7 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
     val assignment = solver.state.inner.assignment
     val listRef = useRef<HTMLElement>(null)
 
-    // FIXME: does not scroll :(
-    useEffect(assignment.trail) {
+    useEffect(assignment.trail.size) {
         listRef.current?.scrollTop = listRef.current?.scrollHeight?.toDouble() ?: 0.0
     }
 
