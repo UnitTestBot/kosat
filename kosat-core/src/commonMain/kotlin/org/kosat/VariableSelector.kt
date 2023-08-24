@@ -21,7 +21,7 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
     private var activityLimit = 1e100
 
     // list of activity for variables
-    private val activity = mutableListOf<Double>()
+    val activity = mutableListOf<Double>()
 
     // priority queue of activity of undefined variables
     private var activityPQ = PriorityQueue(activity)
