@@ -77,11 +77,11 @@ value class Lit(val inner: Int) {
     }
 }
 
-operator fun <T> List<T>.get(lit: Lit): T {
+inline operator fun <reified T> List<T>.get(lit: Lit): T {
     return this[lit.inner]
 }
 
-operator fun <T> MutableList<T>.set(lit: Lit, value: T) {
+inline operator fun <reified T> MutableList<T>.set(lit: Lit, value: T) {
     this[lit.inner] = value
 }
 

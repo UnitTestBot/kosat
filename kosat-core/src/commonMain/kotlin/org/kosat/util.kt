@@ -1,6 +1,6 @@
 package org.kosat
 
-fun <T> MutableList<T>.swap(i: Int, j: Int) {
+inline fun <reified T> MutableList<T>.swap(i: Int, j: Int) {
     this[i] = this[j].also { this[j] = this[i] }
 }
 
@@ -18,7 +18,7 @@ fun Boolean.toInt(): Int {
     return if (this) 1 else 0
 }
 
-fun <T> MutableList<T>.retainFirst(n: Int) {
+inline fun <reified T> MutableList<T>.retainFirst(n: Int) {
     require(n <= this.size)
     while (this.size > n) {
         this.removeLast()
