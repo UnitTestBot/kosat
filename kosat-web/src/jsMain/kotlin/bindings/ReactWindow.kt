@@ -8,6 +8,7 @@ import react.FC
 import react.Props
 import react.PropsWithRef
 import react.ReactNode
+import react.Ref
 import web.html.HTMLElement
 
 // https://github.com/bvaughn/react-window
@@ -99,7 +100,7 @@ external interface FixedSizeListItemParams {
 /**
  * Props for [FixedSizeList].
  */
-external interface FixedSizeListProps : PropsWithRef<HTMLElement> {
+external interface FixedSizeListProps : Props {
     /**
      * Represents the function that renders each element in the list.
      */
@@ -129,6 +130,8 @@ external interface FixedSizeListProps : PropsWithRef<HTMLElement> {
      * Width of the visible part of the list.
      */
     var width: Int
+
+    var outerRef: Ref<HTMLElement>
 }
 
 /**

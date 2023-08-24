@@ -270,7 +270,7 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
         } ?: true
 
         FixedSizeList {
-            ref = listRef
+            outerRef = listRef
 
             width = 300
             height = 600

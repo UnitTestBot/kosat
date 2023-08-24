@@ -121,7 +121,11 @@ private val HistoryEntry: FC<HistoryEntryProps> = FC("HistoryEntry") { props ->
  */
 val HistorySection: FC<Props> = FC("HistorySection") { _ ->
     val solver = useContext(cdclWrapperContext)!!
-    val dispatch = useContext(cdclDispatchContext)!!
+    val listRef = useRef<HTMLElement>(null)
+
+    useEffect(solver.history) {
+        listRef.current?.scrollTop = solver.history.size * 42.0
+    }
 
     if (solver.history.size + solver.redoHistory.size < 50) {
         mui.material.List {
@@ -168,21 +172,18 @@ val HistorySection: FC<Props> = FC("HistorySection") { _ ->
             height = 200
             itemSize = 42
             itemCount = solver.history.size + solver.redoHistory.size + 1
+            outerRef = listRef
 
             children = { params: FixedSizeListItemParams ->
                 val index = params.index
 
                 if (index == 0) {
-                    ListItemButton.create {
+                    HistoryEntry.create {
                         style = params.style
-
-                        ListItemText {
-                            +"Initial state"
-                        }
-
-                        onClick = {
-                            dispatch(WrapperCommand.TimeTravel(0))
-                        }
+                        historyIndex = index - 1
+                        this.command = null
+                        inFuture = false
+                        isCurrent = solver.history.isEmpty()
                     }
                 } else if (index - 1 < solver.history.size) {
                     val command = solver.history[index - 1]
@@ -192,6 +193,7 @@ val HistorySection: FC<Props> = FC("HistorySection") { _ ->
                         historyIndex = index - 1
                         this.command = command
                         inFuture = false
+                        isCurrent = index == solver.history.size
                     }
                 } else {
                     val command = solver.redoHistory[index - solver.history.size - 1]
