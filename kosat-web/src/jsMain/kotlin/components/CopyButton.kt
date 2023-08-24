@@ -9,7 +9,6 @@ import mui.system.PropsWithSx
 import mui.system.sx
 import react.FC
 import react.Fragment
-import react.Props
 import react.create
 import react.dom.html.ReactHTML.span
 import react.useState

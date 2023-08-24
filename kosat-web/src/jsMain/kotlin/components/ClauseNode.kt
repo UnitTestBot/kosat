@@ -9,9 +9,7 @@ import mui.material.styles.TypographyVariant
 import mui.system.sx
 import org.kosat.Clause
 import org.kosat.LBool
-import org.kosat.Lit
 import react.FC
-import react.Fragment
 import react.Props
 import react.create
 import react.dom.html.ReactHTML.br
@@ -107,7 +105,7 @@ val ClauseNode: FC<ClauseProps> = FC("ClauseNode") { props ->
                             showTooltip = false
                         }
                     }
-                    + "is assigned to true."
+                    +"is assigned to true."
                 }
             } else if (almostFalsified) {
                 val lastUnassigned = clause.lits.first { solver.state.inner.assignment.value(it) == LBool.UNDEF }
@@ -129,7 +127,7 @@ val ClauseNode: FC<ClauseProps> = FC("ClauseNode") { props ->
                             showTooltip = false
                         }
                     }
-                    + "is the only unassigned literal. It will be assigned the next propagation."
+                    +"is the only unassigned literal. It will be assigned the next propagation."
                 }
             } else if (falsified) {
                 Typography {

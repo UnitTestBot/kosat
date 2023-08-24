@@ -7,8 +7,6 @@ import WrapperCommand
 import cdclDispatchContext
 import cdclWrapperContext
 import mui.icons.material.Check
-import mui.icons.material.CheckBox
-import mui.icons.material.CheckBoxOutlineBlank
 import mui.icons.material.Close
 import mui.icons.material.SmartToy
 import mui.material.Box
@@ -22,9 +20,7 @@ import mui.material.ToggleButton
 import mui.material.ToggleButtonColor
 import mui.material.Tooltip
 import mui.material.Typography
-import mui.material.styles.Theme
 import mui.material.styles.TypographyVariant
-import mui.material.styles.useTheme
 import mui.system.PropsWithSx
 import mui.system.responsive
 import mui.system.sx
@@ -52,7 +48,6 @@ private external interface ButtonRequirementsProps : PropsWithChildren {
  */
 private val ButtonRequirements: FC<ButtonRequirementsProps> = FC("ButtonRequirements") { props ->
     val solver = useContext(cdclWrapperContext)!!
-    val theme = useTheme<Theme>()
 
     val requirements = solver.requirementsFor(props.command)
 

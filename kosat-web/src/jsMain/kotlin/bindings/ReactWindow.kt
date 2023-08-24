@@ -6,7 +6,6 @@ package bindings
 import react.CSSProperties
 import react.FC
 import react.Props
-import react.PropsWithRef
 import react.ReactNode
 import react.Ref
 import web.html.HTMLElement

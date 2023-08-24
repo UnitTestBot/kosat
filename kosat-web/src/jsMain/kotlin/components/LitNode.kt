@@ -13,7 +13,6 @@ import org.kosat.VSIDS
 import org.kosat.get
 import org.kosat.round
 import react.FC
-import react.Props
 import react.create
 import react.dom.html.ReactHTML.span
 import react.useContext
