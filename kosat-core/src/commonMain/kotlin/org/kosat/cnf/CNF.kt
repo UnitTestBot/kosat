@@ -21,7 +21,7 @@ data class CNF(
             builder.append('0')
             builder.appendLine()
         }
-        return builder.toString()
+        return builder.trim().toString()
     }
 
     companion object {

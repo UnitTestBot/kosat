@@ -77,7 +77,7 @@ val InputSection: FC<Props> = FC("InputSection") {
 
         TextField {
             ref = inputField
-            minRows = 16
+            minRows = 14
 
             sx {
                 width = 100.pct
