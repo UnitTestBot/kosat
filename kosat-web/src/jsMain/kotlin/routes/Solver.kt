@@ -51,7 +51,7 @@ val Solver: FC<Props> = FC("Solver") {
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
     val theme = useTheme<Theme>()
-    var problem by useState(solver.problem.toString(includeHeader = true))
+    var problem by useState(solver.problem.toDimacsString(includeHeader = true))
     var error by useState<String?>(null)
     var errorShown by useState(false)
     val navigate = useNavigate()

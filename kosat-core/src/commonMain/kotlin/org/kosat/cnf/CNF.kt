@@ -1,27 +1,30 @@
 package org.kosat.cnf
 
 import okio.Buffer
+import okio.BufferedSink
 import okio.BufferedSource
 import kotlin.math.abs
 
-data class CNF(
+class CNF(
     val clauses: List<List<Int>>,
     val numVars: Int = determineNumberOfVariables(clauses),
 ) {
-    fun toString(includeHeader: Boolean): String {
-        val builder = StringBuilder()
+    fun toDimacsString(includeHeader: Boolean): String {
+        val buffer = Buffer()
+        writeDimacs(buffer, includeHeader)
+        return buffer.readUtf8()
+    }
+
+    fun writeDimacs(sink: BufferedSink, includeHeader: Boolean) {
         if (includeHeader) {
-            builder.appendLine("p cnf $numVars ${clauses.size}")
+            sink.writeUtf8("p cnf $numVars ${clauses.size}\n")
         }
         for (clause in clauses) {
             for (lit in clause) {
-                builder.append(lit)
-                builder.append(' ')
+                sink.writeUtf8(lit.toString()).writeUtf8(" ")
             }
-            builder.append('0')
-            builder.appendLine()
+            sink.writeUtf8("0\n")
         }
-        return builder.trim().toString()
     }
 
     companion object {

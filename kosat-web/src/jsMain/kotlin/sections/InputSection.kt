@@ -35,7 +35,7 @@ val InputSection: FC<Props> = FC("InputSection") {
     var errorShown by useState(false)
     val inputField = useRef<HTMLDivElement>(null)
 
-    var problem by useState(solver.problem.toString(includeHeader = true))
+    var problem by useState(solver.problem.toDimacsString(includeHeader = true))
 
     fun recreate() {
         val cnf: CNF
