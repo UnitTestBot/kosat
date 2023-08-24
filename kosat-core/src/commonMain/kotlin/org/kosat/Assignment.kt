@@ -47,20 +47,6 @@ class Assignment(private val solver: CDCL) {
         return value[lit.variable] xor lit.isNeg
     }
 
-    /**
-     * @return true, if the literal is active and assigned to true.
-     */
-    fun isActiveAndTrue(lit: Lit): Boolean {
-        return varData[lit.variable].active && value(lit) == LBool.TRUE
-    }
-
-    /**
-     * @return true, if the literal is active and assigned to false.
-     */
-    fun isActiveAndFalse(lit: Lit): Boolean {
-        return varData[lit.variable].active && value(lit) == LBool.FALSE
-    }
-
     /** @return whether the variable is [VarState.frozen] */
     fun isFrozen(v: Var): Boolean {
         return varData[v].frozen
