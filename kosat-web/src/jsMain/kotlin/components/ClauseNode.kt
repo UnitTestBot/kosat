@@ -9,15 +9,20 @@ import mui.material.styles.TypographyVariant
 import mui.system.sx
 import org.kosat.Clause
 import org.kosat.LBool
+import org.kosat.Lit
 import react.FC
+import react.Fragment
 import react.Props
 import react.create
+import react.dom.html.ReactHTML.br
 import react.dom.html.ReactHTML.span
 import react.useContext
 import web.cssom.AlignItems
 import web.cssom.Display
+import web.cssom.FlexDirection
 import web.cssom.FontWeight
 import web.cssom.JustifyContent
+import web.cssom.array
 import web.cssom.pt
 import web.cssom.scale
 
@@ -51,31 +56,118 @@ val ClauseNode: FC<ClauseProps> = FC("ClauseNode") { props ->
         else -> Colors.bg.main
     }
 
-    Box {
-        component = span
-        sx {
-            display = Display.inlineFlex
-            height = 30.pt
-            borderRadius = 15.pt
-            alignItems = AlignItems.center
-            justifyContent = JustifyContent.center
-            backgroundColor = color
-            padding = 3.pt
-            margin = 3.pt
-            if (props.scale != null) {
-                transform = scale(props.scale!!)
+    val maxLitsToShow = 8
+
+    Tooltip {
+        disableInteractive = true
+        title = Box.create {
+            sx {
+                display = Display.flex
+                flexDirection = FlexDirection.column
+                alignItems = AlignItems.center
+                justifyContent = JustifyContent.center
+            }
+            Typography {
+                variant = TypographyVariant.subtitle2
+                +"Clause of ${clause.lits.size} literals"
+            }
+            if (clause.lits.size > maxLitsToShow) {
+                Typography {
+                    variant = TypographyVariant.subtitle2
+                    sx {
+                        fontWeight = FontWeight.bold
+                    }
+                    +"(only the first $maxLitsToShow are shown)"
+                    br {}
+                    +"Full clause:"
+                }
+                Typography {
+                    variant = TypographyVariant.subtitle1
+                    +clause.lits.map { it.toDimacs() }.joinToString(" ")
+                }
+
+            }
+            if (satisfied) {
+                val satLit = clause.lits.first { solver.state.inner.assignment.value(it) == LBool.TRUE }
+                Typography {
+                    variant = TypographyVariant.subtitle2
+                    sx {
+                        fontWeight = FontWeight.bold
+                        this.color = Colors.truth.light
+                    }
+                    +"Satisfied because "
+                    Box {
+                        component = span
+                        sx {
+                            transform = scale(0.4)
+                            padding = array(0.pt, 4.pt)
+                        }
+                        LitNode {
+                            lit = satLit
+                            showTooltip = false
+                        }
+                    }
+                    + "is assigned to true."
+                }
+            } else if (almostFalsified) {
+                val lastUnassigned = clause.lits.first { solver.state.inner.assignment.value(it) == LBool.UNDEF }
+                Typography {
+                    variant = TypographyVariant.subtitle2
+                    sx {
+                        fontWeight = FontWeight.bold
+                        this.color = Colors.almostFalsity.light
+                    }
+                    +"Almost falsified. "
+                    Box {
+                        component = span
+                        sx {
+                            transform = scale(0.4)
+                            padding = array(0.pt, 4.pt)
+                        }
+                        LitNode {
+                            lit = lastUnassigned
+                            showTooltip = false
+                        }
+                    }
+                    + "is the only unassigned literal. It will be assigned the next propagation."
+                }
+            } else if (falsified) {
+                Typography {
+                    variant = TypographyVariant.subtitle2
+                    sx {
+                        fontWeight = FontWeight.bold
+                        this.color = Colors.falsity.light
+                    }
+                    +"Falsified. All literals are assigned to false."
+                }
             }
         }
 
-        for (lit in clause.lits.take(8)) {
-            LitNode {
-                key = lit.toString()
-                this.lit = lit
+        Box {
+            component = span
+            sx {
+                display = Display.inlineFlex
+                height = 30.pt
+                borderRadius = 15.pt
+                alignItems = AlignItems.center
+                justifyContent = JustifyContent.center
+                backgroundColor = color
+                padding = 3.pt
+                margin = 3.pt
+                if (props.scale != null) {
+                    transform = scale(props.scale!!)
+                }
             }
-        }
 
-        if (clause.lits.size > 8) {
-            Tooltip {
+            for (lit in clause.lits.take(maxLitsToShow)) {
+                LitNode {
+                    key = lit.toString()
+                    this.lit = lit
+                    showTooltip = false
+                }
+            }
+
+            if (clause.lits.size > maxLitsToShow) {
                 Typography {
                     variant = TypographyVariant.subtitle2
                     sx {
@@ -84,10 +176,6 @@ val ClauseNode: FC<ClauseProps> = FC("ClauseNode") { props ->
                         paddingLeft = 4.pt
                     }
                     +"..."
-                }
-
-                title = Box.create {
-                    +clause.lits.map { it.toDimacs() }.joinToString(separator = " ")
                 }
             }
         }

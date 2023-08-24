@@ -96,7 +96,7 @@ val InputSection: FC<Props> = FC("InputSection") {
     }
 
     Button {
-        +"Create Solver"
+        +"Start"
         variant = ButtonVariant.contained
         onClick = {
             recreate()

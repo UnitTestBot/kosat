@@ -96,7 +96,7 @@ val StateSection: FC<Props> = FC("StateSection") {
 
         solver.state.inner.run {
             StateCard {
-                title = "Level"
+                title = "Decision Level"
 
                 Typography {
                     variant = TypographyVariant.h1
