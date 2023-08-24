@@ -4,6 +4,7 @@ import SolverCommand
 import bindings.FixedSizeGrid
 import bindings.FixedSizeGridItemParams
 import cdclWrapperContext
+import components.CopyButton
 import components.IconCommandButton
 import components.LitNode
 import mui.icons.material.Add
@@ -14,6 +15,7 @@ import mui.material.Stack
 import mui.material.StackDirection
 import mui.system.responsive
 import mui.system.sx
+import org.kosat.LBool
 import org.kosat.Var
 import react.FC
 import react.Props
@@ -23,6 +25,7 @@ import react.useContext
 import web.cssom.AlignItems
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display
+import web.cssom.Position
 import web.cssom.number
 import web.cssom.pt
 
@@ -87,7 +90,26 @@ val AssignmentSection: FC<Props> = FC("AssignmentSection") {
             display = Display.flex
             flexGrow = number(1.0)
             // justifyContent = JustifyContent.center
-            overflow = auto
+            overflowX = auto
+        }
+
+        CopyButton {
+            sx {
+                position = Position.absolute
+                top = 8.pt
+                right = 8.pt
+
+            }
+            lazyText = {
+                (0 until assignment.numberOfVariables).joinToString(" ") { varIndex ->
+                    val v = Var(varIndex)
+                    when (assignment.value(v)) {
+                        LBool.TRUE -> v.posLit.toDimacs().toString()
+                        LBool.FALSE -> v.negLit.toDimacs().toString()
+                        LBool.UNDEF -> "0"
+                    }
+                }
+            }
         }
 
         Stack {

@@ -4,6 +4,7 @@ import bindings.FixedSizeList
 import bindings.FixedSizeListItemParams
 import cdclWrapperContext
 import components.ClauseNode
+import components.CopyButton
 import mui.material.Box
 import mui.material.Paper
 import mui.material.Typography
@@ -92,7 +93,7 @@ val ClauseDbSection: FC<Props> = FC("ClauseDbSection") {
             sx {
                 padding = 8.pt
                 flexGrow = number(1.0)
-                minWidth = 200.pt
+                minWidth = 300.pt
                 overflow = auto
             }
 
@@ -104,6 +105,17 @@ val ClauseDbSection: FC<Props> = FC("ClauseDbSection") {
                 component = h3
                 variant = TypographyVariant.subtitle1
                 +"Irredundant Clauses"
+                CopyButton {
+                    lazyText = {
+                        solver.state.inner.db.clauses.filter {
+                            !it.deleted
+                        }.joinToString("\n") {
+                            it.lits.joinToString(" ", postfix = " 0") { lit ->
+                                lit.toDimacs().toString()
+                            }
+                        }
+                    }
+                }
             }
 
             ClauseList {
@@ -118,7 +130,7 @@ val ClauseDbSection: FC<Props> = FC("ClauseDbSection") {
             sx {
                 padding = 8.pt
                 flexGrow = number(1.0)
-                minWidth = 200.pt
+                minWidth = 300.pt
                 overflow = auto
             }
 
@@ -130,6 +142,17 @@ val ClauseDbSection: FC<Props> = FC("ClauseDbSection") {
                 component = h3
                 variant = TypographyVariant.subtitle1
                 +"Redundant Clauses"
+                CopyButton {
+                    lazyText = {
+                        solver.state.inner.db.learnts.filter {
+                            !it.deleted
+                        }.joinToString("\n") {
+                            it.lits.joinToString(" ", postfix = " 0") { lit ->
+                                lit.toDimacs().toString()
+                            }
+                        }
+                    }
+                }
             }
 
             ClauseList {

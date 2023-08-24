@@ -6,6 +6,7 @@ import bindings.FixedSizeListItemParams
 import cdclWrapperContext
 import components.ClauseNode
 import components.CommandButton
+import components.CopyButton
 import components.EagerlyRunButton
 import components.IconCommandButton
 import components.LitNode
@@ -30,6 +31,8 @@ import react.FC
 import react.Props
 import react.create
 import react.useContext
+import react.useEffect
+import react.useRef
 import react.useState
 import web.cssom.AlignItems
 import web.cssom.AlignSelf
@@ -38,10 +41,12 @@ import web.cssom.Display
 import web.cssom.FlexDirection
 import web.cssom.FontWeight
 import web.cssom.JustifyContent
+import web.cssom.Position
 import web.cssom.number
 import web.cssom.pct
 import web.cssom.pt
 import web.cssom.rgb
+import web.html.HTMLElement
 
 private external interface TrailLevelProps : Props {
     var level: Int
@@ -207,6 +212,11 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
     val solver = useContext(cdclWrapperContext)!!
     val theme = useTheme<Theme>()
     val assignment = solver.state.inner.assignment
+    val listRef = useRef<HTMLElement>(null)
+
+    useEffect(assignment.trail.size) {
+        listRef.current?.scrollTop = listRef.current?.scrollHeight?.toDouble() ?: 0.0
+    }
 
     Box {
         sx {
@@ -236,14 +246,15 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
             command = SolverCommand.Propagate
             description = """
                 Automatically propagate all literals that can be 
-                propagated without making any decisions, every time
-                the assignment changes.
+                propagated every time the assignment changes.
             """.trimIndent()
         }
     }
 
     if (assignment.trail.size < 30) {
         List {
+            ref = listRef
+
             sx {
                 overflow = auto
             }
@@ -255,18 +266,25 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
             }
         }
     } else {
+        val levelZeroIsEmpty = assignment.trail.getOrNull(0)?.let {
+            assignment.level(it) != 0
+        } ?: true
+
         FixedSizeList {
+            outerRef = listRef
+
             width = 300
             height = 600
             itemSize = 42
-            itemCount = assignment.trail.size
+            itemCount = assignment.trail.size + if (levelZeroIsEmpty) 1 else 0
             children = { params: FixedSizeListItemParams ->
+                val litIndex = params.index - if (levelZeroIsEmpty) 1 else 0
                 val index = params.index
-                val lit = assignment.trail[index]
-                val level = assignment.level(lit)
-                val reason = assignment.reason(lit.variable)
+                val lit = assignment.trail.getOrNull(litIndex)
+                val level = lit?.let { assignment.level(it) } ?: 0
+                val reason = lit?.let { assignment.reason(it.variable) }
 
-                val firstInLevel = level == 0 && index == 0 || level > 0 && reason == null
+                val firstInLevel = index == 0 || level > 0 && reason == null
 
                 Box.create {
                     sx {
@@ -294,8 +312,10 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
                         }
                     }
 
-                    LitNode {
-                        this.lit = lit
+                    if (lit != null) {
+                        LitNode {
+                            this.lit = lit
+                        }
                     }
 
                     if (reason != null) {
@@ -324,6 +344,28 @@ val TrailSection: FC<Props> = FC("TrailSection") { _ ->
                     color = theme.palette.text.secondary
                 }
                 +"fully propagated"
+            }
+        }
+    }
+
+    CopyButton {
+        sx {
+            position = Position.absolute
+            bottom = 8.pt
+            right = 8.pt
+        }
+        lazyText = {
+            assignment.trail.joinToString("\n") { lit ->
+                var result = assignment.level(lit).toString()
+                result += " | "
+                result += lit.toDimacs().toString()
+                if (assignment.reason(lit.variable) != null) {
+                    result += " | "
+                    result += assignment.reason(lit.variable)!!.lits.joinToString(" ", postfix = " 0") {
+                        it.toDimacs().toString()
+                    }
+                }
+                result
             }
         }
     }

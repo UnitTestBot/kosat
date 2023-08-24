@@ -2,6 +2,7 @@ package sections
 
 import WrapperCommand
 import cdclDispatchContext
+import cdclWrapperContext
 import js.core.jso
 import mui.material.Box
 import mui.material.Button
@@ -15,38 +16,58 @@ import react.FC
 import react.Props
 import react.dom.onChange
 import react.useContext
+import react.useEffectOnce
+import react.useRef
 import react.useState
 import web.cssom.FontFamily
 import web.cssom.Overflow
 import web.cssom.number
 import web.cssom.pct
+import web.html.HTMLDivElement
 
 /**
  * A section dedicated to inputting a CNF.
  */
 val InputSection: FC<Props> = FC("InputSection") {
     val dispatch = useContext(cdclDispatchContext)!!
+    val solver = useContext(cdclWrapperContext)!!
     var error by useState<String?>(null)
     var errorShown by useState(false)
+    val inputField = useRef<HTMLDivElement>(null)
 
-    var request by useState(
-        """
-            p cnf 9 13
-            -1 2 0
-            -1 3 0
-            -2 -3 4 0
-            -4 5 0
-            -4 6 0
-            -5 -6 7 0
-            -7 1 0
-            1 4 7 8 0
-            -1 -4 -7 -8 0
-            1 4 7 9 0
-            -1 -4 -7 -9 0
-            8 9 0
-            -8 -9 0
-        """.trimIndent()
-    )
+    var problem by useState(solver.problem.toDimacsString(includeHeader = true))
+
+    fun recreate() {
+        val cnf: CNF
+        try {
+            cnf = CNF.fromString(problem)
+        } catch (e: Exception) {
+            error = e.message
+            errorShown = true
+            return
+        }
+        dispatch(WrapperCommand.Recreate(cnf))
+    }
+
+    useEffectOnce {
+        recreate()
+    }
+
+    // This event handler serves two purposes:
+    // First, it allows the user to press Ctrl+Enter to create a solver.
+    // Second, it prevents the input events from propagating further, causing
+    // key presses to be registered as input events in the other sections.
+    // This is important for time traveling, where arrow keys are used to
+    // navigate the history.
+    inputField.current?.let {
+        it.onkeydown = { event ->
+            if (event.ctrlKey && event.key == "Enter") {
+                recreate()
+            }
+
+            event.stopPropagation()
+        }
+    }
 
     Box {
         sx {
@@ -55,6 +76,9 @@ val InputSection: FC<Props> = FC("InputSection") {
         }
 
         TextField {
+            ref = inputField
+            minRows = 14
+
             sx {
                 width = 100.pct
             }
@@ -65,27 +89,17 @@ val InputSection: FC<Props> = FC("InputSection") {
                 }
             }
 
-            value = request
+            value = problem
             multiline = true
-            onChange = { event -> request = event.target.asDynamic().value as String }
+            onChange = { event -> problem = event.target.asDynamic().value as String }
         }
     }
 
     Button {
-        +"Create Solver"
+        +"Start"
         variant = ButtonVariant.contained
         onClick = {
-            run {
-                val cnf: CNF
-                try {
-                    cnf = CNF.fromString(request)
-                } catch (e: Exception) {
-                    error = e.message
-                    errorShown = true
-                    return@run
-                }
-                dispatch(WrapperCommand.Recreate(cnf))
-            }
+            recreate()
         }
     }
 

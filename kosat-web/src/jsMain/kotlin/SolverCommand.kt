@@ -1,6 +1,6 @@
+import org.kosat.CDCL
 import org.kosat.Lit
 import org.kosat.cnf.CNF
-import org.kosat.CDCL
 
 /**
  * A command to the [CdclWrapper] or [CdclState].
@@ -22,6 +22,15 @@ sealed interface WrapperCommand {
      */
     data class Recreate(val cnf: CNF) : WrapperCommand {
         override val description = "Create a new solver instance"
+    }
+
+    /**
+     * Creates a new [CdclWrapper] instance with the given CNF as the problem,
+     * and solves it. This is used in the landing page to simply solve the
+     * problem without visualization.
+     */
+    data class RecreateAndSolve(val cnf: CNF) : WrapperCommand {
+        override val description = "Create a new solver instance and solve it"
     }
 
     /**
@@ -126,7 +135,7 @@ sealed interface SolverCommand : WrapperCommand {
         override val eagerPriority: Int get() = 1000
 
         override val description = """
-            Propagate all literals that can be propagated without making any decisions.
+            Propagate all literals that can be propagated.
         """.trimIndent().replace("\n", " ")
     }
 
@@ -138,7 +147,7 @@ sealed interface SolverCommand : WrapperCommand {
      */
     data object PropagateOne : SolverCommand {
         override val description = """
-            Propagate the next literal on the trail.
+            Propagate the first not propagated literal on the trail.
         """.trimIndent().replace("\n", " ")
     }
 
@@ -164,7 +173,7 @@ sealed interface SolverCommand : WrapperCommand {
      */
     data class Backtrack(val level: Int) : SolverCommand {
         override val description = """
-            Backtrack to the this level, undoing all decisions made after this level.
+            Backtrack to level $level, undoing all decisions made after this level.
         """.trimIndent().replace("\n", " ")
     }
 
@@ -174,7 +183,7 @@ sealed interface SolverCommand : WrapperCommand {
      */
     data class Enqueue(val lit: Lit) : SolverCommand {
         override val description = """
-            Assign this literal to be true on the new decision level. 
+            Assign variable ${lit.variable.index + 1} to be ${lit.isPos} on the new decision level. 
         """.trimIndent().replace("\n", " ")
     }
 
@@ -251,7 +260,14 @@ data class Requirement(
     /**
      * Obvious requirements are not displayed in the tooltip if they are
      * fulfilled. This is useful to avoid cluttering the tooltip with obvious
-     * requirements, such as "Solver is not in UNSAT" state for every command.
+     * requirements, such as "Solver is not in UNSAT state" for every command.
      */
     val obvious: Boolean = false,
+    /**
+     * Whether despite the requirement not being fulfilled, the command can be
+     * executed, but it will not cause any effect. This is useful for commands
+     * which are no-ops if the requirement is not fulfilled, such as
+     * [SolverCommand.Propagate] when there are no literals to propagate.
+     */
+    val wontCauseEffectIfIgnored: Boolean = false,
 )

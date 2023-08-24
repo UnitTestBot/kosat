@@ -7,6 +7,8 @@ import react.CSSProperties
 import react.FC
 import react.Props
 import react.ReactNode
+import react.Ref
+import web.html.HTMLElement
 
 // https://github.com/bvaughn/react-window
 // Since rendering of thousands of DOM nodes can be slow (and we have to render
@@ -33,7 +35,7 @@ external interface FixedSizeGridItemParams {
 /**
  * Props for [FixedSizeGrid].
  */
-external interface FixedSizeGridProps: Props {
+external interface FixedSizeGridProps : Props {
     /**
      * Represents the function that renders each element in the grid.
      */
@@ -97,7 +99,7 @@ external interface FixedSizeListItemParams {
 /**
  * Props for [FixedSizeList].
  */
-external interface FixedSizeListProps: Props {
+external interface FixedSizeListProps : Props {
     /**
      * Represents the function that renders each element in the list.
      */
@@ -127,6 +129,8 @@ external interface FixedSizeListProps: Props {
      * Width of the visible part of the list.
      */
     var width: Int
+
+    var outerRef: Ref<HTMLElement>
 }
 
 /**

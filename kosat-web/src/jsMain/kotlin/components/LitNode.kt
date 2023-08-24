@@ -5,6 +5,7 @@ import cdclWrapperContext
 import mui.material.Box
 import mui.material.Tooltip
 import mui.material.Typography
+import mui.system.PropsWithSx
 import mui.system.sx
 import org.kosat.LBool
 import org.kosat.Lit
@@ -12,7 +13,6 @@ import org.kosat.VSIDS
 import org.kosat.get
 import org.kosat.round
 import react.FC
-import react.Props
 import react.create
 import react.dom.html.ReactHTML.span
 import react.useContext
@@ -26,9 +26,11 @@ import web.cssom.LineStyle
 import web.cssom.pct
 import web.cssom.pt
 
-external interface LitProps : Props {
+external interface LitProps : PropsWithSx {
     @Suppress("INLINE_CLASS_IN_EXTERNAL_DECLARATION_WARNING")
     var lit: Lit
+
+    var showTooltip: Boolean?
 }
 
 /**
@@ -63,15 +65,21 @@ val LitNode: FC<LitProps> = FC("LitNode") { props ->
 
     Tooltip {
         disableInteractive = true
+        if (props.showTooltip == false) {
+            open = false
+        }
 
         title = Box.create {
             component = span
+            sx = props.sx
 
             if (lit.isPos) {
                 Box { +"Positive literal" }
             } else {
                 Box { +"Negative literal" }
             }
+            if (value == LBool.TRUE) Box { +"Assigned to TRUE at level ${data.level}" }
+            if (value == LBool.FALSE) Box { +"Assigned to FALSE at level ${data.level}" }
 
             // if (!data.active) Box { +"Inactive (eliminated)" }
             if (data.active) Box {
@@ -79,8 +87,6 @@ val LitNode: FC<LitProps> = FC("LitNode") { props ->
                 +"VSIDS activity: ${activity.round(2)}"
             }
             if (data.frozen) Box { +"Frozen" }
-            if (value == LBool.TRUE) Box { +"Assigned to TRUE at level ${data.level}" }
-            if (value == LBool.FALSE) Box { +"Assigned to FALSE at level ${data.level}" }
             if (data.reason != null) Box {
                 +"Reason:"
                 Box {

@@ -85,6 +85,8 @@ data class CdclWrapper(
      */
     val nextAction by lazy { state.guessNextSolverAction() }
 
+    val model by lazy { state.getModel() }
+
     /**
      * Whether the given command can be executed. Equivalently, whether all
      * [Requirement]s for the command (obtained by [requirementsFor]) are
@@ -102,6 +104,8 @@ data class CdclWrapper(
     val requirementsFor: Memo<WrapperCommand, List<Requirement>> = { command: WrapperCommand ->
         when (command) {
             is WrapperCommand.Recreate -> emptyList()
+
+            is WrapperCommand.RecreateAndSolve -> emptyList()
 
             is WrapperCommand.Undo -> listOf(
                 Requirement(
@@ -148,6 +152,17 @@ data class CdclWrapper(
                 problem = command.cnf,
                 state = CdclState(command.cnf),
             )
+
+            is WrapperCommand.RecreateAndSolve -> {
+                val state = CdclState(command.cnf)
+                state.inner.solve()
+                return copy(
+                    history = emptyList(),
+                    redoHistory = emptyList(),
+                    problem = command.cnf,
+                    state = state,
+                )
+            }
 
             is WrapperCommand.Undo -> {
                 val newUndoHistory = history.toMutableList()
@@ -249,11 +264,23 @@ data class CdclWrapper(
                     newHistory.add(commandToRun)
                 }
 
+                var newRedoHistory = emptyList<SolverCommand>()
+                if (newHistory == history + redoHistory.take(newHistory.size - history.size)) {
+                    newRedoHistory = redoHistory.drop(newHistory.size - history.size)
+                }
+
                 return copy(
                     history = newHistory,
-                    redoHistory = emptyList(),
+                    redoHistory = newRedoHistory,
                 )
             }
+        }
+    }
+
+    companion object {
+        fun fromString(string: String): CdclWrapper {
+            val cnf = CNF.fromString(string)
+            return CdclWrapper(problem = cnf, state = CdclState(cnf))
         }
     }
 }

@@ -78,7 +78,7 @@ class ReconstructionStack {
     fun reconstruct(assignment: Assignment): List<Boolean> {
         val model = MutableList(assignment.numberOfVariables) { varIndex ->
             val v = Var(varIndex)
-            assignment.isActiveAndTrue(v.posLit)
+            assignment.isActive(v.posLit) && assignment.value(v.posLit) == LBool.TRUE
         }
 
         // To reconstruct the model, we need to go through the stack in reverse
@@ -150,15 +150,21 @@ class ReconstructionStack {
             // removing a satisfied clauses does not affect the correctness of
             // its constraints. There must be an unsatisfied clause left, which
             // will be used to restore the variable and force its value.
-            val satisfied = clause.lits.any { solver.assignment.isActiveAndTrue(it) }
+            val satisfied = clause.lits.any {
+                solver.assignment.isActive(it) && solver.assignment.value(it) == LBool.TRUE
+            }
 
             // We also remove all false literals from the clause. Note that the
             // clause won't be empty, as it contains the witness literal, which
             // is unassigned.
-            clause.lits.removeAll { solver.assignment.isActiveAndFalse(it) }
+            clause.lits.removeAll {
+                solver.assignment.isActive(it) && solver.assignment.value(it) == LBool.FALSE
+            }
 
             // this is where we remove satisfied clauses
-            if (satisfied || solver.assignment.isActiveAndFalse(witness)) continue // (*)
+            if (satisfied || solver.assignment.isActive(witness) && solver.assignment.value(witness) == LBool.FALSE) {
+                continue // (*)
+            }
             // Otherwise, the clause needs to be restored.
 
             // We mark all the literals in the clause as tainted, as they are

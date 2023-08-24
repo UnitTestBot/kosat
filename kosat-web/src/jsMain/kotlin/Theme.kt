@@ -1,12 +1,15 @@
 import js.core.jso
 import mui.material.styles.PaletteColor
 import mui.material.styles.TypographyOptions
+import mui.material.styles.TypographyVariant.Companion.body1
 import mui.material.styles.TypographyVariant.Companion.h1
 import mui.material.styles.TypographyVariant.Companion.h2
 import mui.material.styles.TypographyVariant.Companion.h3
 import mui.material.styles.createTheme
 import web.cssom.Color
 import web.cssom.FontWeight
+import web.cssom.Margin
+import web.cssom.pt
 import web.cssom.rem
 
 object Themes {
@@ -25,6 +28,10 @@ object Themes {
             h3 {
                 fontSize = 1.2.rem
                 fontWeight = FontWeight.bold
+            }
+
+            body1 {
+                margin = Margin(0.5.rem, 0.pt)
             }
         }
     })

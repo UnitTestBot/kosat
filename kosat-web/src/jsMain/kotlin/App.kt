@@ -1,10 +1,19 @@
+import js.core.jso
 import mui.material.CssBaseline
 import mui.system.ThemeProvider
 import react.FC
 import react.Props
 import react.StrictMode
+import react.create
 import react.createContext
+import react.dom.client.createRoot
+import react.router.RouterProvider
+import react.router.dom.createHashRouter
 import react.useReducer
+import routes.Solver
+import routes.Visualizer
+import web.dom.document
+import web.html.HTML
 
 /**
  * Universal context for the [CdclWrapper]. This is used to pass the immutable
@@ -33,9 +42,42 @@ val cdclDispatchContext = createContext<(WrapperCommand) -> Unit>()
  * @see cdclDispatchContext
  */
 val App: FC<Props> = FC("App") {
-    val (solver, dispatch) = useReducer({ wrapper: CdclWrapper, command: WrapperCommand ->
-        wrapper.execute(command)
-    }, CdclWrapper())
+    val (solver, dispatch) = useReducer(
+        { wrapper: CdclWrapper, command: WrapperCommand ->
+            wrapper.execute(command)
+        },
+        CdclWrapper.fromString(
+            """
+                p cnf 9 13
+                -1 2 0
+                -1 3 0
+                -2 -3 4 0
+                -4 5 0
+                -4 6 0
+                -5 -6 7 0
+                -7 1 0
+                1 4 7 8 0
+                -1 -4 -7 -8 0
+                1 4 7 9 0
+                -1 -4 -7 -9 0
+                8 9 0
+                -8 -9 0
+        """.trimIndent()
+        )
+    )
+
+    val router = createHashRouter(
+        arrayOf(
+            jso {
+                path = "/"
+                element = Solver.create {}
+            },
+            jso {
+                path = "/visualizer"
+                element = Visualizer.create {}
+            },
+        )
+    )
 
     StrictMode {
         ThemeProvider {
@@ -45,9 +87,18 @@ val App: FC<Props> = FC("App") {
 
             cdclWrapperContext.Provider(solver) {
                 cdclDispatchContext.Provider(dispatch) {
-                    Visualizer {}
+                    RouterProvider {
+                        this.router = router
+                    }
                 }
             }
         }
     }
+}
+
+fun main() {
+    val container = document.createElement(HTML.div)
+    document.body.appendChild(container)
+    val app = App.create()
+    createRoot(container).render(app)
 }
