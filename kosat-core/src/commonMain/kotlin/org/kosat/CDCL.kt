@@ -60,7 +60,7 @@ class CDCL {
      * Can solver perform the search? This becomes false if given constraints
      * cause unsatisfiability in some way.
      */
-    private var ok = true
+    var ok = true
 
     /**
      * Two-watched literals heuristic.
