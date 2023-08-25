@@ -1,6 +1,7 @@
 import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.LBool
+import org.kosat.LitVec
 import org.kosat.SolveResult
 import org.kosat.VSIDS
 import org.kosat.Var
@@ -73,7 +74,7 @@ class CdclState(initialProblem: CNF) {
         // FIXME: workaround
         inner.variableSelector.build(
             inner.db.clauses +
-                Clause(MutableList(inner.assignment.numberOfVariables) { Var(it).posLit })
+                Clause(LitVec(List(inner.assignment.numberOfVariables) { Var(it).posLit }))
         )
     }
 
@@ -109,7 +110,7 @@ class CdclState(initialProblem: CNF) {
                 // FIXME: workaround, same as above
                 inner.variableSelector.build(
                     inner.db.clauses +
-                        Clause(MutableList(inner.assignment.numberOfVariables) { Var(it).posLit })
+                        Clause(LitVec(List(inner.assignment.numberOfVariables) { Var(it).posLit }))
                 )
                 inner.search()
             }
@@ -386,7 +387,7 @@ class CdclState(initialProblem: CNF) {
     private fun CDCL.propagateOne(): Clause? {
         var conflict: Clause? = null
 
-        val lit = assignment.dequeue()!!
+        val lit = assignment.dequeue()
 
         check(value(lit) == LBool.TRUE)
         val clausesToKeep = mutableListOf<Clause>()
@@ -442,9 +443,9 @@ class CdclState(initialProblem: CNF) {
             if (lit == replaceWithReason.neg) continue
             lits.add(lit)
         }
-        val orderedLits = lits.toSet().sortedByDescending {
+        val orderedLits = LitVec(lits.toSet().sortedByDescending {
             assignment.trailIndex(it.variable)
-        }.toMutableList()
+        })
         return Clause(orderedLits, learnt = true)
     }
 

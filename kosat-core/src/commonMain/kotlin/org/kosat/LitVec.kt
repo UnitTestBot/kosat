@@ -102,7 +102,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         }
     }
 
-    inline fun removeAll(crossinline fn: (Lit) -> Boolean) {
+    inline fun removeAll(fn: (Lit) -> Boolean) {
         var i = 0
         var j = 0
         while (i < size) {
@@ -135,8 +135,28 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return prev
     }
 
+    fun first(): Lit {
+        return Lit(raw[0])
+    }
+
     fun last(): Lit {
         return Lit(raw[size - 1])
+    }
+
+    fun toList(): List<Lit> {
+        val result = ArrayList<Lit>(size)
+        for (i in 0 until size) {
+            result.add(Lit(raw[i]))
+        }
+        return result
+    }
+
+    fun toMutableList(): MutableList<Lit> {
+        val result = ArrayList<Lit>(size)
+        for (i in 0 until size) {
+            result.add(Lit(raw[i]))
+        }
+        return result
     }
 
     inner class LitVecIter(private var index: Int = 0) {
@@ -153,7 +173,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return LitVecIter()
     }
 
-    inline fun any(crossinline fn: (Lit) -> Boolean): Boolean {
+    inline fun any(fn: (Lit) -> Boolean): Boolean {
         for (i in 0 until size) {
             if (fn(Lit(raw[i]))) {
                 return true
@@ -162,7 +182,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return false
     }
 
-    inline fun all(crossinline fn: (Lit) -> Boolean): Boolean {
+    inline fun all(fn: (Lit) -> Boolean): Boolean {
         for (i in 0 until size) {
             if (!fn(Lit(raw[i]))) {
                 return false
@@ -171,7 +191,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return true
     }
 
-    inline fun <T : Comparable<T>> minBy(crossinline fn: (Lit) -> T): Lit {
+    inline fun <T : Comparable<T>> minBy(fn: (Lit) -> T): Lit {
         var min = Lit(raw[0])
         var minVal = fn(min)
         for (i in 1 until size) {
@@ -185,7 +205,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return min
     }
 
-    inline fun <T> map(crossinline fn: (Lit) -> T): List<T> {
+    inline fun <T> map(fn: (Lit) -> T): List<T> {
         val result = ArrayList<T>(size)
         for (i in 0 until size) {
             result.add(fn(Lit(raw[i])))
@@ -193,7 +213,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return result
     }
 
-    inline fun <T : Comparable<T>> maxOfOrNull(crossinline fn: (Lit) -> T): T? {
+    inline fun <T : Comparable<T>> maxOfOrNull(fn: (Lit) -> T): T? {
         if (size == 0) return null
         var max = fn(Lit(raw[0]))
         for (i in 1 until size) {
@@ -205,13 +225,13 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return max
     }
 
-    inline fun forEach(crossinline fn: (Lit) -> Unit) {
+    inline fun forEach(fn: (Lit) -> Unit) {
         for (i in 0 until size) {
             fn(Lit(raw[i]))
         }
     }
 
-    inline fun firstOrNull(crossinline fn: (Lit) -> Boolean): Lit? {
+    inline fun firstOrNull(fn: (Lit) -> Boolean): Lit? {
         for (i in 0 until size) {
             val lit = Lit(raw[i])
             if (fn(lit)) {
@@ -219,6 +239,68 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
             }
         }
         return null
+    }
+
+    inline fun count(fn: (Lit) -> Boolean): Int {
+        var count = 0
+        for (i in 0 until size) {
+            if (fn(Lit(raw[i]))) {
+                count++
+            }
+        }
+        return count
+    }
+
+    /**
+     * This is a slow, one time operation, which should be rewritten for
+     * performance sensitive code.
+     */
+    inline fun <T : Comparable<T>> sortByDescending(crossinline fn: (Lit) -> T) {
+        raw = raw.copyOf(size).sortedByDescending { fn(Lit(it)) }.toIntArray()
+    }
+
+    inline fun first(fn: (Lit) -> Boolean): Lit {
+        for (i in 0 until size) {
+            val lit = Lit(raw[i])
+            if (fn(lit)) {
+                return lit
+            }
+        }
+        throw NoSuchElementException()
+    }
+
+    fun take(count: Int): LitVec {
+        return LitVec(raw.copyOf(count), count)
+    }
+
+    fun joinToString(
+        separator: String = ", ",
+        prefix: String = "",
+        postfix: String = "",
+        limit: Int = -1,
+        truncated: String = "...",
+        transform: ((Lit) -> CharSequence)? = null
+    ): String {
+        return toList().joinToString(separator, prefix, postfix, limit, truncated, transform)
+    }
+
+    inline fun maxBy(fn: (Lit) -> Int): Lit {
+        var max = Lit(raw[0])
+        var maxVal = fn(max)
+        for (i in 1 until size) {
+            val lit = Lit(raw[i])
+            val value = fn(lit)
+            if (value > maxVal) {
+                max = lit
+                maxVal = value
+            }
+        }
+        return max
+    }
+
+    fun getOrNull(index: Int): Lit? {
+        if (index < 0 || index >= size) return null
+        return Lit(raw[index])
     }
 
     companion object {
