@@ -1816,14 +1816,17 @@ class CDCL {
 
             // check(value(lit) == LBool.TRUE)
 
-            // Checking the list of clauses watching the negation of the literal.
+            // We use two pointers to iterate over the list of clauses, removing
+            // the ones that are deleted or already satisfied. This pointer
+            // points to the next position to write the kept clause.
+            var j = 0
+            val possiblyBrokenClauses = watchers[lit.neg]
+
+            // Check the list of clauses watching the negation of the literal.
             // In those clauses, both of the watched literals might be false,
             // which can either lead to a conflict (all literals in clause are false),
             // unit propagation (only one unassigned literal left), or invalidation
             // of the watchers (both watchers are false, but there are others)
-            var j = 0
-            val possiblyBrokenClauses = watchers[lit.neg]
-
             for (i in 0 until possiblyBrokenClauses.size) {
                 val clause = possiblyBrokenClauses[i]
                 if (clause.deleted) continue
