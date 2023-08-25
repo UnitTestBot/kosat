@@ -151,9 +151,10 @@ class Assignment(private val solver: CDCL) {
         if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(LitVec.of(lit)))
 
         value[lit.variable] = LBool.from(lit.isPos)
-        varData[lit.variable].reason = reason
-        varData[lit.variable].level = decisionLevel
-        varData[lit.variable].trailIndex = trail.size
+        val data = varData[lit.variable]
+        data.reason = reason
+        data.level = decisionLevel
+        data.trailIndex = trail.size
         trail.add(lit)
     }
 
