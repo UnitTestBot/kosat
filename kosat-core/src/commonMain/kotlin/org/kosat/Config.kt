@@ -1,8 +1,6 @@
 package org.kosat
 
 data class Config(
-    var restarterLubyConstant: Int = 50,
-
     var clauseDbStrategy: ReduceStrategy = ReduceStrategy.LBD,
     var clauseDbMaxSizeInitial: Int = 6000,
     var clauseDbMaxSizeIncrement: Int = 500,
@@ -10,6 +8,8 @@ data class Config(
 
     var vsidsActivityIncrement: Double = 1.0,
     var vsidsActivityMultiplier: Double = 1.1,
+
+    var restarterLubyConstant: Int = 50,
 
     var els: Boolean = true,
     var elsRoundsBeforeFlp: Int = 5,
