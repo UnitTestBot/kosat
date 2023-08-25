@@ -4,23 +4,6 @@ import org.kosat.cnf.CNF
 import kotlin.math.min
 
 /**
- * Solves [cnf] and returns
- * `null` if request unsatisfiable
- * [emptyList] is request is tautology
- * assignments of literals otherwise
- */
-fun solveCnf(cnf: CnfRequest): List<Boolean>? {
-    val clauses = cnf.clauses.map { Clause.fromDimacs(it) }.toMutableList()
-    val solver = CDCL(clauses, cnf.vars)
-    val result = solver.solve()
-    return if (result == SolveResult.SAT) {
-        solver.getModel()
-    } else {
-        null
-    }
-}
-
-/**
  * CDCL (Conflict-Driven Clause Learning) solver instance
  * for solving Boolean satisfiability (SAT) problem.
  */
