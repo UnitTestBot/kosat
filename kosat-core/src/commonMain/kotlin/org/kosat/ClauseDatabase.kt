@@ -1,5 +1,7 @@
 package org.kosat
 
+import kotlin.math.max
+
 enum class ReduceStrategy {
     ACTIVITY, LBD
 }
@@ -8,10 +10,7 @@ class ClauseDatabase(private val solver: CDCL) {
     val clauses: MutableList<Clause> = mutableListOf()
     val learnts: MutableList<Clause> = mutableListOf()
 
-    private val clauseDecay: Double = 0.999
     private var clauseInc: Double = 1.0
-
-    private val reduceStrategy = ReduceStrategy.LBD
 
     fun add(clause: Clause) {
         if (clause.learnt) {
@@ -22,7 +21,7 @@ class ClauseDatabase(private val solver: CDCL) {
     }
 
     fun clauseDecayActivity() {
-        clauseInc *= 1.0 / clauseDecay
+        clauseInc *= 1.0 / solver.config.clauseDbActivityDecay
     }
 
     fun clauseBumpActivity(clause: Clause) {
@@ -164,20 +163,19 @@ class ClauseDatabase(private val solver: CDCL) {
         }
     }
 
-    // TODO: Move to solver parameters
-    private var reduceMaxLearnts = 6000
-    private val reduceMaxLearntsIncrement = 500
+    private var reduceMaxLearnts = 0
 
     /**
      * Run the configured reduce if the number of learnt clauses is too high.
      */
     fun reduceIfNeeded() {
+        reduceMaxLearnts = max(reduceMaxLearnts, solver.config.clauseDbMaxSizeInitial)
         if (learnts.size > reduceMaxLearnts + solver.assignment.trail.size) {
-            reduceMaxLearnts += reduceMaxLearntsIncrement
+            reduceMaxLearnts += solver.config.clauseDbMaxSizeIncrement
 
             simplify()
 
-            when (reduceStrategy) {
+            when (solver.config.clauseDbStrategy) {
                 ReduceStrategy.ACTIVITY -> reduceBasedOnActivity()
                 ReduceStrategy.LBD -> reduceBasedOnLBD()
             }

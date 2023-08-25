@@ -26,6 +26,11 @@ fun solveCnf(cnf: CnfRequest): List<Boolean>? {
  */
 class CDCL {
     /**
+     * Configuration of the solver.
+     */
+    var config: Config = Config()
+
+    /**
      * Clause database.
      */
     val db: ClauseDatabase = ClauseDatabase(this)
@@ -64,31 +69,6 @@ class CDCL {
      * @see ReconstructionStack
      */
     val reconstructionStack: ReconstructionStack = ReconstructionStack()
-
-    /**
-     * The maximum amount of probes expected to be returned
-     * by [generateProbes].
-     *
-     * @see [failedLiteralProbing]
-     */
-    private val flpMaxProbes = 1000
-
-    /**
-     * Amount of [equivalentLiteralSubstitution] rounds before and after
-     * [failedLiteralProbing] to perform.
-     */
-    private val elsRounds = 5
-
-    private val bveConfig = object {
-        val varsLimit = Int.MAX_VALUE
-        // val relativeEfficiencyThreshold = 0.5
-        // val minimumVarsToTry = 30
-        val resolventSizeLimit = 16
-        val maxVarScore = 1600
-        var maxNewResolventsPerElimination = 16
-        val varScoreSumWeight = -1.0
-        val varScoreProdWeight = 1.0
-    }
 
     private val bveStats = object {
         var eliminationAttempts = 0
@@ -483,25 +463,30 @@ class CDCL {
 
         dratBuilder.addComment("Preprocessing")
 
-        dratBuilder.addComment("Preprocessing: Equivalent literal substitution")
+        if (config.els) {
+            dratBuilder.addComment("Preprocessing: Equivalent literal substitution")
+            // Running ELS before FLP helps to get more binary clauses
+            // and remove cycles in the binary implication graph
+            // to make probes for FLP more effective
+            equivalentLiteralSubstitutionRounds(config.elsRoundsBeforeFlp)?.let { return it }
+        }
 
-        // Running ELS before FLP helps to get more binary clauses
-        // and remove cycles in the binary implication graph
-        // to make probes for FLP more effective
-        equivalentLiteralSubstitutionRounds()?.let { return it }
+        if (config.flp) {
+            dratBuilder.addComment("Preprocessing: Failed literal probing")
+            failedLiteralProbing()?.let { return it }
+        }
 
-        dratBuilder.addComment("Preprocessing: Failed literal probing")
+        if (config.els) {
+            dratBuilder.addComment("Preprocessing: Equivalent literal substitution (post FLP)")
+            // After FLP we might have gotten new binary clauses
+            // though hyper-binary resolution, so we run ELS again
+            // to substitute literals that are now equivalent
+            equivalentLiteralSubstitutionRounds(config.elsRoundsAfterFlp)?.let { return it }
+        }
 
-        failedLiteralProbing()?.let { return it }
-
-        dratBuilder.addComment("Preprocessing: Equivalent literal substitution (post FLP)")
-
-        // After FLP we might have gotten new binary clauses
-        // though hyper-binary resolution, so we run ELS again
-        // to substitute literals that are now equivalent
-        equivalentLiteralSubstitutionRounds()?.let { return it }
-
-        boundedVariableElimination()?.let { return it }
+        if (config.bve) {
+            boundedVariableElimination()?.let { return it }
+        }
 
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
@@ -553,12 +538,12 @@ class CDCL {
      * This is because ELS can be used to derive new binary clauses,
      * which in turn can be used to derive new ELS substitutions.
      */
-    private fun equivalentLiteralSubstitutionRounds(): SolveResult? {
+    private fun equivalentLiteralSubstitutionRounds(rounds: Int): SolveResult? {
         // This simplify helps to increase the number of binary clauses
         // and allows to not think about assigned literals in ELS itself.
         db.simplify()
 
-        for (i in 0 until elsRounds) {
+        for (i in 0 until rounds) {
             equivalentLiteralSubstitution()?.let { return it }
         }
 
@@ -780,7 +765,7 @@ class CDCL {
             probes.remove(b)
         }
 
-        return probes.take(flpMaxProbes).toMutableList()
+        return probes.take(config.flpMaxProbes).toMutableList()
     }
 
     /**
@@ -817,7 +802,13 @@ class CDCL {
 
             assignment.decisionLevel++
             assignment.uncheckedEnqueue(probe, null)
-            val conflict = propagateProbeAndLearnBinary()
+
+            val conflict = if (config.flpHyperBinaryResolution) {
+                propagateProbeAndLearnBinary()
+            } else {
+                propagate()
+            }
+
             backtrack(0)
 
             if (conflict != null) {
@@ -891,6 +882,9 @@ class CDCL {
                 if (firstNotFalse == -1 && value(clause[0]) == LBool.FALSE) {
                     conflict = clause
                 } else if (firstNotFalse == -1) {
+                    // Note: if hyper-binary resolution is disabled in the
+                    // config, we simply use the default propagate.
+
                     // we deduced this literal from a non-binary clause,
                     // so we can learn a new clause
                     var newBinary = hyperBinaryResolve(clause)
@@ -1192,8 +1186,8 @@ class CDCL {
     private fun bveVariableScore(state: EliminationState, x: Var): Double {
         val pos = state.occurrenceNumbers[x.posLit]
         val neg = state.occurrenceNumbers[x.negLit]
-        val weightedSum = bveConfig.varScoreSumWeight * (pos + neg)
-        val weightedProd = bveConfig.varScoreProdWeight * (pos * neg)
+        val weightedSum = config.bveVarScoreSumWeight * (pos + neg)
+        val weightedProd = config.bveVarScoreProdWeight * (pos * neg)
         return weightedSum + weightedProd
     }
 
@@ -1285,7 +1279,7 @@ class CDCL {
             }
         }
 
-        for (attemptNumber in 0 until bveConfig.varsLimit) {
+        for (attemptNumber in 0 until config.bveMaxVarsToEliminate) {
 
             // We first need to find the next variable to eliminate. We do this
             // by choosing the variable with the smallest number of occurrences
@@ -1304,7 +1298,7 @@ class CDCL {
                 if (assignment.isActive(v) &&
                     !assignment.isFrozen(v) &&
                     assignment.value(v) == LBool.UNDEF &&
-                    state.variableOrder.getKey(v) <= bveConfig.maxVarScore
+                    state.variableOrder.getKey(v) <= config.bveMaxVarScore
                 ) {
                     bestVariable = v
                     break
@@ -1421,7 +1415,7 @@ class CDCL {
         // This is what makes variable elimination "bounded". By setting the
         // limit for the number of resolvents, we can prevent the algorithm
         // from generating too many clauses.
-        val bound: Int = bveConfig.maxNewResolventsPerElimination +
+        val bound: Int = config.bveMaxNewClausesPerElimination +
             posOccurrences.count { !it.deleted } +
             negOccurrences.count { !it.deleted }
 
@@ -1477,7 +1471,7 @@ class CDCL {
                 // If it is too big, we can't eliminate the variable. This limit
                 // is added to prevent the algorithm from generating resolvents
                 // of exponential size and running out of memory.
-                if (resolvent.size > bveConfig.resolventSizeLimit) {
+                if (resolvent.size > config.bveResolventSizeLimit) {
                     bveStats.resolventsTooBig++
                     return null
                 }
