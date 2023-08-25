@@ -5,7 +5,7 @@ import okio.BufferedSink
 import okio.BufferedSource
 import kotlin.math.abs
 
-data class CNF(
+class CNF(
     val clauses: List<List<Int>>,
     val numVars: Int = determineNumberOfVariables(clauses),
 ) {

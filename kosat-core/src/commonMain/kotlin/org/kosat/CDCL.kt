@@ -13,7 +13,6 @@ fun solveCnf(cnf: CnfRequest): List<Boolean>? {
     val clauses = cnf.clauses.map { Clause.fromDimacs(it) }.toMutableList()
     val solver = CDCL(clauses, cnf.vars)
     val result = solver.solve()
-    println("trail: ${solver.assignment.trail}")
     return if (result == SolveResult.SAT) {
         solver.getModel()
     } else {
