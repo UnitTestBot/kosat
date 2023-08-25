@@ -1,0 +1,120 @@
+name: CI
+
+on: [ push, pull_request ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          cache-read-only: false
+
+      - name: Setup ld cache
+        run: sudo ldconfig $(realpath libs)
+
+      - name: Check dependencies
+        run: |
+          ldd kosat-core/src/jvmTest/resources/lib/linux64/*.so
+
+      - name: Build project using Gradle
+        run: ./gradlew assemble --stacktrace --scan
+
+      - name: Upload web distribution
+        uses: actions/upload-artifact@v3
+        with:
+          name: web-dist
+          path: kosat-web/build/dist/js/productionExecutable/
+
+      - name: Install drat-trim
+        run: |
+          git clone https://github.com/marijnheule/drat-trim
+          cd drat-trim
+          make drat-trim
+          echo "$(realpath .)" >> $GITHUB_PATH
+
+      - name: Run tests
+        run: ./gradlew check --no-build-cache --stacktrace --scan
+        env:
+          TEST_CHECK_UNSAT_PROOF: true
+
+  build-windows:
+    runs-on: windows-latest
+
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 11
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          cache-read-only: false
+
+      - name: Install drat-trim
+        run: |
+          git clone https://github.com/marijnheule/drat-trim
+          cd drat-trim
+          git apply -v ../patches/0001-Add-getc_unlocked-on-Windows.patch
+          make drat-trim
+          echo "$(realpath .)" >> $GITHUB_PATH
+
+      - name: Build project using Gradle
+        run: ./gradlew assemble --stacktrace --scan
+
+      - name: Setup dependent native libraries
+        run: |
+          ./gradlew :downloadLibs
+          cp libs/*.dll C:/Windows/
+          ldd kosat-core/src/jvmTest/resources/lib/win64/*.dll
+
+      - name: Run tests
+        run: ./gradlew check --no-build-cache --stacktrace --scan
+        env:
+          TEST_CHECK_UNSAT_PROOF: true
+
+  deploy:
+    needs: build-linux
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v3
+
+      - name: Download web distribution
+        uses: actions/download-artifact@v3
+        with:
+          name: web-dist
+          path: dist
+
+      - name: Deploy to gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist
+          target-folder: docs
