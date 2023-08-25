@@ -29,7 +29,7 @@ class Restarter(private val solver: CDCL) {
     fun restartIfNeeded() {
         if (numberOfConflictsAfterRestart >= restartNumber) {
             if (restartNumber >= 1000) {
-                solver.reporter?.report(
+                solver.reporter.report(
                     "Big Restart ($numberOfConflictsAfterRestart conflicts)",
                     solver.stats
                 )
