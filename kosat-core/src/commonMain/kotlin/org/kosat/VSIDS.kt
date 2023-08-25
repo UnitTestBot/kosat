@@ -7,26 +7,23 @@ class VSIDS {
     private var activityInc = 1.0
     private var activityLimit = 1e100
 
-    // list of activity for variables
+    /**
+     * Activities of variables
+     */
     val activity = mutableListOf<Double>()
 
-    // priority queue of activity of undefined variables
+    /**
+     * Priority queue of variables sorted by activity. The activity list is
+     * shared between the priority queue and VSIDS.
+     */
     private var activityPQ = PriorityQueue(activity)
 
     class PriorityQueue(private val activity: List<Double>) {
-        // stores max-heap built on variable activities (contains variables)
         val heap: MutableList<Int> = mutableListOf()
-
-        // for each variable contains index with it position in heap
         val index: MutableList<Int> = mutableListOf()
-
-        // maximum possible size of heap
         private var capacity = -1
-
-        // current size
         var size = 0
 
-        // compares variables by activity
         private fun cmp(u: Int, v: Int): Boolean {
             if (activity[u] > activity[v]) {
                 return true
@@ -70,7 +67,6 @@ class VSIDS {
             index[vertex] = curInd
         }
 
-        // if some value of vertex decreased this function lift this vertex down to save heap structure
         private fun siftDown(u: Int) {
             val vertex = heap[u]
             var curInd = u
@@ -114,13 +110,11 @@ class VSIDS {
             index[vertex] = curInd
         }
 
-        // returns element on top of heap
         fun top(): Int {
             require(size != 0)
             return heap[0]
         }
 
-        // delete element on top of heap and returns it
         fun pop(): Int {
             require(size != 0)
             val max = top()
@@ -159,6 +153,12 @@ class VSIDS {
         }
     }
 
+    /**
+     * Bump the activity of all variables in the clause.
+     *
+     * This increases the activity of all variables in the clause and increases
+     * the activity increment, making recent bumps have more effect.
+     */
     fun bump(learnt: Clause) {
         learnt.lits.forEach { lit ->
             val v = lit.variable
@@ -178,11 +178,18 @@ class VSIDS {
         numberOfConflicts++
     }
 
+    /**
+     * Register a new variable in the variable selector.
+     */
     fun addVariable() {
         activity.add(0.0)
         numberOfVariables++
     }
 
+    /**
+     * Build the priority queue of variables. Must be called before all
+     * decisions.
+     */
     fun build(clauses: List<Clause>) {
         clauses.forEach { clause ->
             clause.lits.forEach { lit ->
@@ -192,6 +199,9 @@ class VSIDS {
         activityPQ.buildHeap(activity)
     }
 
+    /**
+     * Select the next variable to assign.
+     */
     fun nextDecision(assignment: Assignment): Var {
         while (true) {
             require(activityPQ.size > 0)
@@ -202,6 +212,10 @@ class VSIDS {
         }
     }
 
+    /**
+     * Put the variable in the VSIDS queue again, if it is not already there.
+     * This is used when a variable is unassigned in backtracking.
+     */
     fun enqueueAgain(variable: Var) {
         if (activityPQ.index[variable] == -1) {
             activityPQ.insert(variable.index)
