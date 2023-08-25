@@ -2,6 +2,10 @@ package org.kosat
 
 import okio.BufferedSink
 
+/**
+ * Statistics of [CDCL].
+ * @see CDCL.stats
+ */
 class Stats {
     /** Number of decisions made. */
     var decisions: Int = 0
