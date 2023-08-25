@@ -2,7 +2,6 @@ package org.kosat
 
 import org.kosat.cnf.CNF
 import kotlin.math.min
-import kotlin.time.measureTimedValue
 
 /**
  * Solves [cnf] and returns
@@ -106,7 +105,7 @@ class CDCL {
     /**
      * The branching heuristic, used to choose the next decision variable.
      */
-    private val variableSelector: VariableSelector = VSIDS(assignment.numberOfVariables)
+    val variableSelector: VariableSelector = VSIDS(assignment.numberOfVariables)
 
     /**
      * The restart strategy, used to decide when to restart the search.
@@ -172,7 +171,7 @@ class CDCL {
      *
      * @see Assignment.value
      */
-    private fun value(lit: Lit): LBool {
+    fun value(lit: Lit): LBool {
         return assignment.value(lit)
     }
 
@@ -190,7 +189,9 @@ class CDCL {
         }
 
         // Remove falsified literals from the new clause
-        clause.lits.removeAll { assignment.isActiveAndFalse(it) }
+        clause.lits.removeAll {
+            assignment.isActive(it) && assignment.value(it) == LBool.FALSE
+        }
 
         // If the clause contains complementary literals, ignore it as useless.
         if (sortDedupAndCheckComplimentary(clause.lits)) return
@@ -237,7 +238,7 @@ class CDCL {
      * Used for phase saving heuristic. Memorizes the polarity of
      * the given variable when it was last assigned, but reset during backtracking.
      */
-    private var polarity: MutableList<LBool> = mutableListOf()
+    var polarity: MutableList<LBool> = mutableListOf()
 
     /**
      * The assumptions given to an incremental solver.
@@ -291,7 +292,7 @@ class CDCL {
      *
      * @return the result of the search.
      */
-    private fun search(): SolveResult {
+    fun search(): SolveResult {
         while (true) {
             check(assignment.qhead == assignment.trail.size)
 
@@ -394,7 +395,7 @@ class CDCL {
      * mark the solver as not ok, add empty clause to the DRAT proof,
      * flush the proof and return [SolveResult.UNSAT].
      */
-    private fun finishWithUnsat(): SolveResult {
+    fun finishWithUnsat(): SolveResult {
         ok = false
         dratBuilder.addEmptyClauseAndFlush()
         return SolveResult.UNSAT
@@ -413,7 +414,7 @@ class CDCL {
      * If not, return [SolveResult.UNSAT] due to assumptions being impossible
      * to satisfy, otherwise return [SolveResult.SAT].
      */
-    private fun finishWithSatIfAssumptionsOk(): SolveResult {
+    fun finishWithSatIfAssumptionsOk(): SolveResult {
         for (assumption in assumptions) {
             if (value(assumption) == LBool.FALSE) {
                 return finishWithAssumptionsUnsat()
@@ -1811,7 +1812,7 @@ class CDCL {
      * @return the conflict clause if a conflict is found, or `null` if no
      * conflict occurs.
      */
-    private fun propagate(): Clause? {
+    fun propagate(): Clause? {
         check(ok)
 
         stats.propagations++
@@ -1890,9 +1891,12 @@ class CDCL {
      * redundant literals.
      *
      * @param conflict the conflict clause.
+     * @param minimize if true, the learned clause will be minimized by
+     *                 removing literals which follow from the other literals
+     *                 in the learned clause.
      * @return the learned clause.
      */
-    private fun analyzeConflict(conflict: Clause): Clause {
+    fun analyzeConflict(conflict: Clause, minimize: Boolean = true): Clause {
         // We analyze conflict by walking back on implication graph,
         // starting with the literals in the conflict clause.
         // (Technically, the literals of the conflict are added on
@@ -1963,13 +1967,15 @@ class CDCL {
         learntLits.add(uip.neg)
 
         // Some literals in the learnt can follow from their reasons,
-        // included in the learnt. We remove them here.
-        learntLits.removeAll { lit ->
-            val reason = assignment.reason(lit.variable) ?: return@removeAll false
-            // lit is redundant if all the literals in its reason are already seen
-            // (and, therefore, included in the learnt or follow from it)
-            val redundant = reason.lits.all { it == lit.neg || seen[it.variable] }
-            redundant
+        // included in the learnt. We remove them here, if requested.
+        if (minimize) {
+            learntLits.removeAll { lit ->
+                val reason = assignment.reason(lit.variable) ?: return@removeAll false
+                // lit is redundant if all the literals in its reason are already seen
+                // (and, therefore, included in the learnt or follow from it)
+                val redundant = reason.lits.all { it == lit.neg || seen[it.variable] }
+                redundant
+            }
         }
 
         // Sort the learnt by the decision level of the literals
