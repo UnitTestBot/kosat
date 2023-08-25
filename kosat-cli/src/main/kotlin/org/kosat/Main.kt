@@ -42,7 +42,6 @@ class KoSAT : CliktCommand(name = "kosat") {
         help = "File to write proof to"
     ).file(
         canBeDir = false,
-        mustBeWritable = true,
     )
 
     private val binaryProof: Boolean by option(
