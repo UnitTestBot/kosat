@@ -840,6 +840,10 @@ class CDCL {
 
         while (assignment.qhead < assignment.trail.size) {
             val lit = assignment.trail[assignment.qhead++]
+
+            // Unlike how in normal propagate we only remove clauses from watch
+            // lists, here we can also add new binary clauses, so using two
+            // pointers is not the easiest option here.
             val clausesToKeep = mutableListOf<Clause>()
 
             // Iterating with indexes to prevent ConcurrentModificationException
@@ -1720,20 +1724,20 @@ class CDCL {
 
             check(value(lit) == LBool.TRUE)
 
-            val clausesToKeep = mutableListOf<Clause>()
+            var j = 0
             val possiblyBrokenClauses = watchers[lit.neg]
 
             for (i in 0 until possiblyBrokenClauses.size) {
                 val clause = possiblyBrokenClauses[i]
                 if (clause.deleted) continue
 
-                clausesToKeep.add(clause)
+                possiblyBrokenClauses[j++] = clause
 
                 if (conflict != null) continue
 
                 // This is where we ignore clauses with non-active literals.
                 if (clause.lits.any { !assignment.isActive(it) }) {
-                    clausesToKeep.removeLast()
+                    j--
                     continue
                 }
 
@@ -1758,11 +1762,11 @@ class CDCL {
                 } else {
                     watchers[clause[firstNotFalse]].add(clause)
                     clause.lits.swap(firstNotFalse, 1)
-                    clausesToKeep.removeLast()
+                    j--
                 }
             }
 
-            watchers[lit.neg] = clausesToKeep
+            watchers[lit.neg].retainFirst(j)
 
             if (conflict != null) break
         }
