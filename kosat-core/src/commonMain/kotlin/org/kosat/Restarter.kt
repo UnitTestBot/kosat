@@ -1,10 +1,11 @@
 package org.kosat
 
+import kotlin.math.max
+
 // used for restarts between searches (luby restarts are used now)
 class Restarter(private val solver: CDCL) {
 
-    private val lubyMultiplierConstant = 50.0
-    private var restartNumber = lubyMultiplierConstant
+    private var restartNumber = 0
     var numberOfConflictsAfterRestart = 0
 
     // 1, 1, 2, 1, 1, 2, 4, 1, 1, 2, 1, 1, 2, 4, 8, ...
@@ -27,8 +28,14 @@ class Restarter(private val solver: CDCL) {
     private var lubyPosition = 1
 
     fun restartIfNeeded() {
+        if (!solver.config.restarts) return
+
+        val lubyConstant = solver.config.restarterLubyConstant
+
+        restartNumber = max(restartNumber, lubyConstant)
+
         if (numberOfConflictsAfterRestart >= restartNumber) {
-            restartNumber = lubyMultiplierConstant * luby(lubyPosition++)
+            restartNumber = lubyConstant * luby(lubyPosition++)
             solver.backtrack(0)
 
             numberOfConflictsAfterRestart = 0

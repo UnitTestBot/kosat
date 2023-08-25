@@ -1,8 +1,7 @@
 package org.kosat
 
-class VSIDS {
+class VSIDS(private val solver: CDCL) {
     private var numberOfVariables = 0
-    private val multiplier = 1.1
     private var numberOfConflicts = 0
     private var activityInc = 1.0
     private var activityLimit = 1e100
@@ -174,7 +173,7 @@ class VSIDS {
             }
         }
 
-        activityInc *= multiplier
+        activityInc /= solver.config.vsidsActivityDecay
         numberOfConflicts++
     }
 

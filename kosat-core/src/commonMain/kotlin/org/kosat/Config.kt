@@ -39,6 +39,10 @@ data class Config(
     var vsidsActivityDecay: Double = 0.9,
 
     /**
+     * Whether to run Luby restarts.
+     */
+    var restarts: Boolean = true,
+    /**
      * The starting constant to use for the Luby restart sequence.
      */
     var restarterLubyConstant: Int = 50,

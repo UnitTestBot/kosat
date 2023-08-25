@@ -88,7 +88,7 @@ class CDCL {
     /**
      * The branching heuristic, used to choose the next decision variable.
      */
-    val vsids: VSIDS = VSIDS()
+    val vsids: VSIDS = VSIDS(this)
 
     /**
      * The restart strategy, used to decide when to restart the search.
