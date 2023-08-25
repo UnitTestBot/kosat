@@ -92,6 +92,7 @@ class KoSAT : CliktCommand(name = "kosat") {
         }
 
         solver.dratBuilder = dratBuilder
+        solver.reporter = Reporter(System.out.sink().buffer())
 
         val result = solver.solve()
 
@@ -115,6 +116,8 @@ class KoSAT : CliktCommand(name = "kosat") {
                 println("s UNKNOWN")
             }
         }
+
+        solver.stats.write(System.err.sink().buffer())
 
         dratProofSink?.close()
     }
