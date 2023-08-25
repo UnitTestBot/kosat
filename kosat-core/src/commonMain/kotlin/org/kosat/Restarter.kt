@@ -30,7 +30,7 @@ class Restarter(private val solver: CDCL) {
         if (numberOfConflictsAfterRestart >= restartNumber) {
             if (restartNumber >= 1000) {
                 solver.reporter?.report(
-                    "Big Restart ($restartNumber conflicts)",
+                    "Big Restart ($numberOfConflictsAfterRestart conflicts)",
                     solver.stats
                 )
             }
