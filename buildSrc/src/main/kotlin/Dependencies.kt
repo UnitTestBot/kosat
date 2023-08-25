@@ -1,4 +1,4 @@
-@file:Suppress("PublicApiImplicitType", "MemberVisibilityCanBePrivate", "unused")
+@file:Suppress("PublicApiImplicitType", "MemberVisibilityCanBePrivate", "unused", "ConstPropertyName")
 
 object Versions {
     const val git_versioning = "6.4.2"
