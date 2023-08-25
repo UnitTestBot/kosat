@@ -11,6 +11,11 @@ import kotlin.math.min
  */
 class CDCL {
     /**
+     * Configuration of the solver.
+     */
+    var config: Config = Config()
+
+    /**
      * Clause database.
      */
     val db: ClauseDatabase = ClauseDatabase(this)
@@ -63,34 +68,9 @@ class CDCL {
     val reconstructionStack: ReconstructionStack = ReconstructionStack()
 
     /**
-     * The maximum amount of probes expected to be returned
-     * by [generateProbes].
-     *
-     * @see [failedLiteralProbing]
-     */
-    private val flpMaxProbes = 1000
-
-    /**
-     * Amount of [equivalentLiteralSubstitution] rounds before and after
-     * [failedLiteralProbing] to perform.
-     */
-    private val elsRounds = 5
-
-    private val bveConfig = object {
-        val varsLimit = Int.MAX_VALUE
-        // val relativeEfficiencyThreshold = 0.5
-        // val minimumVarsToTry = 30
-        val resolventSizeLimit = 16
-        val maxVarScore = 1600
-        var maxNewResolventsPerElimination = 16
-        val varScoreSumWeight = -1.0
-        val varScoreProdWeight = 1.0
-    }
-
-    /**
      * The branching heuristic, used to choose the next decision variable.
      */
-    val variableSelector: VariableSelector = VSIDS(assignment.numberOfVariables)
+    val vsids: VSIDS = VSIDS(this)
 
     /**
      * The restart strategy, used to decide when to restart the search.
@@ -144,7 +124,7 @@ class CDCL {
         assignment.addVariable()
 
         // Variable selection strategy
-        variableSelector.addVariable()
+        vsids.addVariable()
 
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
@@ -211,7 +191,7 @@ class CDCL {
             val v = lit.variable
             polarity[v] = assignment.value(v)
             assignment.unassign(v)
-            variableSelector.backTrack(v)
+            vsids.enqueueAgain(v)
         }
 
         check(assignment.qhead >= assignment.trail.size)
@@ -261,10 +241,7 @@ class CDCL {
 
         // Rebuild the variable selector
         // TODO: is there a way to not rebuild the selector every solve?
-        variableSelector.build(db.clauses)
-
-        // Enqueue the assumptions in the selector
-        variableSelector.initAssumptions(this.assumptions)
+        vsids.build(db.clauses)
 
         preprocess()?.let { return it }
 
@@ -301,24 +278,53 @@ class CDCL {
 
             // And after that, we are ready to make a decision.
             assignment.newDecisionLevel()
-            var nextDecisionLiteral = variableSelector.nextDecision(assignment)
 
-            // We always choose the assumption literals first, then the rest.
-            // If there are no non-assumed literals left, the problem is
-            // UNSAT under given assumptions.
-            nextDecisionLiteral ?: return finishWithAssumptionsUnsat()
-
-            // TODO: currently, to check if the literal is assumed or guessed, we check
-            //       the decision level. This is not precise (some assumptions can be deduced)
-            //       and error-prone.
-            // Use the phase from the search before, if possible (so called "Phase Saving")
-            if (assignment.decisionLevel > assumptions.size && polarity[nextDecisionLiteral.variable] == LBool.FALSE) {
-                nextDecisionLiteral = nextDecisionLiteral.neg
+            // We first enqueue unassigned assumptions, if any.
+            var assignedAssumption = false
+            for (assumption in assumptions) {
+                when (assignment.value(assumption)) {
+                    LBool.UNDEF -> {
+                        assignment.uncheckedEnqueue(assumption, null)
+                        assignedAssumption = true
+                        break
+                    }
+                    LBool.TRUE -> {
+                        // The assumption is already satisfied, so we can ignore it.
+                    }
+                    LBool.FALSE -> {
+                        // The assumption is falsified, so we can return UNSAT.
+                        return finishWithAssumptionsUnsat()
+                    }
+                }
             }
 
-            // Enqueue the decision literal, expect it to propagate at the next iteration.
-            assignment.uncheckedEnqueue(nextDecisionLiteral, null)
-            stats.decisions++
+            // If there are no assumptions left to enqueue,
+            // we make a decision on the next variable.
+            if (!assignedAssumption) {
+                val nextDecisionVariable = vsids.nextDecision(assignment)
+
+                // Use the phase from the search before, if possible (so-called "Phase Saving")
+                val nextDecisionLiteral = when (polarity[nextDecisionVariable]) {
+                    LBool.UNDEF -> {
+                        // If the polarity is undefined, we can choose it freely.
+                        // We choose the positive literal.
+                        nextDecisionVariable.posLit
+                    }
+                    LBool.TRUE -> {
+                        // If we remember that the last chosen polarity was positive,
+                        // we choose the positive literal.
+                        nextDecisionVariable.posLit
+                    }
+                    LBool.FALSE -> {
+                        // If we remember that the last chosen polarity was negative,
+                        // we choose the negative literal.
+                        nextDecisionVariable.negLit
+                    }
+                }
+
+                assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+                stats.decisions++
+            }
 
             // Propagate the decision,
             // in case there is a conflict, backtrack, and repeat
@@ -367,7 +373,7 @@ class CDCL {
             }
 
             // Update the heuristics
-            variableSelector.update(learnt)
+            vsids.bump(learnt)
             db.clauseDecayActivity()
 
             restarter.numberOfConflictsAfterRestart++
@@ -442,25 +448,30 @@ class CDCL {
 
         dratBuilder.addComment("Preprocessing")
 
-        dratBuilder.addComment("Preprocessing: Equivalent literal substitution")
+        if (config.els) {
+            dratBuilder.addComment("Preprocessing: Equivalent literal substitution")
+            // Running ELS before FLP helps to get more binary clauses
+            // and remove cycles in the binary implication graph
+            // to make probes for FLP more effective
+            equivalentLiteralSubstitutionRounds(config.elsRoundsBeforeFlp)?.let { return it }
+        }
 
-        // Running ELS before FLP helps to get more binary clauses
-        // and remove cycles in the binary implication graph
-        // to make probes for FLP more effective
-        equivalentLiteralSubstitutionRounds()?.let { return it }
+        if (config.flp) {
+            dratBuilder.addComment("Preprocessing: Failed literal probing")
+            failedLiteralProbing()?.let { return it }
+        }
 
-        dratBuilder.addComment("Preprocessing: Failed literal probing")
+        if (config.els) {
+            dratBuilder.addComment("Preprocessing: Equivalent literal substitution (post FLP)")
+            // After FLP we might have gotten new binary clauses
+            // though hyper-binary resolution, so we run ELS again
+            // to substitute literals that are now equivalent
+            equivalentLiteralSubstitutionRounds(config.elsRoundsAfterFlp)?.let { return it }
+        }
 
-        failedLiteralProbing()?.let { return it }
-
-        dratBuilder.addComment("Preprocessing: Equivalent literal substitution (post FLP)")
-
-        // After FLP we might have gotten new binary clauses
-        // though hyper-binary resolution, so we run ELS again
-        // to substitute literals that are now equivalent
-        equivalentLiteralSubstitutionRounds()?.let { return it }
-
-        boundedVariableElimination()?.let { return it }
+        if (config.bve) {
+            boundedVariableElimination()?.let { return it }
+        }
 
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
@@ -512,22 +523,14 @@ class CDCL {
      * This is because ELS can be used to derive new binary clauses,
      * which in turn can be used to derive new ELS substitutions.
      */
-    private fun equivalentLiteralSubstitutionRounds(): SolveResult? {
+    private fun equivalentLiteralSubstitutionRounds(rounds: Int): SolveResult? {
         // This simplify helps to increase the number of binary clauses
         // and allows to not think about assigned literals in ELS itself.
         db.simplify()
 
-        for (i in 0 until elsRounds) {
+        for (i in 0 until rounds) {
             equivalentLiteralSubstitution()?.let { return it }
         }
-
-        // We must update assumptions after ELS, because it can
-        // substitute literals in assumptions, and even derive UNSAT.
-        if (sortDedupAndCheckComplimentary(assumptions)) {
-            return finishWithAssumptionsUnsat()
-        }
-
-        variableSelector.initAssumptions(assumptions)
 
         return null
     }
@@ -689,6 +692,14 @@ class CDCL {
             stats.els.substitutions++
         }
 
+        // We cannot remove clauses that contain substituted literals right
+        // away, because we need to build the proof, and removing clauses right
+        // after performing substitution may cause the clauses which caused the
+        // equivalence to be removed, which will make the proof invalid.
+        // Instead, we remember which clauses we no longer need, and remove them
+        // later.
+        val clausesToDelete = mutableListOf<Clause>()
+
         // Replace clauses which might have simplified due to substitution
         for (clause in db.clauses + db.learnts) {
             if (clause.deleted) continue
@@ -710,6 +721,10 @@ class CDCL {
                 }
             }
 
+            clausesToDelete.add(clause)
+        }
+
+        for (clause in clausesToDelete) {
             markDeleted(clause)
         }
 
@@ -751,7 +766,7 @@ class CDCL {
             probes.remove(b)
         }
 
-        return LitVec(probes.take(flpMaxProbes))
+        return LitVec(probes.take(config.flpMaxProbes))
     }
 
     /**
@@ -793,7 +808,13 @@ class CDCL {
 
             assignment.decisionLevel++
             assignment.uncheckedEnqueue(probe, null)
-            val conflict = propagateProbeAndLearnBinary()
+
+            val conflict = if (config.flpHyperBinaryResolution) {
+                propagateProbeAndLearnBinary()
+            } else {
+                propagate()
+            }
+
             backtrack(0)
 
             if (conflict != null) {
@@ -873,6 +894,9 @@ class CDCL {
                 if (firstNotFalse == -1 && value(clause[0]) == LBool.FALSE) {
                     conflict = clause
                 } else if (firstNotFalse == -1) {
+                    // Note: if hyper-binary resolution is disabled in the
+                    // config, we simply use the default propagate.
+
                     // we deduced this literal from a non-binary clause,
                     // so we can learn a new clause
                     var newBinary = hyperBinaryResolve(clause)
@@ -1176,8 +1200,8 @@ class CDCL {
     private fun bveVariableScore(state: EliminationState, x: Var): Double {
         val pos = state.occurrenceNumbers[x.posLit]
         val neg = state.occurrenceNumbers[x.negLit]
-        val weightedSum = bveConfig.varScoreSumWeight * (pos + neg)
-        val weightedProd = bveConfig.varScoreProdWeight * (pos * neg)
+        val weightedSum = config.bveVarScoreSumWeight * (pos + neg)
+        val weightedProd = config.bveVarScoreProdWeight * (pos * neg)
         return weightedSum + weightedProd
     }
 
@@ -1272,7 +1296,7 @@ class CDCL {
             }
         }
 
-        for (attemptNumber in 0 until bveConfig.varsLimit) {
+        for (attemptNumber in 0 until config.bveMaxVarsToEliminate) {
 
             // We first need to find the next variable to eliminate. We do this
             // by choosing the variable with the smallest number of occurrences
@@ -1291,7 +1315,7 @@ class CDCL {
                 if (assignment.isActive(v) &&
                     !assignment.isFrozen(v) &&
                     assignment.value(v) == LBool.UNDEF &&
-                    state.variableOrder.getKey(v) <= bveConfig.maxVarScore
+                    state.variableOrder.getKey(v) <= config.bveMaxVarScore
                 ) {
                     bestVariable = v
                     break
@@ -1399,7 +1423,7 @@ class CDCL {
         // This is what makes variable elimination "bounded". By setting the
         // limit for the number of resolvents, we can prevent the algorithm
         // from generating too many clauses.
-        val bound: Int = bveConfig.maxNewResolventsPerElimination +
+        val bound: Int = config.bveMaxNewClausesPerElimination +
             posOccurrences.count { !it.deleted } +
             negOccurrences.count { !it.deleted }
 
@@ -1455,7 +1479,7 @@ class CDCL {
                 // If it is too big, we can't eliminate the variable. This limit
                 // is added to prevent the algorithm from generating resolvents
                 // of exponential size and running out of memory.
-                if (resolvent.size > bveConfig.resolventSizeLimit) {
+                if (resolvent.size > config.bveResolventSizeLimit) {
                     stats.bve.resolventsTooBig++
                     return null
                 }
