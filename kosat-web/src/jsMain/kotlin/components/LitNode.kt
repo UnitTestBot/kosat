@@ -9,7 +9,6 @@ import mui.system.PropsWithSx
 import mui.system.sx
 import org.kosat.LBool
 import org.kosat.Lit
-import org.kosat.VSIDS
 import org.kosat.get
 import org.kosat.round
 import react.FC

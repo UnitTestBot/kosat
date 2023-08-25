@@ -2,7 +2,6 @@ import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.LBool
 import org.kosat.SolveResult
-import org.kosat.VSIDS
 import org.kosat.Var
 import org.kosat.cnf.CNF
 import org.kosat.get
