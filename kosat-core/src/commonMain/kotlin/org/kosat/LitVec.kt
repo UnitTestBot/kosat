@@ -19,11 +19,10 @@ import kotlin.math.max
  */
 class LitVec private constructor(var raw: IntArray, var size: Int) {
     private val capacity get() = raw.size
+    val lastIndex get() = size - 1
 
     constructor(lits: List<Lit>) : this(lits.map { it.inner }.toIntArray(), lits.size)
     constructor() : this(emptyArray, 0)
-
-    val lastIndex get() = size - 1
 
     operator fun get(index: Int): Lit {
         return Lit(raw[index])
@@ -51,6 +50,10 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         raw[size++] = element.inner
     }
 
+    private fun grow() {
+        raw = raw.copyOf(max(raw.size * 2, 8))
+    }
+
     operator fun contains(element: Lit): Boolean {
         return indexOf(element) != -1
     }
@@ -69,21 +72,6 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
 
     fun copy(): LitVec {
         return LitVec(raw.copyOf(size), size)
-    }
-
-    companion object {
-        private val emptyArray = IntArray(0)
-
-        fun of(a: Lit) = LitVec(intArrayOf(a.inner), 1)
-        fun of(a: Lit, b: Lit) = LitVec(intArrayOf(a.inner, b.inner), 2)
-
-        fun emptyOfCapacity(capacity: Int): LitVec {
-            return LitVec(IntArray(capacity), 0)
-        }
-    }
-
-    private fun grow() {
-        raw = raw.copyOf(max(raw.size * 2, 8))
     }
 
     fun sort() {
@@ -126,6 +114,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         size = j
     }
 
+
     fun removeLast(): Lit {
         return Lit(raw[--size])
     }
@@ -148,6 +137,20 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
 
     fun last(): Lit {
         return Lit(raw[size - 1])
+    }
+
+    inner class LitVecIter(private var index: Int = 0) {
+        operator fun hasNext(): Boolean {
+            return index < size
+        }
+
+        operator fun next(): Lit {
+            return Lit(raw[index++])
+        }
+    }
+
+    operator fun iterator(): LitVecIter {
+        return LitVecIter()
     }
 
     inline fun any(crossinline fn: (Lit) -> Boolean): Boolean {
@@ -218,17 +221,12 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return null
     }
 
-    inner class LitVecIter(private var index: Int = 0) {
-        operator fun hasNext(): Boolean {
-            return index < size
+    companion object {
+        private val emptyArray = IntArray(0)
+        fun of(a: Lit) = LitVec(intArrayOf(a.inner), 1)
+        fun of(a: Lit, b: Lit) = LitVec(intArrayOf(a.inner, b.inner), 2)
+        fun emptyOfCapacity(capacity: Int): LitVec {
+            return LitVec(IntArray(capacity), 0)
         }
-
-        operator fun next(): Lit {
-            return Lit(raw[index++])
-        }
-    }
-
-    operator fun iterator(): LitVecIter {
-        return LitVecIter()
     }
 }
