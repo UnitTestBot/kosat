@@ -168,7 +168,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return true
     }
 
-    inline fun <reified T : Comparable<T>> minBy(crossinline fn: (Lit) -> T): Lit {
+    inline fun <T : Comparable<T>> minBy(crossinline fn: (Lit) -> T): Lit {
         var min = Lit(raw[0])
         var minVal = fn(min)
         for (i in 1 until size) {
@@ -182,7 +182,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return min
     }
 
-    inline fun <reified T> map(crossinline fn: (Lit) -> T): List<T> {
+    inline fun <T> map(crossinline fn: (Lit) -> T): List<T> {
         val result = ArrayList<T>(size)
         for (i in 0 until size) {
             result.add(fn(Lit(raw[i])))
@@ -190,7 +190,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return result
     }
 
-    inline fun <reified T : Comparable<T>> maxOfOrNull(crossinline fn: (Lit) -> T): T? {
+    inline fun <T : Comparable<T>> maxOfOrNull(crossinline fn: (Lit) -> T): T? {
         if (size == 0) return null
         var max = fn(Lit(raw[0]))
         for (i in 1 until size) {

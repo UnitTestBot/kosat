@@ -77,11 +77,11 @@ value class Lit(val inner: Int) {
     }
 }
 
-inline operator fun <reified T> List<T>.get(lit: Lit): T {
+operator fun <T> List<T>.get(lit: Lit): T {
     return this[lit.inner]
 }
 
-inline operator fun <reified T> MutableList<T>.set(lit: Lit, value: T) {
+operator fun <T> MutableList<T>.set(lit: Lit, value: T) {
     this[lit.inner] = value
 }
 
@@ -98,11 +98,11 @@ value class Var(val index: Int) {
     val negLit: Lit get() = Lit((index shl 1) or 1)
 }
 
-inline operator fun <reified T> List<T>.get(variable: Var): T {
+operator fun <T> List<T>.get(variable: Var): T {
     return this[variable.index]
 }
 
-inline operator fun <reified T> MutableList<T>.set(variable: Var, value: T) {
+operator fun <T> MutableList<T>.set(variable: Var, value: T) {
     this[variable.index] = value
 }
 
