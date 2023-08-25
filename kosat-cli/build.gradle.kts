@@ -7,6 +7,7 @@ plugins {
 dependencies {
     implementation(project(":core"))
     implementation(Libs.Clikt.clikt)
+    implementation(Libs.Okio.okio)
 }
 
 application {
