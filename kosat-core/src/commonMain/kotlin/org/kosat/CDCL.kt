@@ -703,6 +703,14 @@ class CDCL {
             reconstructionStack.pushSubstitution(representatives[v]!!, v.posLit)
         }
 
+        // We cannot remove clauses that contain substituted literals right
+        // away, because we need to build the proof, and removing clauses right
+        // after performing substitution may cause the clauses which caused the
+        // equivalence to be removed, which will make the proof invalid.
+        // Instead, we remember which clauses we no longer need, and remove them
+        // later.
+        val clausesToDelete = mutableListOf<Clause>()
+
         // Replace clauses which might have simplified due to substitution
         for (clause in db.clauses + db.learnts) {
             if (clause.deleted) continue
@@ -724,6 +732,10 @@ class CDCL {
                 }
             }
 
+            clausesToDelete.add(clause)
+        }
+
+        for (clause in clausesToDelete) {
             markDeleted(clause)
         }
 
