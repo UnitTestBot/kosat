@@ -1,31 +1,57 @@
 package org.kosat
 
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.context
+import com.github.ajalt.clikt.output.MordantHelpFormatter
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.optional
+import com.github.ajalt.clikt.parameters.types.file
 import java.io.File
-import kotlin.system.measureTimeMillis
+import kotlin.time.measureTimedValue
 
-fun run(cnfDIMACS: String) {
-    var res: String
-    val time = measureTimeMillis { res = processCnfRequests(readCnfRequests(cnfDIMACS)) }.toDouble() / 1000
-    println(res)
-    println(time.toString())
-}
+class KoSAT : CliktCommand(name = "kosat") {
+    init {
+        context {
+            helpFormatter = {
+                MordantHelpFormatter(
+                    it,
+                    requiredOptionMarker = "*",
+                    showDefaultValues = true,
+                    showRequiredTag = true
+                )
+            }
+        }
+    }
 
-fun usage() {
-    println("USAGE:\n   1) ./kosat --file <filename>\n   2) Empty args to enter CNF from the keyboard")
+    private val cnfFile: File? by argument(
+        name = "cnf",
+        help = "File with CNF"
+    ).file(
+        mustExist = true,
+        canBeDir = false,
+        mustBeReadable = true
+    ).optional()
+
+    override fun run() {
+        println("c KoSAT: pure-Kotlin modern CDCL SAT solver")
+        println("c The input must be formatted according to the simplified DIMACS format")
+        println("c provided at http://www.satcompetition.org/2004/format-solvers2004.html")
+
+        val cnfDimacs = if (cnfFile != null) {
+            println("c Reading from '$cnfFile'")
+            cnfFile!!.readText()
+        } else {
+            println("c Reading from STDIN")
+            System.`in`.bufferedReader().readText()
+        }
+        val (res, time) = measureTimedValue {
+            processCnfRequests(readCnfRequests(cnfDimacs))
+        }
+        print(res)
+        println("c Done in ${time.inWholeMilliseconds / 1000.0} s")
+    }
 }
 
 fun main(args: Array<String>) {
-    println("v KOSAT SAT SOLVER, v1.0")
-    println("v Solves formulas in CNF form. Input must as formatted according simplified DIMACS specified in http://www.satcompetition.org/2004/format-solvers2004.html")
-
-    when (args.size) {
-        0 -> run(System.`in`.bufferedReader().readText())
-        2 ->
-            if (args[0] == "--file")
-                run(File(args[1]).readText())
-            else
-                usage()
-
-        else -> usage()
-    }
+    KoSAT().main(args)
 }

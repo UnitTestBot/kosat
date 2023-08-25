@@ -1,0 +1,5 @@
+#!/bin/sh
+
+set -e
+./gradlew -q :cli:installDist
+./kosat-cli/build/install/cli/bin/kosat "$@"

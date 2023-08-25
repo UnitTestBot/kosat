@@ -1,6 +1,7 @@
 @file:Suppress("PublicApiImplicitType", "MemberVisibilityCanBePrivate", "unused", "ConstPropertyName")
 
 object Versions {
+    const val clikt = "4.1.0"
     const val git_versioning = "6.4.2"
     const val gradle_download = "5.4.0"
     const val gradle_versions = "0.47.0"
@@ -19,6 +20,12 @@ object Versions {
 }
 
 object Libs {
+    // https://github.com/ajalt/clikt
+    object Clikt {
+        const val version = Versions.clikt
+        const val clikt = "com.github.ajalt.clikt:clikt:$version"
+    }
+
     // https://github.com/junit-team/junit5
     object JUnit {
         const val version = Versions.junit
