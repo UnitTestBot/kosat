@@ -585,10 +585,12 @@ class CDCL {
         // Total number of literals substituted
         var totalSubstituted = 0
 
+        val recursionLimit = 5000
+
         // Tarjan's algorithm, returns the lowest number of all reachable nodes
         // from the given node, or null if the node is in a cycle with the
         // negation of itself, and the problem is UNSAT
-        fun dfs(v: Lit): Int? {
+        fun dfs(v: Lit, recursionDepthLeft: Int): Int? {
             check(value(v) == LBool.UNDEF)
             check(marks[v] == 0)
 
@@ -599,9 +601,13 @@ class CDCL {
             num[v] = counter
             var lowest = counter
 
+            if (recursionDepthLeft == 0) {
+                return counter
+            }
+
             for (u in binaryImplicationsFrom(v)) {
                 if (marks[u] == markUnvisited) {
-                    val otherLowest = dfs(u) ?: return null
+                    val otherLowest = dfs(u, recursionDepthLeft - 1) ?: return null
                     lowest = min(otherLowest, lowest)
                 } else if (marks[u] != markProcessed) {
                     lowest = min(lowest, num[u])
@@ -677,7 +683,7 @@ class CDCL {
                 value(lit) != LBool.UNDEF
             ) continue
 
-            dfs(lit) ?: return finishWithUnsat()
+            dfs(lit, recursionLimit) ?: return finishWithUnsat()
         }
 
         if (totalSubstituted == 0) return null
