@@ -536,14 +536,6 @@ class CDCL {
             equivalentLiteralSubstitution()?.let { return it }
         }
 
-        // We must update assumptions after ELS, because it can
-        // substitute literals in assumptions, and even derive UNSAT.
-        if (sortDedupAndCheckComplimentary(assumptions)) {
-            return finishWithAssumptionsUnsat()
-        }
-
-        variableSelector.initAssumptions(assumptions)
-
         return null
     }
 
