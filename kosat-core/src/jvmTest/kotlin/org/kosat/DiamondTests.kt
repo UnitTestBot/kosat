@@ -18,6 +18,7 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.UUID
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.relativeTo
@@ -104,6 +105,7 @@ internal class DiamondTests {
                             it.toFile(),
                             "$cfgName: ${it.relativeTo(testsPath)}",
                             config,
+                            cfgName,
                         )
                     }
                 }
@@ -173,7 +175,7 @@ internal class DiamondTests {
         }
     }
 
-    private fun runTest(cnfFile: File, cnf: CNF, config: Config) {
+    private fun runTest(cnfFile: File, cnf: CNF, config: Config, configName: String) {
         val (resultExpected, timeMiniSat) = measureTimeWithResult {
             solveWithMiniSat(cnf)
         }
@@ -181,7 +183,7 @@ internal class DiamondTests {
         val solver = CDCL(cnf)
         solver.config = config
 
-        val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
+        val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}-${UUID.randomUUID()}.drat")
         var dratSink: Sink? = null
         var dratBufferedSink: okio.BufferedSink? = null
 
@@ -357,9 +359,9 @@ internal class DiamondTests {
 
     @ParameterizedTest(name = "{1}")
     @MethodSource("getAllNotBenchmarksTests")
-    fun test(file: File, testName: String, config: Config) {
+    fun test(file: File, testName: String, config: Config, configName: String) {
         println("# Testing on: $file")
-        runTest(file, CNF.from(file.toOkioPath()), config)
+        runTest(file, CNF.from(file.toOkioPath()), config, configName)
     }
 
     @ParameterizedTest(name = "{1}")
@@ -367,7 +369,7 @@ internal class DiamondTests {
     // @Disabled
     fun testOnBenchmarks(file: File, testName: String) {
         println("# Testing on: $file")
-        runTest(file, CNF.from(file.toOkioPath()), Config())
+        runTest(file, CNF.from(file.toOkioPath()), Config(), "default")
     }
 
     @ParameterizedTest(name = "{1}")
