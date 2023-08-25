@@ -10,10 +10,10 @@ import kotlin.test.Test
 internal class ManualTest {
     @Test
     fun testManual() {
-        val path = "src/jvmTest/resources/testCover/small/prime4.cnf".toPath()
+        val path = "src/jvmTest/resources/benchmarks/itox_vc1033.cnf".toPath()
         val cnf = CNF.from(path)
         val clauses = cnf.clauses.map { lits ->
-            Clause(lits.map { Lit.fromDimacs(it) }.toMutableList())
+            Clause(LitVec(lits.map { Lit.fromDimacs(it) }))
         }
         val solver = CDCL(clauses, cnf.numVars)
         // solver.dratBuilder = DratBuilder(System.err.sink().buffer())

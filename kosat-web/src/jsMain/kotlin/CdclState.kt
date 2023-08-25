@@ -1,11 +1,13 @@
 import org.kosat.CDCL
 import org.kosat.Clause
 import org.kosat.LBool
+import org.kosat.LitVec
 import org.kosat.SolveResult
 import org.kosat.VSIDS
 import org.kosat.Var
 import org.kosat.cnf.CNF
 import org.kosat.get
+import org.kosat.retainFirst
 import org.kosat.set
 import org.kosat.swap
 
@@ -73,7 +75,7 @@ class CdclState(initialProblem: CNF) {
         // FIXME: workaround
         inner.variableSelector.build(
             inner.db.clauses +
-                Clause(MutableList(inner.assignment.numberOfVariables) { Var(it).posLit })
+                Clause(LitVec(List(inner.assignment.numberOfVariables) { Var(it).posLit }))
         )
     }
 
@@ -109,7 +111,7 @@ class CdclState(initialProblem: CNF) {
                 // FIXME: workaround, same as above
                 inner.variableSelector.build(
                     inner.db.clauses +
-                        Clause(MutableList(inner.assignment.numberOfVariables) { Var(it).posLit })
+                        Clause(LitVec(List(inner.assignment.numberOfVariables) { Var(it).posLit }))
                 )
                 inner.search()
             }
@@ -386,16 +388,16 @@ class CdclState(initialProblem: CNF) {
     private fun CDCL.propagateOne(): Clause? {
         var conflict: Clause? = null
 
-        val lit = assignment.dequeue()!!
+        val lit = assignment.dequeue()
 
         check(value(lit) == LBool.TRUE)
-        val clausesToKeep = mutableListOf<Clause>()
+        var j = 0
         val possiblyBrokenClauses = watchers[lit.neg]
 
         for (clause in possiblyBrokenClauses) {
             if (clause.deleted) continue
 
-            clausesToKeep.add(clause)
+            possiblyBrokenClauses[j++] = clause
 
             if (conflict != null) continue
             if (clause[0].variable == lit.variable) {
@@ -403,6 +405,7 @@ class CdclState(initialProblem: CNF) {
             }
 
             if (value(clause[0]) == LBool.TRUE) continue
+
             var firstNotFalse = -1
             for (ind in 2 until clause.size) {
                 if (value(clause[ind]) != LBool.FALSE) {
@@ -418,11 +421,11 @@ class CdclState(initialProblem: CNF) {
             } else {
                 watchers[clause[firstNotFalse]].add(clause)
                 clause.lits.swap(firstNotFalse, 1)
-                clausesToKeep.removeLast()
+                j--
             }
         }
 
-        watchers[lit.neg] = clausesToKeep
+        watchers[lit.neg].retainFirst(j)
 
         return conflict
     }
@@ -442,9 +445,9 @@ class CdclState(initialProblem: CNF) {
             if (lit == replaceWithReason.neg) continue
             lits.add(lit)
         }
-        val orderedLits = lits.toSet().sortedByDescending {
+        val orderedLits = LitVec(lits.toSet().sortedByDescending {
             assignment.trailIndex(it.variable)
-        }.toMutableList()
+        })
         return Clause(orderedLits, learnt = true)
     }
 
