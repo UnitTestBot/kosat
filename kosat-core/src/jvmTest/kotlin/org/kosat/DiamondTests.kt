@@ -200,7 +200,7 @@ internal class DiamondTests {
         dratBufferedSink?.close()
 
         System.out.sink().buffer().use {
-            solver.stats.dump(it)
+            solver.stats.write(it)
         }
 
         println("MiniSat time: ${timeMiniSat.roundMilliseconds()}")

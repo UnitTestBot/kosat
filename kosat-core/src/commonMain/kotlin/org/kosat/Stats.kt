@@ -91,7 +91,7 @@ class Stats {
     /** Statistics for [CDCL.boundedVariableElimination] */
     val bve = BveStats()
 
-    fun dump(sink: BufferedSink) {
+    fun write(sink: BufferedSink) {
         fun line(name: String, value: Any?) {
             sink.writeUtf8("c ${name.padStart(42)}: $value\n")
         }
