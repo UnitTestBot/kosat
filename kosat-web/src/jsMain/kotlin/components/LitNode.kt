@@ -83,7 +83,7 @@ val LitNode: FC<LitProps> = FC("LitNode") { props ->
 
             // if (!data.active) Box { +"Inactive (eliminated)" }
             if (data.active) Box {
-                val activity = (solver.state.inner.variableSelector as VSIDS).activity[lit.variable]
+                val activity = solver.state.inner.vsids.activity[lit.variable]
                 +"VSIDS activity: ${activity.round(2)}"
             }
             if (data.frozen) Box { +"Frozen" }
