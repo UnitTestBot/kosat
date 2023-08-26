@@ -3,7 +3,6 @@ import org.kosat.Clause
 import org.kosat.LBool
 import org.kosat.LitVec
 import org.kosat.SolveResult
-import org.kosat.VSIDS
 import org.kosat.Var
 import org.kosat.cnf.CNF
 import org.kosat.get
@@ -73,7 +72,7 @@ class CdclState(initialProblem: CNF) {
 
     init {
         // FIXME: workaround
-        inner.variableSelector.build(
+        inner.vsids.build(
             inner.db.clauses +
                 Clause(LitVec(List(inner.assignment.numberOfVariables) { Var(it).posLit }))
         )
@@ -109,7 +108,7 @@ class CdclState(initialProblem: CNF) {
 
             is SolverCommand.Search -> {
                 // FIXME: workaround, same as above
-                inner.variableSelector.build(
+                inner.vsids.build(
                     inner.db.clauses +
                         Clause(LitVec(List(inner.assignment.numberOfVariables) { Var(it).posLit }))
                 )
@@ -357,7 +356,7 @@ class CdclState(initialProblem: CNF) {
             assignment.qhead == assignment.trail.size
                 && assignment.trail.size < assignment.numberOfActiveVariables ->
                 SolverCommand.Enqueue(run {
-                    val activities = (variableSelector as VSIDS).activity
+                    val activities = vsids.activity
                     var bestVariable: Var? = null
                     for (i in 0 until assignment.numberOfVariables) {
                         val v = Var(i)
@@ -467,7 +466,7 @@ class CdclState(initialProblem: CNF) {
             assignment.uncheckedEnqueue(learnt[0], learnt)
             db.clauseBumpActivity(learnt)
         }
-        variableSelector.update(learnt)
+        vsids.bump(learnt)
         db.clauseDecayActivity()
     }
 

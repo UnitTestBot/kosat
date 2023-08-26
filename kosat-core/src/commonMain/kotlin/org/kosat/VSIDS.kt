@@ -1,45 +1,29 @@
 package org.kosat
 
-abstract class VariableSelector {
-    protected var assumptions: LitVec = LitVec()
-
-    fun initAssumptions(assumptions: LitVec) {
-        this.assumptions = assumptions
-    }
-
-    abstract fun build(clauses: List<Clause>)
-    abstract fun nextDecision(assignment: Assignment): Lit?
-    abstract fun addVariable()
-    abstract fun update(learnt: Clause)
-    abstract fun backTrack(variable: Var)
-}
-
-class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
+class VSIDS {
+    private var numberOfVariables = 0
     private val multiplier = 1.1
     private var numberOfConflicts = 0
     private var activityInc = 1.0
     private var activityLimit = 1e100
 
-    // list of activity for variables
+    /**
+     * Activities of variables
+     */
     val activity = mutableListOf<Double>()
 
-    // priority queue of activity of undefined variables
+    /**
+     * Priority queue of variables sorted by activity. The activity list is
+     * shared between the priority queue and VSIDS.
+     */
     private var activityPQ = PriorityQueue(activity)
 
     class PriorityQueue(private val activity: List<Double>) {
-        // stores max-heap built on variable activities (contains variables)
         val heap: MutableList<Int> = mutableListOf()
-
-        // for each variable contains index with it position in heap
         val index: MutableList<Int> = mutableListOf()
-
-        // maximum possible size of heap
         private var capacity = -1
-
-        // current size
         var size = 0
 
-        // compares variables by activity
         private fun cmp(u: Int, v: Int): Boolean {
             if (activity[u] > activity[v]) {
                 return true
@@ -83,7 +67,6 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
             index[vertex] = curInd
         }
 
-        // if some value of vertex decreased this function lift this vertex down to save heap structure
         private fun siftDown(u: Int) {
             val vertex = heap[u]
             var curInd = u
@@ -127,13 +110,11 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
             index[vertex] = curInd
         }
 
-        // returns element on top of heap
         fun top(): Int {
             require(size != 0)
             return heap[0]
         }
 
-        // delete element on top of heap and returns it
         fun pop(): Int {
             require(size != 0)
             val max = top()
@@ -172,7 +153,13 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         }
     }
 
-    override fun update(learnt: Clause) {
+    /**
+     * Bump the activity of all variables in the clause.
+     *
+     * This increases the activity of all variables in the clause and increases
+     * the activity increment, making recent bumps have more effect.
+     */
+    fun bump(learnt: Clause) {
         learnt.lits.forEach { lit ->
             val v = lit.variable
             activity[v] += activityInc
@@ -191,15 +178,19 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         numberOfConflicts++
     }
 
-    override fun addVariable() {
+    /**
+     * Register a new variable in the variable selector.
+     */
+    fun addVariable() {
         activity.add(0.0)
         numberOfVariables++
     }
 
-    override fun build(clauses: List<Clause>) {
-        while (activity.size < numberOfVariables) {
-            activity.add(0.0)
-        }
+    /**
+     * Build the priority queue of variables. Must be called before all
+     * decisions.
+     */
+    fun build(clauses: List<Clause>) {
         clauses.forEach { clause ->
             clause.lits.forEach { lit ->
                 activity[lit.variable] += activityInc
@@ -208,25 +199,10 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
         activityPQ.buildHeap(activity)
     }
 
-    // returns the literal as the assumptions give information about the value of the variable
-    override fun nextDecision(assignment: Assignment): Lit? {
-        if (assumptions.any { assignment.value(it) == LBool.FALSE }) {
-            return null
-        }
-        // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull {
-            assignment.value(it) == LBool.UNDEF
-        } ?: getMaxActivityVariable(assignment).posLit
-    }
-
-    override fun backTrack(variable: Var) {
-        if (activityPQ.index[variable] == -1) {
-            activityPQ.insert(variable.index)
-        }
-    }
-
-    // Looks for index of undefined variable with max activity
-    private fun getMaxActivityVariable(assignment: Assignment): Var {
+    /**
+     * Select the next variable to assign.
+     */
+    fun nextDecision(assignment: Assignment): Var {
         while (true) {
             require(activityPQ.size > 0)
             val v = Var(activityPQ.pop())
@@ -235,99 +211,14 @@ class VSIDS(private var numberOfVariables: Int = 0) : VariableSelector() {
             }
         }
     }
-}
 
-class FixedOrder : VariableSelector() {
-    override fun build(clauses: List<Clause>) {
-    }
-
-    override fun nextDecision(assignment: Assignment): Lit? {
-        // TODO: check indices
-        for (i in 1 until assignment.numberOfVariables) {
-            if (assignment.value(Var(i)) == LBool.UNDEF) return Lit(i)
+    /**
+     * Put the variable in the VSIDS queue again, if it is not already there.
+     * This is used when a variable is unassigned in backtracking.
+     */
+    fun enqueueAgain(variable: Var) {
+        if (activityPQ.index[variable] == -1) {
+            activityPQ.insert(variable.index)
         }
-        return null
-    }
-
-    override fun addVariable() {
-    }
-
-    override fun update(learnt: Clause) {
-    }
-
-    override fun backTrack(variable: Var) {
-    }
-}
-
-class VsidsWithoutQueue(private var numberOfVariables: Int = 0) : VariableSelector() {
-    private val decay = 50
-    private val multiplier = 2.0
-    private val activityLimit = 1e100
-    private var activityInc = 1.0
-
-    private var numberOfConflicts = 0
-
-    // list of activity for variables
-    private val activity = mutableListOf<Double>()
-
-    override fun update(learnt: Clause) {
-        learnt.lits.forEach { lit ->
-            val v = lit.variable
-            activity[v] += activityInc
-        }
-
-        numberOfConflicts++
-        if (numberOfConflicts == decay) {
-            activityInc *= multiplier
-            // update activity
-            numberOfConflicts = 0
-            if (activityInc > activityLimit) {
-                activity.forEachIndexed { ind, value ->
-                    activity[ind] = value / activityInc
-                }
-                activityInc = 1.0
-            }
-        }
-    }
-
-    override fun addVariable() {
-        activity.add(0.0)
-        numberOfVariables++
-    }
-
-    override fun build(clauses: List<Clause>) {
-        while (activity.size < numberOfVariables) {
-            activity.add(0.0)
-        }
-        clauses.forEach { clause ->
-            clause.lits.forEach { lit ->
-                activity[lit.variable] += activityInc
-            }
-        }
-    }
-
-    override fun nextDecision(assignment: Assignment): Lit? {
-        if (assumptions.any { assignment.value(it) == LBool.FALSE }) {
-            return null
-        }
-        // if there is undefined assumption pick it, other way pick best choice
-        return assumptions.firstOrNull { assignment.value(it) == LBool.UNDEF }
-            ?: getMaxActivityVariable(assignment)?.posLit
-    }
-
-    override fun backTrack(variable: Var) {
-    }
-
-    // Looks for index of undefined variable with max activity
-    private fun getMaxActivityVariable(assignment: Assignment): Var? {
-        var v: Var? = null
-        var max = -1.0
-        for (i in 0 until numberOfVariables) {
-            if (assignment.value(Var(i)) == LBool.UNDEF && max < activity[i]) {
-                v = Var(i)
-                max = activity[i]
-            }
-        }
-        return v
     }
 }

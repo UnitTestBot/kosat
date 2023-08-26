@@ -108,7 +108,7 @@ class CDCL {
     /**
      * The branching heuristic, used to choose the next decision variable.
      */
-    val variableSelector: VariableSelector = VSIDS(assignment.numberOfVariables)
+    val vsids: VSIDS = VSIDS()
 
     /**
      * The restart strategy, used to decide when to restart the search.
@@ -162,7 +162,7 @@ class CDCL {
         assignment.addVariable()
 
         // Variable selection strategy
-        variableSelector.addVariable()
+        vsids.addVariable()
 
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
@@ -229,7 +229,7 @@ class CDCL {
             val v = lit.variable
             polarity[v] = assignment.value(v)
             assignment.unassign(v)
-            variableSelector.backTrack(v)
+            vsids.enqueueAgain(v)
         }
 
         check(assignment.qhead >= assignment.trail.size)
@@ -278,11 +278,7 @@ class CDCL {
 
         // Rebuild the variable selector
         // TODO: is there a way to not rebuild the selector every solve?
-        variableSelector.build(db.clauses)
-
-        // Enqueue the assumptions in the selector
-        variableSelector.initAssumptions(this.assumptions)
-
+        vsids.build(db.clauses)
         preprocess()?.let { return it }
 
         return search()
@@ -318,23 +314,52 @@ class CDCL {
 
             // And after that, we are ready to make a decision.
             assignment.newDecisionLevel()
-            var nextDecisionLiteral = variableSelector.nextDecision(assignment)
 
-            // We always choose the assumption literals first, then the rest.
-            // If there are no non-assumed literals left, the problem is
-            // UNSAT under given assumptions.
-            nextDecisionLiteral ?: return finishWithAssumptionsUnsat()
-
-            // TODO: currently, to check if the literal is assumed or guessed, we check
-            //       the decision level. This is not precise (some assumptions can be deduced)
-            //       and error-prone.
-            // Use the phase from the search before, if possible (so called "Phase Saving")
-            if (assignment.decisionLevel > assumptions.size && polarity[nextDecisionLiteral.variable] == LBool.FALSE) {
-                nextDecisionLiteral = nextDecisionLiteral.neg
+            // We first enqueue unassigned assumptions, if any.
+            var assignedAssumption = false
+            for (assumption in assumptions) {
+                when (assignment.value(assumption)) {
+                    LBool.UNDEF -> {
+                        assignment.uncheckedEnqueue(assumption, null)
+                        assignedAssumption = true
+                        break
+                    }
+                    LBool.TRUE -> {
+                        // The assumption is already satisfied, so we can ignore it.
+                    }
+                    LBool.FALSE -> {
+                        // The assumption is falsified, so we can return UNSAT.
+                        return finishWithAssumptionsUnsat()
+                    }
+                }
             }
 
-            // Enqueue the decision literal, expect it to propagate at the next iteration.
-            assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+            // If there are no assumptions left to enqueue,
+            // we make a decision on the next variable.
+            if (!assignedAssumption) {
+                val nextDecisionVariable = vsids.nextDecision(assignment)
+
+                // Use the phase from the search before, if possible (so-called "Phase Saving")
+                val nextDecisionLiteral = when (polarity[nextDecisionVariable]) {
+                    LBool.UNDEF -> {
+                        // If the polarity is undefined, we can choose it freely.
+                        // We choose the positive literal.
+                        nextDecisionVariable.posLit
+                    }
+                    LBool.TRUE -> {
+                        // If we remember that the last chosen polarity was positive,
+                        // we choose the positive literal.
+                        nextDecisionVariable.posLit
+                    }
+                    LBool.FALSE -> {
+                        // If we remember that the last chosen polarity was negative,
+                        // we choose the negative literal.
+                        nextDecisionVariable.negLit
+                    }
+                }
+
+                assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+            }
 
             // Propagate the decision,
             // in case there is a conflict, backtrack, and repeat
@@ -382,7 +407,7 @@ class CDCL {
             }
 
             // Update the heuristics
-            variableSelector.update(learnt)
+            vsids.bump(learnt)
             db.clauseDecayActivity()
 
             restarter.numberOfConflictsAfterRestart++
@@ -536,14 +561,6 @@ class CDCL {
             equivalentLiteralSubstitution()?.let { return it }
         }
 
-        // We must update assumptions after ELS, because it can
-        // substitute literals in assumptions, and even derive UNSAT.
-        if (sortDedupAndCheckComplimentary(assumptions)) {
-            return finishWithAssumptionsUnsat()
-        }
-
-        variableSelector.initAssumptions(assumptions)
-
         return null
     }
 
@@ -594,10 +611,12 @@ class CDCL {
         // Total number of literals substituted
         var totalSubstituted = 0
 
+        val recursionLimit = 5000
+
         // Tarjan's algorithm, returns the lowest number of all reachable nodes
         // from the given node, or null if the node is in a cycle with the
         // negation of itself, and the problem is UNSAT
-        fun dfs(v: Lit): Int? {
+        fun dfs(v: Lit, recursionDepthLeft: Int): Int? {
             check(value(v) == LBool.UNDEF)
             check(marks[v] == 0)
 
@@ -608,9 +627,13 @@ class CDCL {
             num[v] = counter
             var lowest = counter
 
+            if (recursionDepthLeft == 0) {
+                return counter
+            }
+
             for (u in binaryImplicationsFrom(v)) {
                 if (marks[u] == markUnvisited) {
-                    val otherLowest = dfs(u) ?: return null
+                    val otherLowest = dfs(u, recursionDepthLeft - 1) ?: return null
                     lowest = min(otherLowest, lowest)
                 } else if (marks[u] != markProcessed) {
                     lowest = min(lowest, num[u])
@@ -686,7 +709,7 @@ class CDCL {
                 value(lit) != LBool.UNDEF
             ) continue
 
-            dfs(lit) ?: return finishWithUnsat()
+            dfs(lit, recursionLimit) ?: return finishWithUnsat()
         }
 
         if (totalSubstituted == 0) return null
@@ -699,6 +722,14 @@ class CDCL {
             assignment.markInactive(v)
             reconstructionStack.pushSubstitution(representatives[v]!!, v.posLit)
         }
+
+        // We cannot remove clauses that contain substituted literals right
+        // away, because we need to build the proof, and removing clauses right
+        // after performing substitution may cause the clauses which caused the
+        // equivalence to be removed, which will make the proof invalid.
+        // Instead, we remember which clauses we no longer need, and remove them
+        // later.
+        val clausesToDelete = mutableListOf<Clause>()
 
         // Replace clauses which might have simplified due to substitution
         for (clause in db.clauses + db.learnts) {
@@ -721,6 +752,10 @@ class CDCL {
                 }
             }
 
+            clausesToDelete.add(clause)
+        }
+
+        for (clause in clausesToDelete) {
             markDeleted(clause)
         }
 

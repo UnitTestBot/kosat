@@ -9,7 +9,6 @@ import mui.system.PropsWithSx
 import mui.system.sx
 import org.kosat.LBool
 import org.kosat.Lit
-import org.kosat.VSIDS
 import org.kosat.get
 import org.kosat.round
 import react.FC
@@ -83,7 +82,7 @@ val LitNode: FC<LitProps> = FC("LitNode") { props ->
 
             // if (!data.active) Box { +"Inactive (eliminated)" }
             if (data.active) Box {
-                val activity = (solver.state.inner.variableSelector as VSIDS).activity[lit.variable]
+                val activity = solver.state.inner.vsids.activity[lit.variable]
                 +"VSIDS activity: ${activity.round(2)}"
             }
             if (data.frozen) Box { +"Frozen" }
