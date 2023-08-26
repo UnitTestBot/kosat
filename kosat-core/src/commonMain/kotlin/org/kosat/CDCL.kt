@@ -4,6 +4,8 @@ import okio.blackholeSink
 import okio.buffer
 import org.kosat.cnf.CNF
 import kotlin.math.min
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 /**
  * CDCL (Conflict-Driven Clause Learning) solver instance
@@ -254,6 +256,8 @@ class CDCL {
      * @return the result of the search.
      */
     fun search(): SolveResult {
+        val startTime = TimeSource.Monotonic.markNow()
+
         while (true) {
             check(assignment.qhead == assignment.trail.size)
 
@@ -276,6 +280,16 @@ class CDCL {
 
             check(assignment.qhead == assignment.trail.size)
 
+            val elapsed = TimeSource.Monotonic.markNow() - startTime
+            if (elapsed > 600.seconds) {
+                println("c Timeout!")
+                return SolveResult.UNKNOWN
+            }
+
+            // if (stats.conflicts >= 500000) {
+            //     return SolveResult.UNKNOWN
+            // }
+
             // And after that, we are ready to make a decision.
             assignment.newDecisionLevel()
 
@@ -288,9 +302,11 @@ class CDCL {
                         assignedAssumption = true
                         break
                     }
+
                     LBool.TRUE -> {
                         // The assumption is already satisfied, so we can ignore it.
                     }
+
                     LBool.FALSE -> {
                         // The assumption is falsified, so we can return UNSAT.
                         return finishWithAssumptionsUnsat()
@@ -310,11 +326,13 @@ class CDCL {
                         // We choose the positive literal.
                         nextDecisionVariable.posLit
                     }
+
                     LBool.TRUE -> {
                         // If we remember that the last chosen polarity was positive,
                         // we choose the positive literal.
                         nextDecisionVariable.posLit
                     }
+
                     LBool.FALSE -> {
                         // If we remember that the last chosen polarity was negative,
                         // we choose the negative literal.

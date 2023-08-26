@@ -40,11 +40,11 @@ enum class LBool {
 @JvmInline
 value class Lit(val inner: Int) {
     init {
-        require(inner >= 0) {
-            "The internal representation of a literal is a positive integer, " +
-                "but $inner was provided. " +
-                "Consider using Lit.fromDimacs(lit) instead."
-        }
+        // require(inner >= 0) {
+        //     "The internal representation of a literal is a positive integer, " +
+        //         "but $inner was provided. " +
+        //         "Consider using Lit.fromDimacs(lit) instead."
+        // }
     }
 
     /** A negation of this literal */

@@ -13,6 +13,7 @@ import okio.sink
 import okio.source
 import org.kosat.cnf.CNF
 import java.io.File
+import kotlin.time.measureTimedValue
 
 class KoSAT : CliktCommand(name = "kosat") {
     init {
@@ -94,20 +95,22 @@ class KoSAT : CliktCommand(name = "kosat") {
         solver.dratBuilder = dratBuilder
         solver.reporter = Reporter(System.out.sink().buffer())
 
-        val result = solver.solve()
+        val (result, timeSolve) = measureTimedValue {
+            solver.solve()
+        }
 
         when (result) {
             SolveResult.SAT -> {
                 println("s SATISFIABLE")
-                val model = solver.getModel()
-                val modelString = model.withIndex().joinToString(separator = " ") {
-                    if (it.value) {
-                        (it.index + 1).toString()
-                    } else {
-                        (-it.index - 1).toString()
-                    }
-                }
-                println("v $modelString")
+                // val model = solver.getModel()
+                // val modelString = model.withIndex().joinToString(separator = " ") {
+                //     if (it.value) {
+                //         (it.index + 1).toString()
+                //     } else {
+                //         (-it.index - 1).toString()
+                //     }
+                // }
+                // println("v $modelString")
             }
             SolveResult.UNSAT -> {
                 println("s UNSATISFIABLE")
@@ -118,6 +121,7 @@ class KoSAT : CliktCommand(name = "kosat") {
         }
 
         solver.stats.write(System.err.sink().buffer())
+        println("c Running time: $timeSolve")
 
         dratProofSink?.close()
     }

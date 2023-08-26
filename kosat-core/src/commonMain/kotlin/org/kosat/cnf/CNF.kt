@@ -28,14 +28,14 @@ class CNF(
     }
 
     companion object {
-        private val RE_SPACE: Regex = """\s""".toRegex()
+        private val RE_SPACE: Regex = """\s+""".toRegex()
 
         fun from(source: BufferedSource): CNF {
             val clauses: MutableList<List<Int>> = mutableListOf()
             var numVars = 0
 
             while (true) {
-                val line = source.readUtf8Line() ?: break
+                val line = source.readUtf8Line()?.trim() ?: break
 
                 if (line.startsWith('c')) {
                     // Skip comment
