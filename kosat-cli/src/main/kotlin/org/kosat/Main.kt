@@ -8,6 +8,7 @@ import com.github.ajalt.clikt.parameters.arguments.optional
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
+import com.github.ajalt.clikt.parameters.types.int
 import okio.buffer
 import okio.sink
 import okio.source
@@ -50,6 +51,12 @@ class KoSAT : CliktCommand(name = "kosat") {
         help = "Write proof in binary format"
     ).flag(default = false)
 
+    private val timeLimit: Int? by option(
+        "-t",
+        "--timelimit",
+        help = "Time limit"
+    ).int()
+
     override fun run() {
         println("c KoSAT: pure-Kotlin modern CDCL SAT solver")
         println("c The input must be formatted according to the simplified DIMACS format")
@@ -74,6 +81,8 @@ class KoSAT : CliktCommand(name = "kosat") {
         cnfSource.close()
 
         val solver = CDCL(cnf)
+
+        solver.config.timeLimit = timeLimit
 
         val dratProofSink = if (proofFile != null) {
             println("c Writing proof to '$proofFile'")

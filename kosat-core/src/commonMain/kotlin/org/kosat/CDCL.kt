@@ -280,10 +280,12 @@ class CDCL {
 
             check(assignment.qhead == assignment.trail.size)
 
-            val elapsed = TimeSource.Monotonic.markNow() - startTime
-            if (elapsed > 3600.seconds) {
-                println("c Timeout!")
-                return SolveResult.UNKNOWN
+            if (config.timeLimit != null) {
+                val elapsed = TimeSource.Monotonic.markNow() - startTime
+                if (elapsed > config.timeLimit!!.seconds) {
+                    println("c Timeout!")
+                    return SolveResult.UNKNOWN
+                }
             }
 
             // if (stats.conflicts >= 500000) {

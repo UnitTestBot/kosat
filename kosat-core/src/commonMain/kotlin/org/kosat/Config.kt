@@ -110,4 +110,6 @@ data class Config(
      * The maximum number of variables to eliminate in a single run of BVE.
      */
     var bveMaxVarsToEliminate: Int = Int.MAX_VALUE,
+
+    var timeLimit: Int? = null
 )
