@@ -112,9 +112,11 @@ class KoSAT : CliktCommand(name = "kosat") {
                 // }
                 // println("v $modelString")
             }
+
             SolveResult.UNSAT -> {
                 println("s UNSATISFIABLE")
             }
+
             SolveResult.UNKNOWN -> {
                 println("s UNKNOWN")
             }

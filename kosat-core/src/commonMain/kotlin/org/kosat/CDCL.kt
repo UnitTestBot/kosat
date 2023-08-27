@@ -1283,6 +1283,7 @@ class CDCL {
                 if (!assignment.enqueue(clause.lits[0], null)) return finishWithUnsat()
                 bvePropagate()?.let { return finishWithUnsat() }
             }
+
             else -> {
                 bveAttachClause(state, clause)
             }
