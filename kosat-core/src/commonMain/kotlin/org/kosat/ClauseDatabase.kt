@@ -102,7 +102,7 @@ class ClauseDatabase(private val solver: CDCL) {
     /**
      * Remove the least active learned clauses.
      *
-     * @see [Clause.activity]
+     * @see Clause.activity
      */
     private fun reduceBasedOnActivity() {
         // Putting the least active clauses at the start of the list,

@@ -74,7 +74,7 @@ class CDCL {
 
     /**
      * The restart strategy, used to decide when to restart the search.
-     * @see [solve]
+     * @see solve
      */
     private val restarter = Restarter(this)
 
