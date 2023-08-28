@@ -489,6 +489,8 @@ class CDCL {
 
         dratBuilder.addComment("Finished preprocessing")
 
+        reporter.report("Finished preprocessing", stats)
+
         return null
     }
 
