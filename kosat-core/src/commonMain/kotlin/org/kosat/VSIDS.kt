@@ -160,21 +160,27 @@ class VSIDS(private val solver: CDCL) {
      */
     fun bump(learnt: Clause) {
         learnt.lits.forEach { lit ->
-            val v = lit.variable
-            activity[v] += activityInc
-            if (activityPQ.index[v] != -1) {
-                activityPQ.siftUp(activityPQ.index[v])
-            }
-            if (activity[v] > activityLimit) {
-                activity.forEachIndexed { ind, value ->
-                    activity[ind] = value / activityLimit
-                }
-                activityInc /= activityLimit
-            }
+            bump(lit.variable)
         }
 
         activityInc /= solver.config.vsidsActivityDecay
         numberOfConflicts++
+    }
+
+    /**
+     * Bump the activity of a single variable.
+     */
+    fun bump(variable: Var) {
+        activity[variable] += activityInc
+        if (activityPQ.index[variable] != -1) {
+            activityPQ.siftUp(activityPQ.index[variable])
+        }
+        if (activity[variable] > activityLimit) {
+            activity.forEachIndexed { ind, value ->
+                activity[ind] = value / activityLimit
+            }
+            activityInc /= activityLimit
+        }
     }
 
     /**

@@ -1957,6 +1957,8 @@ class CDCL {
                 // Mark all the variables in the clause as seen, if not already
                 seen[lit.variable] = true
 
+                vsids.bump(lit.variable)
+
                 if (assignment.level(lit) == assignment.decisionLevel) {
                     // If the literal is from the last decision level,
                     // just count it here: we will replace it with its reason later
