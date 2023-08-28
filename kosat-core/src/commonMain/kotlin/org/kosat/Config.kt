@@ -46,7 +46,7 @@ data class Config(
      * The rate of variable activity decay in [VSIDS]. The higher the value, the
      * slower the decay. Must be between 0 and 1.
      */
-    var vsidsActivityDecay: Double = 0.9,
+    var vsidsActivityDecay: Double = 0.95,
 
     /**
      * Whether to run Luby restarts.
@@ -55,7 +55,7 @@ data class Config(
     /**
      * The starting constant to use for the Luby restart sequence.
      */
-    var restarterLubyConstant: Int = 50,
+    var restarterLubyConstant: Int = 100,
     /**
      * The base to use for the Luby restart sequence. For example, if set to 2,
      * the sequence will be
@@ -69,7 +69,7 @@ data class Config(
      * Multiplied by [restarterLubyConstant], this will be the number of
      * conflicts between restarts.
      */
-    var restarterLubyBase: Double = 1.5,
+    var restarterLubyBase: Double = 2.0,
 
     /**
      * Whether to run Equivalent Literal Substitution.
