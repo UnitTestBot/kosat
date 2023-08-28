@@ -84,7 +84,7 @@ class ClauseDatabase(private val solver: CDCL) {
 
             if (!needsShrink) continue
 
-            val newClause = clause.copy(lits = clause.lits.toMutableList())
+            val newClause = clause.copy(lits = clause.lits.copy())
 
             newClause.lits.removeAll {
                 solver.assignment.fixed(it) == LBool.FALSE

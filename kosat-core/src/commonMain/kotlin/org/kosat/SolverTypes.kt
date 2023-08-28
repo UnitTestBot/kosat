@@ -106,12 +106,52 @@ operator fun <T> MutableList<T>.set(variable: Var, value: T) {
     this[variable.index] = value
 }
 
+operator fun IntArray.get(variable: Var): Int {
+    return this[variable.index]
+}
+
+operator fun IntArray.set(variable: Var, value: Int) {
+    this[variable.index] = value
+}
+
+operator fun IntArray.get(lit: Lit): Int {
+    return this[lit.inner]
+}
+
+operator fun IntArray.set(lit: Lit, value: Int) {
+    this[lit.inner] = value
+}
+
 operator fun BooleanArray.get(variable: Var): Boolean {
     return this[variable.index]
 }
 
 operator fun BooleanArray.set(variable: Var, value: Boolean) {
     this[variable.index] = value
+}
+
+operator fun BooleanArray.get(lit: Lit): Boolean {
+    return this[lit.inner]
+}
+
+operator fun BooleanArray.set(lit: Lit, value: Boolean) {
+    this[lit.inner] = value
+}
+
+operator fun DoubleArray.get(variable: Var): Double {
+    return this[variable.index]
+}
+
+operator fun DoubleArray.set(variable: Var, value: Double) {
+    this[variable.index] = value
+}
+
+operator fun DoubleArray.get(lit: Lit): Double {
+    return this[lit.inner]
+}
+
+operator fun DoubleArray.set(lit: Lit, value: Double) {
+    this[lit.inner] = value
 }
 
 /**

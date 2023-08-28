@@ -1,7 +1,7 @@
 package org.kosat
 
 data class Clause(
-    val lits: MutableList<Lit>,
+    val lits: LitVec,
     val learnt: Boolean = false,
 ) {
     val size: Int get() = lits.size
@@ -14,18 +14,15 @@ data class Clause(
         return lits[i]
     }
 
-    operator fun set(i: Int, x: Lit) {
-        lits[i] = x
-    }
-
     fun toDimacs(): List<Int> {
         return lits.map { it.toDimacs() }
     }
 
     companion object {
         fun fromDimacs(clause: List<Int>): Clause {
-            val lits = clause.map { Lit.fromDimacs(it) }.toMutableList()
+            val lits = LitVec(clause.map { Lit.fromDimacs(it) })
             return Clause(lits)
         }
     }
 }
+
