@@ -107,7 +107,7 @@ class ClauseDatabase(private val solver: CDCL) {
     private fun reduceBasedOnActivity() {
         // Putting the least active clauses at the start of the list,
         // keeping binary clauses and deleted clauses at the end
-        learnts.sortedBy {
+        learnts.sortBy {
             if (it.deleted || it.lits.size == 2) {
                 Double.POSITIVE_INFINITY
             } else {
@@ -118,13 +118,13 @@ class ClauseDatabase(private val solver: CDCL) {
         val countLimit = learnts.size / 2
         val activityLimit = clauseInc / learnts.size.toDouble()
 
-        // Remove the least active learned clauses, at most countLimit
-        for (i in 0 until countLimit) {
+        // Remove the least active learned clauses, at least countLimit
+        for (i in 0 until learnts.size) {
             val learnt = learnts[i]
 
             if (learnt.lits.size == 2) break
             if (learnt.deleted) break
-            if (learnt.activity >= activityLimit) break
+            if (learnt.activity >= activityLimit && i > countLimit) break
 
             // Do not remove clauses if they are used in the trail
             // technically, this is not needed, but might be used later
