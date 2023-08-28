@@ -28,8 +28,16 @@ class Restarter(private val solver: CDCL) {
 
     fun restartIfNeeded() {
         if (numberOfConflictsAfterRestart >= restartNumber) {
+            if (restartNumber >= 1000) {
+                solver.reporter.report(
+                    "Big Restart ($numberOfConflictsAfterRestart conflicts)",
+                    solver.stats
+                )
+            }
+
             restartNumber = lubyMultiplierConstant * luby(lubyPosition++)
             solver.backtrack(0)
+            solver.stats.restarts++
 
             numberOfConflictsAfterRestart = 0
         }

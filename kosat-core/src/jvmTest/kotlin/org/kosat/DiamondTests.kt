@@ -8,6 +8,7 @@ import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import okio.Sink
 import okio.buffer
+import okio.sink
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -120,6 +121,8 @@ internal class DiamondTests {
 
         val solver = CDCL(cnf)
 
+        solver.reporter = Reporter(System.out.sink().buffer())
+
         val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
         var dratSink: Sink? = null
         var dratBufferedSink: okio.BufferedSink? = null
@@ -195,6 +198,10 @@ internal class DiamondTests {
 
         dratSink?.close()
         dratBufferedSink?.close()
+
+        System.out.sink().buffer().use {
+            solver.stats.write(it)
+        }
 
         println("MiniSat time: ${timeMiniSat.roundMilliseconds()}")
         println("KoSat time: ${timeKoSat.roundMilliseconds()}")

@@ -1,5 +1,7 @@
 package org.kosat
 
+import okio.blackholeSink
+import okio.buffer
 import org.kosat.cnf.CNF
 import kotlin.math.min
 
@@ -41,6 +43,18 @@ class CDCL {
      * variable.
      */
     var dratBuilder: AbstractDratBuilder = NoOpDratBuilder()
+
+    /**
+     * Overall statistics of the solver.
+     * @see Stats
+     */
+    val stats: Stats = Stats()
+
+    /**
+     * An optional reporter, which can be used to report
+     * certain events and indicate solver progress to the user.
+     */
+    var reporter: Reporter = Reporter(blackholeSink().buffer())
 
     /**
      * Can solver perform the search? This becomes false if given constraints
@@ -88,21 +102,6 @@ class CDCL {
         var maxNewResolventsPerElimination = 16
         val varScoreSumWeight = -1.0
         val varScoreProdWeight = 1.0
-    }
-
-    private val bveStats = object {
-        var eliminationAttempts = 0
-        var eliminatedVariables = 0
-        var resolventsAdded = 0
-        var clausesResolved = 0
-        var unitsAssigned = 0
-        var clausesAttached = 0
-        var clausesDeleted = 0
-        var clausesStrengthened = 0
-        var clausesSubsumed = 0
-        var tautologicalResolvents = 0
-        var resolventsTooBig = 0
-        var gatesFound = 0
     }
 
     /**
@@ -255,6 +254,7 @@ class CDCL {
      *   [SolveResult.SAT], [SolveResult.UNSAT], or [SolveResult.UNKNOWN].
      */
     fun solve(assumptions: List<Lit> = emptyList()): SolveResult {
+        reporter.restartTimer()
         // Unfreeze assumptions from the previous solve
         for (assumption in this.assumptions) assignment.unfreeze(assumption)
         // and assign new assumptions
@@ -359,6 +359,7 @@ class CDCL {
                 }
 
                 assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+                stats.decisions++
             }
 
             // Propagate the decision,
@@ -383,6 +384,7 @@ class CDCL {
     private fun propagateAnalyzeBacktrack(): Boolean {
         while (true) {
             val conflict = propagate() ?: return true
+            stats.conflicts++
 
             // If there is a conflict on level 0, the problem is UNSAT
             if (assignment.decisionLevel == 0) return false
@@ -582,6 +584,9 @@ class CDCL {
     private fun equivalentLiteralSubstitution(): SolveResult? {
         require(assignment.decisionLevel == 0)
 
+        reporter.report("Equivalent Literal Substitution round", stats)
+        stats.els.rounds++
+
         // To find strongly connected components, we use Tarjan's algorithm.
         // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 
@@ -721,6 +726,7 @@ class CDCL {
             if (representatives[v] == null) continue
             assignment.markInactive(v)
             reconstructionStack.pushSubstitution(representatives[v]!!, v.posLit)
+            stats.els.substitutions++
         }
 
         // We cannot remove clauses that contain substituted literals right
@@ -822,9 +828,14 @@ class CDCL {
     private fun failedLiteralProbing(): SolveResult? {
         require(assignment.decisionLevel == 0)
 
+        reporter.report("Failed Literal Probing", stats)
+        stats.flp.rounds++
+
         val probesToTry = generateProbes()
 
         for (probe in probesToTry) {
+            stats.flp.probes++
+
             // If we know that the probe is already assigned, skip it
             if (assignment.value(probe) != LBool.UNDEF) {
                 continue
@@ -838,6 +849,8 @@ class CDCL {
             backtrack(0)
 
             if (conflict != null) {
+                stats.flp.probesFailed++
+
                 if (!assignment.enqueue(probe.neg, null)) {
                     return finishWithUnsat()
                 }
@@ -934,6 +947,8 @@ class CDCL {
                         // If not, simply add the new clause
                         attachClause(newBinary)
                     }
+
+                    stats.flp.hbrResolvents++
 
                     // Make sure watch is not overwritten at the end of the loop
                     if (lit.neg == newBinary[0]) clausesToKeep.add(newBinary)
@@ -1227,7 +1242,7 @@ class CDCL {
     private fun bveMarkDeleted(state: EliminationState, clause: Clause) {
         require(!clause.deleted)
         require(!clause.learnt)
-        bveStats.clausesDeleted++
+        stats.bve.clausesDeleted++
         state.numberOfClauses--
         markDeleted(clause)
         for (lit in clause.lits) {
@@ -1245,7 +1260,7 @@ class CDCL {
      */
     private fun bveAttachClause(state: EliminationState, clause: Clause) {
         require(clause.size > 1)
-        bveStats.clausesAttached++
+        stats.bve.clausesAttached++
         state.numberOfClauses++
         attachClause(clause)
         for (lit in clause.lits) {
@@ -1268,7 +1283,7 @@ class CDCL {
         when (clause.size) {
             0 -> return finishWithUnsat()
             1 -> {
-                bveStats.unitsAssigned++
+                stats.bve.unitsAssigned++
                 if (!assignment.enqueue(clause.lits[0], null)) return finishWithUnsat()
                 bvePropagate()?.let { return finishWithUnsat() }
             }
@@ -1292,6 +1307,9 @@ class CDCL {
      */
     private fun boundedVariableElimination(): SolveResult? {
         require(assignment.decisionLevel == 0)
+
+        stats.bve.rounds++
+        reporter.report("Bounded Variable Elimination", stats)
 
         // This state will be used all throughout the BVE
         val state = EliminationState(assignment.numberOfVariables)
@@ -1338,7 +1356,7 @@ class CDCL {
             // during the elimination, we can learn a unit clause which may
             // derive UNSAT.
 
-            bveStats.eliminationAttempts++
+            stats.bve.eliminationAttempts++
             bveTryEliminate(state, bestVariable)?.let { return it }
 
             /*
@@ -1348,8 +1366,8 @@ class CDCL {
             // If the ratio is too low, we stop the elimination, because
             // if it didn't work at the beginning, when variables are supposedly
             // easier to eliminate, it is unlikely to work later.
-            if (bveStats.eliminationAttempts > bveConfig.minimumVarsToTry) {
-                val relEfficiency = bveStats.eliminatedVariables.toDouble() / bveStats.eliminationAttempts
+            if (stats.bve.eliminationAttempts > bveConfig.minimumVarsToTry) {
+                val relEfficiency = stats.bve.eliminatedVariables.toDouble() / stats.bve.eliminationAttempts
                 if (relEfficiency < bveConfig.relativeEfficiencyThreshold) {
                     break
                 }
@@ -1406,15 +1424,6 @@ class CDCL {
             }
         }
 
-        println("Eliminated ${bveStats.eliminatedVariables} variables out of ${bveStats.eliminationAttempts}")
-        println("Total clause DB mutations: additions: ${bveStats.clausesAttached}, deletions: ${bveStats.clausesDeleted}")
-        println("Resolvents added: ${bveStats.resolventsAdded}, which resolved: ${bveStats.clausesResolved} clauses")
-        println("Units assigned: ${bveStats.unitsAssigned}")
-        println("Failed to resolve because resolvent was too big: ${bveStats.resolventsTooBig}")
-        println("Tautological resolvents: ${bveStats.tautologicalResolvents}")
-        println("Gates found: ${bveStats.gatesFound}")
-        println("Backward subsumption removed ${bveStats.clausesSubsumed} and strengthened ${bveStats.clausesStrengthened} clauses")
-
         return null
     }
 
@@ -1459,7 +1468,7 @@ class CDCL {
         // of the literal, of course. See the implementation for more details.
         if (gateClauses == null) gateClauses = findOrGates(state, pivot.posLit)
         if (gateClauses == null) gateClauses = findOrGates(state, pivot.negLit)
-        if (gateClauses != null) bveStats.gatesFound++
+        if (gateClauses != null) stats.bve.gatesFound++
 
         // Finally, we perform the resolutions.
         val resolventsToAdd = mutableListOf<Clause>()
@@ -1491,7 +1500,7 @@ class CDCL {
 
                 // If it is tautological, we skip it.
                 if (resolvent == null) {
-                    bveStats.tautologicalResolvents++
+                    stats.bve.tautologicalResolvents++
                     continue
                 }
 
@@ -1499,7 +1508,7 @@ class CDCL {
                 // is added to prevent the algorithm from generating resolvents
                 // of exponential size and running out of memory.
                 if (resolvent.size > bveConfig.resolventSizeLimit) {
-                    bveStats.resolventsTooBig++
+                    stats.bve.resolventsTooBig++
                     return null
                 }
 
@@ -1516,12 +1525,12 @@ class CDCL {
         // boundedVariableElimination, and performed later. We use the
         // specialized propagate procedure to overcome that.
         assignment.markInactive(pivot)
-        bveStats.eliminatedVariables++
+        stats.bve.eliminatedVariables++
 
         // We add resolvents to the database, removing falsified literals from
         // them.
         for (resolvent in resolventsToAdd) {
-            bveStats.resolventsAdded++
+            stats.bve.resolventsAdded++
             bveAttachShrunkClause(state, resolvent)?.let { return it }
             removeSubsumedBy(state, resolvent)?.let { return it }
         }
@@ -1530,14 +1539,14 @@ class CDCL {
         for (clause in posOccurrences) {
             if (clause.deleted) continue
             bveMarkDeleted(state, clause)
-            bveStats.clausesResolved++
+            stats.bve.clausesResolved++
             reconstructionStack.push(clause, pivot.posLit)
         }
 
         for (clause in negOccurrences) {
             if (clause.deleted) continue
             bveMarkDeleted(state, clause)
-            bveStats.clausesResolved++
+            stats.bve.clausesResolved++
             reconstructionStack.push(clause, pivot.negLit)
         }
 
@@ -1677,7 +1686,7 @@ class CDCL {
             if (mismatch == null) {
                 // Finally, if there are no mismatches, then the clause is simply
                 // subsumed.
-                bveStats.clausesSubsumed++
+                stats.bve.clausesSubsumed++
                 bveMarkDeleted(state, otherClause)
             } else if (state.subsumptionMarks[mismatch.neg]) {
                 val lits = clause.lits.copy()
@@ -1686,7 +1695,7 @@ class CDCL {
                 val strengthenedClause = Clause(lits)
                 // Note that we don't reset marks here with a hope that those
                 // will never be used after UNSAT anyway.
-                bveStats.clausesStrengthened++
+                stats.bve.clausesStrengthened++
                 bveAttachShrunkClause(state, strengthenedClause)?.let { return it }
                 bveMarkDeleted(state, otherClause)
             }
@@ -1847,6 +1856,8 @@ class CDCL {
      */
     fun propagate(): Clause? {
         // check(ok)
+
+        stats.propagations++
 
         var conflict: Clause? = null
 

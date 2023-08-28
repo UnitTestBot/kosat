@@ -148,7 +148,10 @@ class Assignment(private val solver: CDCL) {
         // require(value(lit) == LBool.UNDEF)
         // require(isActive(lit))
 
-        if (decisionLevel == 0) solver.dratBuilder.addClause(Clause(LitVec.of(lit)))
+        if (decisionLevel == 0) {
+            solver.dratBuilder.addClause(Clause(LitVec.of(lit)))
+            solver.stats.unitsFound++
+        }
 
         value[lit.variable] = LBool.from(lit.isPos)
         val data = varData[lit.variable]
