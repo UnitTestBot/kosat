@@ -13,7 +13,7 @@ internal class ManualTest {
         val path = "src/jvmTest/resources/testCover/cover/cover0015.cnf".toPath()
         val cnf = CNF.from(path)
         val clauses = cnf.clauses.map { lits ->
-            Clause(lits.map { Lit.fromDimacs(it) }.toMutableList())
+            Clause(LitVec(lits.map { Lit.fromDimacs(it) }))
         }
         val solver = CDCL(clauses, cnf.numVars)
         // solver.dratBuilder = DratBuilder(System.err.sink().buffer())
