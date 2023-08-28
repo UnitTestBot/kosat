@@ -3,6 +3,7 @@ import org.gradle.api.tasks.testing.logging.TestLogEvent
 
 plugins {
     kotlin("multiplatform")
+    id(Plugins.Dokka.id)
 }
 
 repositories {

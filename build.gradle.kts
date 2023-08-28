@@ -1,5 +1,6 @@
 plugins {
     kotlin("multiplatform") version Versions.kotlin apply false
+    with(Plugins.Dokka) { id(id) version (version) }
     with(Plugins.GradleDownload) { id(id) version (version) }
     with(Plugins.GradleVersions) { id(id) version (version) }
     with(Plugins.Shadow) { id(id) version (version) } apply false
