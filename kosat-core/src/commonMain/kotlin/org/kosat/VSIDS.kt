@@ -4,7 +4,7 @@ class VSIDS(private val solver: CDCL) {
     private var numberOfVariables = 0
     private var numberOfConflicts = 0
     private var activityInc = 1.0
-    private var activityLimit = 1e100
+    private var activityLimit = 1e20
 
     /**
      * Activities of variables

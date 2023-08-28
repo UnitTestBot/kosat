@@ -372,7 +372,6 @@ class CDCL {
                 db.clauseBumpActivity(learnt)
             }
 
-            // Update the heuristics
             vsids.bump(learnt)
             db.clauseDecayActivity()
 
