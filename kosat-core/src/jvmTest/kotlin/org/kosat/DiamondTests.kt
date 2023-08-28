@@ -74,8 +74,8 @@ internal class DiamondTests {
             "no restarts" to Config(
                 restarts = false,
             ),
-            "activity based db" to Config(
-                clauseDbStrategy = ReduceStrategy.ACTIVITY,
+            "lbd based db" to Config(
+                clauseDbStrategy = ReduceStrategy.LBD,
             ),
         )
 

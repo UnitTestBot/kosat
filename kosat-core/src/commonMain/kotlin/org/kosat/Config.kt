@@ -13,7 +13,7 @@ data class Config(
      * [ReduceStrategy.ACTIVITY] will use the activity of the clauses, and will
      * remove half of the learnt clauses with the highest activity.
      */
-    var clauseDbStrategy: ReduceStrategy = ReduceStrategy.LBD,
+    var clauseDbStrategy: ReduceStrategy = ReduceStrategy.ACTIVITY,
     /**
      * The initial maximum count of learnts in the database. Once this limit is
      * reached, the database will be reduced, and the maximum count will be
