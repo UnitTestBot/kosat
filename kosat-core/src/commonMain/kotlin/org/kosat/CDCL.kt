@@ -972,11 +972,6 @@ class CDCL {
                     LBool.TRUE -> continue
                     // both literals are false, there is a conflict
                     LBool.FALSE -> {
-                        // at this point, it does not matter how the conflict
-                        // was discovered, the caller won't do anything after
-                        // this anyway, but we still need to backtrack somehow,
-                        // starting from this literal:
-                        assignment.qhead = assignment.qheadBinaryOnly
                         return clause
                     }
                     // the other literal is unassigned
