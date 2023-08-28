@@ -20,7 +20,7 @@ data class VarState(
 class Assignment(private val solver: CDCL) {
     val value: MutableList<LBool> = mutableListOf()
     val varData: MutableList<VarState> = mutableListOf()
-    val trail: MutableList<Lit> = mutableListOf()
+    val trail: LitVec = LitVec()
     val numberOfVariables get() = value.size
     private var numberOfInactiveVariables = 0
 
@@ -35,7 +35,7 @@ class Assignment(private val solver: CDCL) {
      * @return the value of the variable, assuming that it is not substituted.
      */
     fun value(v: Var): LBool {
-        require(isActive(v))
+        // require(isActive(v))
         return value[v]
     }
 
@@ -43,7 +43,7 @@ class Assignment(private val solver: CDCL) {
      * @return the value of the literal, assuming that it is not substituted.
      */
     fun value(lit: Lit): LBool {
-        require(isActive(lit))
+        // require(isActive(lit))
         return value[lit.variable] xor lit.isNeg
     }
 
@@ -145,18 +145,19 @@ class Assignment(private val solver: CDCL) {
     }
 
     fun uncheckedEnqueue(lit: Lit, reason: Clause?) {
-        require(value(lit) == LBool.UNDEF)
-        require(isActive(lit))
+        // require(value(lit) == LBool.UNDEF)
+        // require(isActive(lit))
 
         if (decisionLevel == 0) {
-            solver.dratBuilder.addClause(Clause(mutableListOf(lit)))
+            solver.dratBuilder.addClause(Clause(LitVec.of(lit)))
             solver.stats.unitsFound++
         }
 
         value[lit.variable] = LBool.from(lit.isPos)
-        varData[lit.variable].reason = reason
-        varData[lit.variable].level = decisionLevel
-        varData[lit.variable].trailIndex = trail.size
+        val data = varData[lit.variable]
+        data.reason = reason
+        data.level = decisionLevel
+        data.trailIndex = trail.size
         trail.add(lit)
     }
 
@@ -179,11 +180,7 @@ class Assignment(private val solver: CDCL) {
         }
     }
 
-    fun dequeue(): Lit? {
-        return if (qhead < trail.size) {
-            trail[qhead++]
-        } else {
-            null
-        }
+    fun dequeue(): Lit {
+        return trail[qhead++]
     }
 }

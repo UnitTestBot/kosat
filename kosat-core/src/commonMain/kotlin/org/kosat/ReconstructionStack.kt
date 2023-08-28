@@ -59,7 +59,7 @@ class ReconstructionStack {
      * Pushes a binary clause from a given literal and its witness to the stack.
      */
     fun pushBinary(lit: Lit, witness: Lit) {
-        stack.add(ReconstructionStackEntry(Clause(mutableListOf(lit, witness)), witness))
+        stack.add(ReconstructionStackEntry(Clause(LitVec.of(lit, witness)), witness))
     }
 
     /**
@@ -110,7 +110,7 @@ class ReconstructionStack {
      *        (not required on the first solve)
      * @param assumptions the assumptions added to the solver this solve.
      */
-    fun restore(solver: CDCL, newClauses: List<Clause>, assumptions: List<Lit>) {
+    fun restore(solver: CDCL, newClauses: List<Clause>, assumptions: LitVec) {
         require(solver.assignment.decisionLevel == 0)
 
         // The term "tainted" is used in the original paper and refers to the
