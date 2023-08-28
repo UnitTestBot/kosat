@@ -1,6 +1,7 @@
 package org.kosat
 
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * A vector of literals. It is more efficient than a plain `List<Lit>` because
@@ -270,7 +271,8 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
     }
 
     fun take(count: Int): LitVec {
-        return LitVec(raw.copyOf(count), count)
+        val realCount = min(count, size)
+        return LitVec(raw.copyOf(realCount), realCount)
     }
 
     fun joinToString(
