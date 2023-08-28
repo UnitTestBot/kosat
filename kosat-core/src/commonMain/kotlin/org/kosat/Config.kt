@@ -46,6 +46,20 @@ data class Config(
      * The starting constant to use for the Luby restart sequence.
      */
     var restarterLubyConstant: Int = 50,
+    /**
+     * The base to use for the Luby restart sequence. For example, if set to 2,
+     * the sequence will be
+     * ```
+     * 1, 1, 2, 1, 1, 2, 4, 1, 1, 2, ...
+     * ```
+     * If set to 1.5, the sequence will be
+     * ```
+     * 1, 1, 1.5, 1, 1, 1.5, 2.25, 1, 1, 1.5, ...
+     * ```
+     * Multiplied by [restarterLubyConstant], this will be the number of
+     * conflicts between restarts.
+     */
+    var restarterLubyBase: Double = 1.5,
 
     /**
      * Whether to run Equivalent Literal Substitution.
