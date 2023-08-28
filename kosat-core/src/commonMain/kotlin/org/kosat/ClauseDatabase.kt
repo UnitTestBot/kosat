@@ -169,9 +169,14 @@ class ClauseDatabase(private val solver: CDCL) {
      * Run the configured reduce if the number of learnt clauses is too high.
      */
     fun reduceIfNeeded() {
-        reduceMaxLearnts = max(reduceMaxLearnts, solver.config.clauseDbMaxSizeInitial)
+        reduceMaxLearnts = maxOf(
+            reduceMaxLearnts,
+            solver.config.clauseDbMaxSizeInitial,
+            (clauses.size * solver.config.clauseDbMaxSizeInitialRelative).toInt(),
+        )
+
         if (learnts.size > reduceMaxLearnts + solver.assignment.trail.size) {
-            reduceMaxLearnts += solver.config.clauseDbMaxSizeIncrement
+            reduceMaxLearnts = (reduceMaxLearnts.toDouble() * solver.config.clauseDbMaxSizeIncrement).toInt()
 
             solver.reporter.report("Clause DB reduction (${learnts.size} learnts)", solver.stats)
 

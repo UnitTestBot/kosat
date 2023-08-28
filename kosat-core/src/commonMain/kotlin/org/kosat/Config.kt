@@ -15,16 +15,26 @@ data class Config(
      */
     var clauseDbStrategy: ReduceStrategy = ReduceStrategy.ACTIVITY,
     /**
-     * The initial maximum count of learnts in the database. Once this limit is
-     * reached, the database will be reduced, and the maximum count will be
-     * incremented by [clauseDbMaxSizeIncrement].
+     * The initial absolute maximum count of learnts in the database. The chosen
+     * initial count will be chosen between this value and total number of
+     * initial clauses times [clauseDbMaxSizeInitialRelative]. Once this limit
+     * is reached, the database will be reduced, and the maximum count will be
+     * multiplied by [clauseDbMaxSizeIncrement].
      */
     var clauseDbMaxSizeInitial: Int = 6000,
     /**
-     * The increment of the maximum count of learnts in the database. Every time
-     * the database is reduced, the maximum count is incremented by this value.
+     * The initial relative maximum count of learnts in the database. The chosen
+     * initial count will be chosen between [clauseDbMaxSizeInitial] and total
+     * number of initial clauses times this value. Once this limit is reached,
+     * the database will be reduced, and the maximum count will be multiplied
+     * by [clauseDbMaxSizeIncrement].
      */
-    var clauseDbMaxSizeIncrement: Int = 500,
+    var clauseDbMaxSizeInitialRelative: Double = 0.333,
+    /**
+     * The increment of the maximum count of learnts in the database. Every time
+     * the database is reduced, the maximum count is multiplied by this value.
+     */
+    var clauseDbMaxSizeIncrement: Double = 1.1,
     /**
      * When using [ReduceStrategy.ACTIVITY], this is how fast the clause
      * activity will decay. The higher the value, the slower the decay. Must be
