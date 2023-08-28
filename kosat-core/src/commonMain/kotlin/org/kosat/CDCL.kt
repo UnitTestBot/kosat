@@ -1835,7 +1835,7 @@ class CDCL {
     fun propagate(): Clause? {
         // check(ok)
 
-        stats.propagations++
+        val startQhead = assignment.qhead
 
         var conflict: Clause? = null
 
@@ -1901,6 +1901,8 @@ class CDCL {
 
             if (conflict != null) break
         }
+
+        stats.propagations += assignment.trail.size - startQhead
 
         return conflict
     }
