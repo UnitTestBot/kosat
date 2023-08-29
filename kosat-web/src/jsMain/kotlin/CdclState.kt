@@ -7,8 +7,6 @@ import org.kosat.Var
 import org.kosat.cnf.CNF
 import org.kosat.get
 import org.kosat.retainFirst
-import org.kosat.set
-import org.kosat.swap
 
 /**
  * To allow user to interact with the solver in a granular way, we have to

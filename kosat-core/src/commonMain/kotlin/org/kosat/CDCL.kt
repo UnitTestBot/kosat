@@ -799,7 +799,7 @@ class CDCL {
      * other mechanisms that can derive this clause, but
      * probing is one of them.
      *
-     * Now, this new added clause can be set as [VarState.reason]
+     * Now, this new added clause can be set as reason
      * of variable 3. In fact, every time we enqueue a literal,
      * we can guarantee that its reason is binary. That binary
      * clause, if new, is the result of Hyper-binary Resolution
