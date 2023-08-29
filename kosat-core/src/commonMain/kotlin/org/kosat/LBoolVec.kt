@@ -28,4 +28,8 @@ class LBoolVec(var raw: ByteArray, var size: Int) {
         }
         raw[size++] = value.inner
     }
+
+    fun toList(): List<LBool> {
+        return raw.take(size).map { LBool(it) }
+    }
 }
