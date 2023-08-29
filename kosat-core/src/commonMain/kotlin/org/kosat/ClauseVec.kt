@@ -21,18 +21,16 @@ class ClauseVec private constructor(var raw: Array<Clause>, var size: Int) {
     private val capacity get() = raw.size
     val lastIndex get() = size - 1
 
+    constructor() : this(emptyArray<Clause>(), 0)
     constructor(clauses: List<Clause>) : this(clauses.toTypedArray(), clauses.size)
-    constructor() : this(emptyArray, 0)
 
     operator fun get(index: Int): Clause {
         return raw[index]
     }
 
-
     fun isEmpty(): Boolean {
         return size == 0
     }
-
 
     fun add(element: Clause) {
         if (size == capacity) grow()
@@ -44,10 +42,10 @@ class ClauseVec private constructor(var raw: Array<Clause>, var size: Int) {
         raw = raw.copyOf(max(raw.size * 2, 8)) as Array<Clause>
     }
 
-    inline fun removeAll(p: (Clause) -> Boolean) {
+    inline fun removeAll(predicate: (Clause) -> Boolean) {
         var j = 0
         for (i in 0 until size) {
-            if (!p(raw[i])) {
+            if (!predicate(raw[i])) {
                 raw[j++] = raw[i]
             }
         }
@@ -55,14 +53,23 @@ class ClauseVec private constructor(var raw: Array<Clause>, var size: Int) {
 
     }
 
-    inline fun count(p: (Clause) -> Boolean): Int {
+    inline fun count(predicate: (Clause) -> Boolean): Int {
         var count = 0
         for (i in 0 until size) {
-            if (p(raw[i])) {
+            if (predicate(raw[i])) {
                 count++
             }
         }
         return count
+    }
+
+    inline fun any(predicate: (Clause) -> Boolean): Boolean {
+        for (i in 0 until size) {
+            if (predicate(raw[i])) {
+                return true
+            }
+        }
+        return false
     }
 
     inner class ClauseVecIter(private var index: Int = 0) {
@@ -85,20 +92,5 @@ class ClauseVec private constructor(var raw: Array<Clause>, var size: Int) {
 
     fun clear() {
         size = 0
-    }
-
-    inline fun any(p: (Clause) -> Boolean): Boolean {
-        for (i in 0 until size) {
-            if (p(raw[i])) {
-                return true
-            }
-        }
-        return false
-    }
-
-    companion object {
-        private val emptyArray = emptyArray<Clause>()
-        val emptyClauseVec  get() = ClauseVec(emptyArray, 0)
-        private val emptyClause = Clause(LitVec())
     }
 }

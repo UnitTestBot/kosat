@@ -2,10 +2,10 @@ package org.kosat
 
 import okio.blackholeSink
 import okio.buffer
-import org.kosat.ClauseVec.Companion.emptyClauseVec
 import org.kosat.cnf.CNF
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 
 /**
@@ -51,7 +51,7 @@ class CDCL {
      * Can solver perform the search? This becomes false if given constraints
      * cause unsatisfiability in some way.
      */
-    var ok = true
+    var ok: Boolean = true
 
     /**
      * Two-watched literals heuristic.
@@ -84,12 +84,12 @@ class CDCL {
     /**
      * A list of clauses which were added since the last call to [solve].
      */
-    private val newClauses = emptyClauseVec
+    private val newClauses = ClauseVec()
 
     /**
      * Create a new solver instance with no clauses.
      */
-    constructor() : this(emptyClauseVec.raw.take(0))
+    constructor()
 
     /**
      * Create a new solver instance with given clauses.
@@ -119,8 +119,8 @@ class CDCL {
      */
     fun newVariable() {
         // Watch
-        watchers.add(emptyClauseVec)
-        watchers.add(emptyClauseVec)
+        watchers.add(ClauseVec())
+        watchers.add(ClauseVec())
 
         // Assignment
         assignment.addVariable()
@@ -281,24 +281,16 @@ class CDCL {
 
             db.reduceIfNeeded()
             restarter.restartIfNeeded()
-            if (stats.conflicts > 100000) {
-                reporter.report("Too many conflicts", stats)
-                return SolveResult.UNKNOWN
-            }
 
             check(assignment.qhead == assignment.trail.size)
 
             if (config.timeLimit != null) {
                 val elapsed = TimeSource.Monotonic.markNow() - startTime
                 if (elapsed > config.timeLimit!!.seconds) {
-                    println("c Timeout!")
+                    println("c Timeout: ${elapsed.toDouble(DurationUnit.SECONDS)} s")
                     return SolveResult.UNKNOWN
                 }
             }
-
-            // if (stats.conflicts >= 500000) {
-            //     return SolveResult.UNKNOWN
-            // }
 
             // And after that, we are ready to make a decision.
             assignment.newDecisionLevel()
@@ -731,7 +723,7 @@ class CDCL {
         // equivalence to be removed, which will make the proof invalid.
         // Instead, we remember which clauses we no longer need, and remove them
         // later.
-        val clausesToDelete = emptyClauseVec
+        val clausesToDelete = ClauseVec()
 
         // Replace clauses which might have simplified due to substitution
         for (clause in db.clauses + db.learnts) {
@@ -894,7 +886,7 @@ class CDCL {
             // Unlike how in normal propagate we only remove clauses from watch
             // lists, here we can also add new binary clauses, so using two
             // pointers is not the easiest option here.
-            val clausesToKeep = emptyClauseVec
+            val clausesToKeep = ClauseVec()
 
             // Iterating with indexes to prevent ConcurrentModificationException
             // when adding new binary clauses. This is ok because any new clause
@@ -1181,7 +1173,7 @@ class CDCL {
          * necessarily equal to the value in [occurrenceNumbers] because we
          * don't count deleted clauses.
          */
-        val occurrences: List<ClauseVec> = MutableList(numberOfVariables * 2) { emptyClauseVec }
+        val occurrences: List<ClauseVec> = MutableList(numberOfVariables * 2) { ClauseVec() }
 
         /**
          * This is the "real" amount of occurrences of each literal in the
@@ -1472,7 +1464,7 @@ class CDCL {
         if (gateClauses != null) stats.bve.gatesFound++
 
         // Finally, we perform the resolutions.
-        val resolventsToAdd = emptyClauseVec
+        val resolventsToAdd = ClauseVec()
 
         for (i in 0 until posOccurrences.size) {
             val posClause = posOccurrences[i]
@@ -1576,7 +1568,7 @@ class CDCL {
         val negOccurrences = state.occurrences[pivot.neg]
         var foundAny = false
 
-        val gateClauses = emptyClauseVec
+        val gateClauses = ClauseVec()
 
         // We first mark all literals which occur in binary clauses with the
         // positive pivot.
