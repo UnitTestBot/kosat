@@ -25,7 +25,13 @@ class ClauseVec private constructor(var raw: Array<Clause>, var size: Int) {
     constructor(clauses: List<Clause>) : this(clauses.toTypedArray(), clauses.size)
 
     operator fun get(index: Int): Clause {
+        // require(index < size)
         return raw[index]
+    }
+
+    operator fun set(index: Int, value: Clause) {
+        // require(index < size)
+        raw[index] = value
     }
 
     fun isEmpty(): Boolean {
