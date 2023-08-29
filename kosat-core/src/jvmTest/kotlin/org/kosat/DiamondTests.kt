@@ -19,6 +19,7 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.UUID
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.relativeTo
@@ -45,6 +46,39 @@ internal class DiamondTests {
         private val dratProofsPath = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
             .resolve("dratProofs/${DateTime.nowLocal().format(timeFormat)}")
 
+        private val configs = mutableMapOf(
+            "default" to Config(),
+            "no preprocessing" to Config(
+                els = false,
+                flp = false,
+                bve = false,
+            ),
+            "preprocessing: bve only" to Config(
+                els = false,
+                flp = false,
+            ),
+            "preprocessing: flp only" to Config(
+                els = false,
+                bve = false,
+            ),
+            "preprocessing: els only" to Config(
+                flp = false,
+                bve = false,
+            ),
+            "preprocessing: no hbr" to Config(
+                flpHyperBinaryResolution = false,
+            ),
+            "restarts: small luby" to Config(
+                restarterLubyConstant = 1,
+            ),
+            "no restarts" to Config(
+                restarts = false,
+            ),
+            "activity based db" to Config(
+                clauseDbStrategy = ReduceStrategy.ACTIVITY,
+            ),
+        )
+
         init {
             if (generateAndCheckDrat) {
                 dratProofsPath.toFile().mkdirs()
@@ -62,28 +96,56 @@ internal class DiamondTests {
         }
 
         @JvmStatic
-        private fun getAllNotBenchmarks(): List<Arguments> {
+        private fun getAllNotBenchmarksTests(): List<Arguments> {
             return Files.walk(testsPath)
                 .filter { isTestFile(it) }
                 .filter { !it.startsWith(benchmarksPath) }
-                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .map {
+                    configs.map { (cfgName, config) ->
+                        Arguments.of(
+                            it.toFile(),
+                            "$cfgName: ${it.relativeTo(testsPath)}",
+                            config,
+                            cfgName,
+                        )
+                    }
+                }
                 .toList()
+                .flatten()
         }
 
         @JvmStatic
-        private fun getAssumptionFiles(): List<Arguments> {
+        private fun getAssumptionTests(): List<Arguments> {
             return Files.walk(assumptionTestsPath)
                 .filter { isTestFile(it) }
-                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .map {
+                    configs.map { (cfgName, config) ->
+                        Arguments.of(
+                            it.toFile(),
+                            "$cfgName: ${it.relativeTo(testsPath)}",
+                            config,
+                        )
+                    }
+                }
                 .toList()
+                .flatten()
         }
 
         @JvmStatic
-        private fun getIncrementalFiles(): List<Arguments> {
+        private fun getIncrementalTests(): List<Arguments> {
             return Files.walk(incrementalTestsPath)
                 .filter { isTestFile(it) }
-                .map { Arguments.of(it.toFile(), it.relativeTo(testsPath).toString()) }
+                .map {
+                    configs.map { (cfgName, config) ->
+                        Arguments.of(
+                            it.toFile(),
+                            "$cfgName: ${it.relativeTo(testsPath)}",
+                            config,
+                        )
+                    }
+                }
                 .toList()
+                .flatten()
         }
 
         @JvmStatic
@@ -114,16 +176,17 @@ internal class DiamondTests {
         }
     }
 
-    private fun runTest(cnfFile: File, cnf: CNF) {
+    private fun runTest(cnfFile: File, cnf: CNF, config: Config, configName: String) {
         val (resultExpected, timeMiniSat) = measureTimeWithResult {
             solveWithMiniSat(cnf)
         }
 
         val solver = CDCL(cnf)
+        solver.config = config
 
         solver.reporter = Reporter(System.out.sink().buffer())
 
-        val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}.drat")
+        val dratPath = dratProofsPath.resolve("${cnfFile.nameWithoutExtension}-${UUID.randomUUID()}.drat")
         var dratSink: Sink? = null
         var dratBufferedSink: okio.BufferedSink? = null
 
@@ -207,8 +270,9 @@ internal class DiamondTests {
         println("KoSat time: ${timeKoSat.roundMilliseconds()}")
     }
 
-    private fun runTestWithAssumptions(cnf: CNF, assumptionsSets: List<List<Int>>) {
+    private fun runTestWithAssumptions(cnf: CNF, assumptionsSets: List<List<Int>>, config: Config) {
         val solver = CDCL(cnf)
+        solver.config = config
 
         for (assumptions in assumptionsSets) {
             println("## Solving with assumptions: $assumptions")
@@ -251,8 +315,9 @@ internal class DiamondTests {
         }
     }
 
-    private fun runIncrementalTest(cnf: CNF) {
+    private fun runIncrementalTest(cnf: CNF, config: Config) {
         val solver = CDCL(cnf)
+        solver.config = config
         var fullCnf = cnf
 
         val getInstances = 10
@@ -300,10 +365,10 @@ internal class DiamondTests {
     }
 
     @ParameterizedTest(name = "{1}")
-    @MethodSource("getAllNotBenchmarks")
-    fun test(file: File, testName: String) {
+    @MethodSource("getAllNotBenchmarksTests")
+    fun test(file: File, testName: String, config: Config, configName: String) {
         println("# Testing on: $file")
-        runTest(file, CNF.from(file.toOkioPath()))
+        runTest(file, CNF.from(file.toOkioPath()), config, configName)
     }
 
     @ParameterizedTest(name = "{1}")
@@ -311,12 +376,12 @@ internal class DiamondTests {
     // @Disabled
     fun testOnBenchmarks(file: File, testName: String) {
         println("# Testing on: $file")
-        runTest(file, CNF.from(file.toOkioPath()))
+        runTest(file, CNF.from(file.toOkioPath()), Config(), "default")
     }
 
     @ParameterizedTest(name = "{1}")
-    @MethodSource("getAssumptionFiles")
-    fun assumptionTest(file: File, testName: String) {
+    @MethodSource("getAssumptionTests")
+    fun assumptionTest(file: File, testName: String, config: Config) {
         val cnf = CNF.from(file.toOkioPath())
 
         val clauseCount = cnf.clauses.size
@@ -336,18 +401,18 @@ internal class DiamondTests {
             }
         }
 
-        runTestWithAssumptions(cnf, assumptionSets)
+        runTestWithAssumptions(cnf, assumptionSets, config)
 
         println()
     }
 
     @ParameterizedTest(name = "{1}")
-    @MethodSource("getIncrementalFiles")
-    fun incrementalTest(file: File, testName: String) {
+    @MethodSource("getIncrementalTests")
+    fun incrementalTest(file: File, testName: String, config: Config) {
         val cnf = CNF.from(file.toOkioPath())
         val clauseCount = cnf.clauses.size
         println("# Testing on: $file ($clauseCount clauses, ${cnf.numVars} variables)")
 
-        runIncrementalTest(cnf)
+        runIncrementalTest(cnf, config)
     }
 }
