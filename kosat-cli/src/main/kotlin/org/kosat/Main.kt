@@ -53,7 +53,7 @@ class KoSAT : CliktCommand(name = "kosat") {
 
     private val timeLimit: Int? by option(
         "-t",
-        "--timelimit",
+        "--time-limit",
         help = "Time limit"
     ).int()
 
