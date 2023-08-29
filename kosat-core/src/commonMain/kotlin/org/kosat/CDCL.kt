@@ -139,9 +139,6 @@ class CDCL {
         // Assignment
         assignment.addVariable()
 
-        // Variable selection strategy
-        vsids.addVariable()
-
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
     }
@@ -257,7 +254,7 @@ class CDCL {
 
         // Rebuild the variable selector
         // TODO: is there a way to not rebuild the selector every solve?
-        vsids.build(db.clauses)
+        vsids.build(assignment.numberOfVariables, db.clauses)
         preprocess()?.let { return it }
 
         return search()

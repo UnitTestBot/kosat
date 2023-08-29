@@ -73,8 +73,8 @@ class CdclState(initialProblem: CNF) {
     init {
         // FIXME: workaround
         inner.vsids.build(
-            inner.db.clauses +
-                Clause(LitVec(List(inner.assignment.numberOfVariables) { Var(it).posLit }))
+            inner.assignment.numberOfVariables,
+            inner.db.clauses,
         )
     }
 
@@ -109,8 +109,8 @@ class CdclState(initialProblem: CNF) {
             is SolverCommand.Search -> {
                 // FIXME: workaround, same as above
                 inner.vsids.build(
-                    inner.db.clauses +
-                        Clause(LitVec(List(inner.assignment.numberOfVariables) { Var(it).posLit }))
+                    inner.assignment.numberOfVariables,
+                    inner.db.clauses,
                 )
                 inner.search()
             }
