@@ -106,7 +106,7 @@ val AssignmentSection: FC<Props> = FC("AssignmentSection") {
                     when (assignment.value(v)) {
                         LBool.TRUE -> v.posLit.toDimacs().toString()
                         LBool.FALSE -> v.negLit.toDimacs().toString()
-                        LBool.UNDEF -> "0"
+                        else -> "0"
                     }
                 }
             }

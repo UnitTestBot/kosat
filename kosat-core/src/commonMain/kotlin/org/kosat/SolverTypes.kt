@@ -6,29 +6,26 @@ import kotlin.math.abs
 /**
  * A boolean value in the solver
  */
-enum class LBool {
-    FALSE, TRUE, UNDEF;
-
-    operator fun not(): LBool = when (this) {
-        FALSE -> TRUE
-        TRUE -> FALSE
-        UNDEF -> UNDEF
-    }
-
-    infix fun xor(b: Boolean): LBool = when (this) {
-        FALSE -> from(b) // if (b) TRUE else FALSE
-        TRUE -> from(!b) // if (b) FALSE else TRUE
-        UNDEF -> UNDEF
-    }
-
-    fun toBool(): Boolean = when (this) {
-        FALSE -> false
-        TRUE -> true
-        UNDEF -> error("LBool.UNDEF")
-    }
-
+@JvmInline
+value class LBool(val inner: Byte) {
     companion object {
-        fun from(b: Boolean): LBool = if (b) TRUE else FALSE
+        val FALSE = LBool(0b01)
+        val TRUE = LBool(0b10)
+        val UNDEF = LBool(0b00)
+
+        fun from(b: Boolean): LBool = from(1 + b.toInt())
+        private fun from(i: Int): LBool = LBool(i.toByte())
+    }
+
+    operator fun not(): LBool {
+        val x = this.inner.toInt()
+        return from(0b11 and ((x shl 1) or (x shr 1)))
+    }
+
+    infix fun xor(b: Boolean): LBool {
+        val x = this.inner.toInt()
+        val y = b.toInt()
+        return from(0b11 and ((x shl y) or (x shr y)))
     }
 }
 
