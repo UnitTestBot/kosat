@@ -47,7 +47,8 @@ class ClauseDatabase(private val solver: CDCL) {
      * with a reason being that clause (propagated because of it)?
      */
     fun isClauseLocked(clause: Clause): Boolean {
-        return solver.assignment.reason(clause[0].variable) === clause
+        return solver.assignment.reason(clause[0].variable) === clause &&
+            solver.assignment.level(clause[0]) > 0
     }
 
     /**
@@ -70,6 +71,7 @@ class ClauseDatabase(private val solver: CDCL) {
         solver.dratBuilder.addComment("Simplifying clauses")
         outer@ for (clause in clauses + learnts) {
             if (clause.deleted) continue
+            if (isClauseLocked(clause)) continue
 
             for (lit in clause.lits) {
                 if (solver.assignment.fixed(lit) == LBool.TRUE) {
@@ -127,7 +129,6 @@ class ClauseDatabase(private val solver: CDCL) {
             if (learnt.activity >= activityLimit && i > countLimit) break
 
             // Do not remove clauses if they are used in the trail
-            // technically, this is not needed, but might be used later
             if (isClauseLocked(learnt)) continue
 
             solver.markDeleted(learnt)

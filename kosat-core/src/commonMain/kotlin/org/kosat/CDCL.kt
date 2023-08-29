@@ -1808,7 +1808,8 @@ class CDCL {
      * will be detached (the latter may also happen in [propagate]).
      */
     fun markDeleted(clause: Clause) {
-        check(ok)
+        require(ok)
+        require(!db.isClauseLocked(clause))
         clause.deleted = true
         if (!clause.fromInput) dratBuilder.deleteClause(clause)
     }
