@@ -2,6 +2,7 @@ package org.kosat
 
 import okio.blackholeSink
 import okio.buffer
+import org.kosat.ClauseVec.Companion.emptyClauseVec
 import org.kosat.cnf.CNF
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
@@ -57,7 +58,7 @@ class CDCL {
      *
      * `i`-th element of this list is the set of clauses watched by variable `i`.
      */
-    val watchers: MutableList<MutableList<Clause>> = mutableListOf()
+    val watchers: MutableList<ClauseVec> = mutableListOf()
 
     /**
      * The reconstruction stack, used to restore the solver state
@@ -83,12 +84,12 @@ class CDCL {
     /**
      * A list of clauses which were added since the last call to [solve].
      */
-    private val newClauses = mutableListOf<Clause>()
+    private val newClauses = emptyClauseVec
 
     /**
      * Create a new solver instance with no clauses.
      */
-    constructor() : this(mutableListOf<Clause>())
+    constructor() : this(emptyClauseVec.raw.take(0))
 
     /**
      * Create a new solver instance with given clauses.
@@ -118,8 +119,8 @@ class CDCL {
      */
     fun newVariable() {
         // Watch
-        watchers.add(mutableListOf())
-        watchers.add(mutableListOf())
+        watchers.add(emptyClauseVec)
+        watchers.add(emptyClauseVec)
 
         // Assignment
         assignment.addVariable()
@@ -136,6 +137,10 @@ class CDCL {
      */
     fun value(lit: Lit): LBool {
         return assignment.value(lit)
+    }
+
+    fun newClause(vararg lits: Int) {
+        newClause(Clause(LitVec(lits.map { Lit.fromDimacs(it) })))
     }
 
     /**
@@ -208,6 +213,10 @@ class CDCL {
      */
     private var assumptions: LitVec = LitVec()
 
+    fun solve(): SolveResult {
+        return solve(emptyList())
+    }
+
     /**
      * Solves the CNF problem using the CDCL algorithm.
      *
@@ -239,7 +248,7 @@ class CDCL {
 
         // Rebuild the variable selector
         // TODO: is there a way to not rebuild the selector every solve?
-        vsids.build(assignment.numberOfVariables,db.clauses)
+        vsids.build(assignment.numberOfVariables, db.clauses)
         preprocess()?.let { return it }
 
         return search()
@@ -272,6 +281,10 @@ class CDCL {
 
             db.reduceIfNeeded()
             restarter.restartIfNeeded()
+            if (stats.conflicts > 100000) {
+                reporter.report("Too many conflicts", stats)
+                return SolveResult.UNKNOWN
+            }
 
             check(assignment.qhead == assignment.trail.size)
 
@@ -329,6 +342,7 @@ class CDCL {
                         // we choose the negative literal.
                         nextDecisionVariable.negLit
                     }
+
                     else -> {
                         // If the polarity is undefined, we can choose it freely.
                         // We choose the positive literal.
@@ -717,7 +731,7 @@ class CDCL {
         // equivalence to be removed, which will make the proof invalid.
         // Instead, we remember which clauses we no longer need, and remove them
         // later.
-        val clausesToDelete = mutableListOf<Clause>()
+        val clausesToDelete = emptyClauseVec
 
         // Replace clauses which might have simplified due to substitution
         for (clause in db.clauses + db.learnts) {
@@ -880,7 +894,7 @@ class CDCL {
             // Unlike how in normal propagate we only remove clauses from watch
             // lists, here we can also add new binary clauses, so using two
             // pointers is not the easiest option here.
-            val clausesToKeep = mutableListOf<Clause>()
+            val clausesToKeep = emptyClauseVec
 
             // Iterating with indexes to prevent ConcurrentModificationException
             // when adding new binary clauses. This is ok because any new clause
@@ -1167,7 +1181,7 @@ class CDCL {
          * necessarily equal to the value in [occurrenceNumbers] because we
          * don't count deleted clauses.
          */
-        val occurrences: List<MutableList<Clause>> = MutableList(numberOfVariables * 2) { mutableListOf() }
+        val occurrences: List<ClauseVec> = MutableList(numberOfVariables * 2) { emptyClauseVec }
 
         /**
          * This is the "real" amount of occurrences of each literal in the
@@ -1446,7 +1460,7 @@ class CDCL {
         // formations, called "gates", which, when resolved with other gates,
         // produce a tautological resolvent. Those are valuable for the
         // algorithm, so we try to find them here.
-        var gateClauses: List<Clause>? = null
+        var gateClauses: ClauseVec? = null
 
         // We can only use a single gate, so we just use the first one we found
         // Below we look for OR-gates. Those are constraints in the form
@@ -1458,7 +1472,7 @@ class CDCL {
         if (gateClauses != null) stats.bve.gatesFound++
 
         // Finally, we perform the resolutions.
-        val resolventsToAdd = mutableListOf<Clause>()
+        val resolventsToAdd = emptyClauseVec
 
         for (i in 0 until posOccurrences.size) {
             val posClause = posOccurrences[i]
@@ -1557,12 +1571,12 @@ class CDCL {
     private fun findOrGates(
         state: EliminationState,
         pivot: Lit,
-    ): List<Clause>? {
+    ): ClauseVec? {
         val posOccurrences = state.occurrences[pivot]
         val negOccurrences = state.occurrences[pivot.neg]
         var foundAny = false
 
-        val gateClauses = mutableListOf<Clause>()
+        val gateClauses = emptyClauseVec
 
         // We first mark all literals which occur in binary clauses with the
         // positive pivot.
@@ -1758,11 +1772,12 @@ class CDCL {
             var j = 0
             val possiblyBrokenClauses = watchers[lit.neg]
 
+            val raw = possiblyBrokenClauses.raw
             for (i in 0 until possiblyBrokenClauses.size) {
                 val clause = possiblyBrokenClauses[i]
                 if (clause.deleted) continue
 
-                possiblyBrokenClauses[j++] = clause
+                raw[j++] = clause
 
                 if (conflict != null) continue
 
@@ -1865,11 +1880,12 @@ class CDCL {
             // which can either lead to a conflict (all literals in clause are false),
             // unit propagation (only one unassigned literal left), or invalidation
             // of the watchers (both watchers are false, but there are others)
+            val raw = possiblyBrokenClauses.raw
             for (i in 0 until possiblyBrokenClauses.size) {
-                val clause = possiblyBrokenClauses[i]
+                val clause = raw[i]
                 if (clause.deleted) continue
 
-                possiblyBrokenClauses[j++] = clause
+                raw[j++] = clause
 
                 if (conflict != null) continue
 
