@@ -105,7 +105,7 @@ class ReconstructionStack {
      *        (not required on the first solve)
      * @param assumptions the assumptions added to the solver this solve.
      */
-    fun restore(solver: CDCL, newClauses: List<Clause>, assumptions: LitVec) {
+    fun restore(solver: CDCL, newClauses: ClauseVec, assumptions: LitVec) {
         require(solver.assignment.decisionLevel == 0)
 
         // The term "tainted" is used in the original paper and refers to the

@@ -7,8 +7,8 @@ enum class ReduceStrategy {
 }
 
 class ClauseDatabase(private val solver: CDCL) {
-    val clauses: MutableList<Clause> = mutableListOf()
-    val learnts: MutableList<Clause> = mutableListOf()
+    val clauses = mutableListOf<Clause>()
+    val learnts = mutableListOf<Clause>()
 
     private var clauseInc: Double = 1.0
 
