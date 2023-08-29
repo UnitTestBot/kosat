@@ -121,7 +121,6 @@ class CDCL {
         }
 
         initialClauses.forEach { newClause(it) }
-        polarity = MutableList(assignment.numberOfVariables) { LBool.UNDEF }
     }
 
     constructor(cnf: CNF) : this(cnf.clauses.map { Clause.fromDimacs(it) }, cnf.numVars)
@@ -220,7 +219,7 @@ class CDCL {
      * Used for phase saving heuristic. Memorizes the polarity of
      * the given variable when it was last assigned, but reset during backtracking.
      */
-    var polarity: MutableList<LBool> = mutableListOf()
+    var polarity: LBoolVec = LBoolVec()
 
     /**
      * The assumptions given to an incremental solver.
@@ -321,11 +320,6 @@ class CDCL {
 
                 // Use the phase from the search before, if possible (so-called "Phase Saving")
                 val nextDecisionLiteral = when (polarity[nextDecisionVariable]) {
-                    LBool.UNDEF -> {
-                        // If the polarity is undefined, we can choose it freely.
-                        // We choose the positive literal.
-                        nextDecisionVariable.posLit
-                    }
                     LBool.TRUE -> {
                         // If we remember that the last chosen polarity was positive,
                         // we choose the positive literal.
@@ -335,6 +329,11 @@ class CDCL {
                         // If we remember that the last chosen polarity was negative,
                         // we choose the negative literal.
                         nextDecisionVariable.negLit
+                    }
+                    else -> {
+                        // If the polarity is undefined, we can choose it freely.
+                        // We choose the positive literal.
+                        nextDecisionVariable.posLit
                     }
                 }
 

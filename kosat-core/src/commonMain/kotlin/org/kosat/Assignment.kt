@@ -18,7 +18,7 @@ data class VarState(
 )
 
 class Assignment(private val solver: CDCL) {
-    val value: MutableList<LBool> = mutableListOf()
+    val value: LBoolVec = LBoolVec()
     val varData: MutableList<VarState> = mutableListOf()
     val trail: LitVec = LitVec()
     val numberOfVariables get() = value.size
@@ -163,11 +163,6 @@ class Assignment(private val solver: CDCL) {
 
     fun enqueue(lit: Lit, reason: Clause?): Boolean {
         return when (value(lit)) {
-            LBool.UNDEF -> {
-                uncheckedEnqueue(lit, reason)
-                true
-            }
-
             LBool.TRUE -> {
                 // Existing consistent assignment of `lit`
                 true
@@ -176,6 +171,11 @@ class Assignment(private val solver: CDCL) {
             LBool.FALSE -> {
                 // Conflict
                 false
+            }
+
+            else -> {
+                uncheckedEnqueue(lit, reason)
+                true
             }
         }
     }
