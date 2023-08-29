@@ -1875,15 +1875,18 @@ class CDCL {
 
                 if (conflict != null) continue
 
+                var first = clause[0]
+
                 // we are always watching the first two literals in the clause
                 // this makes sure that the second watcher is lit,
                 // and the first one is the other one
-                if (clause[0].variable == lit.variable) {
+                if (first.variable == lit.variable) {
                     clause.lits.swap(0, 1)
+                    first = clause[0]
                 }
 
                 // if first watcher (not lit) is true then the clause is already true, skipping it
-                if (value(clause[0]) == LBool.TRUE) continue
+                if (value(first) == LBool.TRUE) continue
 
                 // Index of the first literal in the clause not assigned to false
                 var firstNotFalse = -1
@@ -1894,12 +1897,12 @@ class CDCL {
                     }
                 }
 
-                if (firstNotFalse == -1 && value(clause[0]) == LBool.FALSE) {
+                if (firstNotFalse == -1 && value(first) == LBool.FALSE) {
                     // all the literals in the clause are already assigned to false
                     conflict = clause
                 } else if (firstNotFalse == -1) { // getValue(brokenClause[0]) == VarValue.UNDEFINED
                     // the only unassigned literal (which is the second watcher) in the clause must be true
-                    assignment.uncheckedEnqueue(clause[0], clause)
+                    assignment.uncheckedEnqueue(first, clause)
                 } else {
                     // there is at least one literal in the clause not assigned to false,
                     // so we can use it as a new first watcher instead
