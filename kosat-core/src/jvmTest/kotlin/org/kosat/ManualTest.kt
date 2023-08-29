@@ -11,7 +11,8 @@ import kotlin.test.Test
 internal class ManualTest {
     @Test
     fun testManual() {
-        val path = "src/jvmTest/resources/testCover/cover/cover0015.cnf".toPath()
+        // val path = "src/jvmTest/resources/testCover/cover/cover0015.cnf".toPath()
+        val path = "../data/satcomp-2017/g2-mizh-md5-48-5.cnf".toPath()
         val cnf = CNF.from(path)
         val clauses = cnf.clauses.map { lits ->
             Clause(LitVec(lits.map { Lit.fromDimacs(it) }))
