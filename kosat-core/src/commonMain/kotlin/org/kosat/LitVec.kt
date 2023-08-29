@@ -17,7 +17,10 @@ import kotlin.math.max
  * also makes it more efficient, because we can use primitive types instead of
  * boxed ones, and have every function inlined.
  */
-class LitVec private constructor(var raw: IntArray, var size: Int) {
+class LitVec private constructor(
+    var raw: IntArray,
+    var size: Int,
+) {
     private val capacity get() = raw.size
     val lastIndex get() = size - 1
 
@@ -114,7 +117,6 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         size = j
     }
 
-
     fun removeLast(): Lit {
         return Lit(raw[--size])
     }
@@ -159,7 +161,9 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         return result
     }
 
-    inner class LitVecIter(private var index: Int = 0) {
+    inner class LitVecIter {
+        private var index: Int = 0
+
         operator fun hasNext(): Boolean {
             return index < size
         }
@@ -279,7 +283,7 @@ class LitVec private constructor(var raw: IntArray, var size: Int) {
         postfix: String = "",
         limit: Int = -1,
         truncated: String = "...",
-        transform: ((Lit) -> CharSequence)? = null
+        transform: ((Lit) -> CharSequence)? = null,
     ): String {
         return toList().joinToString(separator, prefix, postfix, limit, truncated, transform)
     }

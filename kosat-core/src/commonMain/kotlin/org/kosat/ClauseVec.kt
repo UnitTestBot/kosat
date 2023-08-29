@@ -17,7 +17,10 @@ import kotlin.math.max
  * also makes it more efficient, because we can use primitive types instead of
  * boxed ones, and have every function inlined.
  */
-class ClauseVec private constructor(var raw: Array<Clause>, var size: Int) {
+class ClauseVec private constructor(
+    var raw: Array<Clause>,
+    var size: Int
+) {
     private val capacity get() = raw.size
     val lastIndex get() = size - 1
 
