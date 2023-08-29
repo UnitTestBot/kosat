@@ -104,7 +104,6 @@ class CDCL {
         }
 
         initialClauses.forEach { newClause(it) }
-        polarity = MutableList(assignment.numberOfVariables) { LBool.UNDEF }
     }
 
     constructor(cnf: CNF) : this(cnf.clauses.map { Clause.fromDimacs(it) }, cnf.numVars)
@@ -122,9 +121,6 @@ class CDCL {
 
         // Assignment
         assignment.addVariable()
-
-        // Variable selection strategy
-        vsids.addVariable()
 
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
@@ -203,7 +199,7 @@ class CDCL {
      * Used for phase saving heuristic. Memorizes the polarity of
      * the given variable when it was last assigned, but reset during backtracking.
      */
-    var polarity: MutableList<LBool> = mutableListOf()
+    var polarity: LBoolVec = LBoolVec()
 
     /**
      * The assumptions given to an incremental solver.
@@ -241,8 +237,7 @@ class CDCL {
 
         // Rebuild the variable selector
         // TODO: is there a way to not rebuild the selector every solve?
-        vsids.build(db.clauses)
-
+        vsids.build(assignment.numberOfVariables,db.clauses)
         preprocess()?.let { return it }
 
         return search()
@@ -305,11 +300,6 @@ class CDCL {
 
                 // Use the phase from the search before, if possible (so-called "Phase Saving")
                 val nextDecisionLiteral = when (polarity[nextDecisionVariable]) {
-                    LBool.UNDEF -> {
-                        // If the polarity is undefined, we can choose it freely.
-                        // We choose the positive literal.
-                        nextDecisionVariable.posLit
-                    }
                     LBool.TRUE -> {
                         // If we remember that the last chosen polarity was positive,
                         // we choose the positive literal.
@@ -319,6 +309,11 @@ class CDCL {
                         // If we remember that the last chosen polarity was negative,
                         // we choose the negative literal.
                         nextDecisionVariable.negLit
+                    }
+                    else -> {
+                        // If the polarity is undefined, we can choose it freely.
+                        // We choose the positive literal.
+                        nextDecisionVariable.posLit
                     }
                 }
 
@@ -786,7 +781,7 @@ class CDCL {
      * other mechanisms that can derive this clause, but
      * probing is one of them.
      *
-     * Now, this new added clause can be set as [VarState.reason]
+     * Now, this new added clause can be set as reason
      * of variable 3. In fact, every time we enqueue a literal,
      * we can guarantee that its reason is binary. That binary
      * clause, if new, is the result of Hyper-binary Resolution
@@ -1858,15 +1853,18 @@ class CDCL {
 
                 if (conflict != null) continue
 
+                var first = clause[0]
+
                 // we are always watching the first two literals in the clause
                 // this makes sure that the second watcher is lit,
                 // and the first one is the other one
-                if (clause[0].variable == lit.variable) {
+                if (first.variable == lit.variable) {
                     clause.lits.swap(0, 1)
+                    first = clause[0]
                 }
 
                 // if first watcher (not lit) is true then the clause is already true, skipping it
-                if (value(clause[0]) == LBool.TRUE) continue
+                if (value(first) == LBool.TRUE) continue
 
                 // Index of the first literal in the clause not assigned to false
                 var firstNotFalse = -1
@@ -1877,12 +1875,12 @@ class CDCL {
                     }
                 }
 
-                if (firstNotFalse == -1 && value(clause[0]) == LBool.FALSE) {
+                if (firstNotFalse == -1 && value(first) == LBool.FALSE) {
                     // all the literals in the clause are already assigned to false
                     conflict = clause
                 } else if (firstNotFalse == -1) { // getValue(brokenClause[0]) == VarValue.UNDEFINED
                     // the only unassigned literal (which is the second watcher) in the clause must be true
-                    assignment.uncheckedEnqueue(clause[0], clause)
+                    assignment.uncheckedEnqueue(first, clause)
                 } else {
                     // there is at least one literal in the clause not assigned to false,
                     // so we can use it as a new first watcher instead
