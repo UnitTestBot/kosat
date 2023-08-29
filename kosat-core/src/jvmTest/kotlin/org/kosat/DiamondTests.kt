@@ -74,8 +74,8 @@ internal class DiamondTests {
             "no restarts" to Config(
                 restarts = false,
             ),
-            "activity based db" to Config(
-                clauseDbStrategy = ReduceStrategy.ACTIVITY,
+            "lbd based db" to Config(
+                clauseDbStrategy = ReduceStrategy.LBD,
             ),
         )
 
@@ -211,7 +211,7 @@ internal class DiamondTests {
         if (resultActual == SolveResult.UNSAT) {
             if (!generateAndCheckDrat) {
                 println(
-                    "Path to DRAT-TRIM in environment variable DRAT_TRIM_EXECUTABLE is not set. " +
+                    "Environment variable TEST_CHECK_UNSAT_PROOF is not set to true. " +
                         "Skipping DRAT-trim test."
                 )
             } else {

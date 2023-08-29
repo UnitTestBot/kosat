@@ -76,7 +76,7 @@ class CDCL {
 
     /**
      * The restart strategy, used to decide when to restart the search.
-     * @see [solve]
+     * @see solve
      */
     private val restarter = Restarter(this)
 
@@ -392,7 +392,6 @@ class CDCL {
                 db.clauseBumpActivity(learnt)
             }
 
-            // Update the heuristics
             vsids.bump(learnt)
             db.clauseDecayActivity()
 
@@ -510,6 +509,8 @@ class CDCL {
 
         dratBuilder.addComment("Finished preprocessing")
 
+        reporter.report("Finished preprocessing", stats)
+
         return null
     }
 
@@ -605,7 +606,7 @@ class CDCL {
         // Total number of literals substituted
         var totalSubstituted = 0
 
-        val recursionLimit = 5000
+        val recursionLimit = 1000
 
         // Tarjan's algorithm, returns the lowest number of all reachable nodes
         // from the given node, or null if the node is in a cycle with the
@@ -621,16 +622,14 @@ class CDCL {
             num[v] = counter
             var lowest = counter
 
-            if (recursionDepthLeft == 0) {
-                return counter
-            }
-
-            for (u in binaryImplicationsFrom(v)) {
-                if (marks[u] == markUnvisited) {
-                    val otherLowest = dfs(u, recursionDepthLeft - 1) ?: return null
-                    lowest = min(otherLowest, lowest)
-                } else if (marks[u] != markProcessed) {
-                    lowest = min(lowest, num[u])
+            if (recursionDepthLeft != 0) {
+                for (u in binaryImplicationsFrom(v)) {
+                    if (marks[u] == markUnvisited) {
+                        val otherLowest = dfs(u, recursionDepthLeft - 1) ?: return null
+                        lowest = min(otherLowest, lowest)
+                    } else if (marks[u] != markProcessed) {
+                        lowest = min(lowest, num[u])
+                    }
                 }
             }
 
@@ -993,11 +992,6 @@ class CDCL {
                     LBool.TRUE -> continue
                     // both literals are false, there is a conflict
                     LBool.FALSE -> {
-                        // at this point, it does not matter how the conflict
-                        // was discovered, the caller won't do anything after
-                        // this anyway, but we still need to backtrack somehow,
-                        // starting from this literal:
-                        assignment.qhead = assignment.qheadBinaryOnly
                         return clause
                     }
                     // the other literal is unassigned
@@ -1856,7 +1850,7 @@ class CDCL {
     fun propagate(): Clause? {
         // check(ok)
 
-        stats.propagations++
+        val startQhead = assignment.qhead
 
         var conflict: Clause? = null
 
@@ -1923,6 +1917,8 @@ class CDCL {
             if (conflict != null) break
         }
 
+        stats.propagations += assignment.trail.size - startQhead
+
         return conflict
     }
 
@@ -1978,6 +1974,8 @@ class CDCL {
 
                 // Mark all the variables in the clause as seen, if not already
                 seen[lit.variable] = true
+
+                vsids.bump(lit.variable)
 
                 if (assignment.level(lit) == assignment.decisionLevel) {
                     // If the literal is from the last decision level,

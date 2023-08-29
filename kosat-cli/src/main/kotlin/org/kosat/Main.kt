@@ -131,7 +131,7 @@ class KoSAT : CliktCommand(name = "kosat") {
             }
         }
 
-        solver.stats.write(System.err.sink().buffer())
+        solver.stats.write(System.out.sink().buffer())
         println("c Running time: $timeSolve")
 
         dratProofSink?.close()
