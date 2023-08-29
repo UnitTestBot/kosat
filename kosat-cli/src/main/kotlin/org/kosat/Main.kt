@@ -14,6 +14,7 @@ import okio.sink
 import okio.source
 import org.kosat.cnf.CNF
 import java.io.File
+import kotlin.time.DurationUnit
 import kotlin.time.measureTimedValue
 
 class KoSAT : CliktCommand(name = "kosat") {
@@ -132,7 +133,7 @@ class KoSAT : CliktCommand(name = "kosat") {
         }
 
         solver.stats.write(System.out.sink().buffer())
-        println("c Running time: $timeSolve")
+        println("c Running time: ${timeSolve.toDouble(DurationUnit.SECONDS)} s")
 
         dratProofSink?.close()
     }
