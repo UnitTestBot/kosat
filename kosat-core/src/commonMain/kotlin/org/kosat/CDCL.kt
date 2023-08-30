@@ -1,6 +1,9 @@
 package org.kosat
 
+import okio.blackholeSink
+import okio.buffer
 import org.kosat.cnf.CNF
+import kotlin.math.min
 
 /**
  * Solves [cnf] and returns
@@ -9,7 +12,7 @@ import org.kosat.cnf.CNF
  * assignments of literals otherwise
  */
 fun solveCnf(cnf: CnfRequest): List<Boolean>? {
-    val clauses = (cnf.clauses.map { Clause.fromDimacs(it) }).toMutableList()
+    val clauses = cnf.clauses.map { Clause.fromDimacs(it) }.toMutableList()
     val solver = CDCL(clauses, cnf.vars)
     val result = solver.solve()
     return if (result == SolveResult.SAT) {
@@ -19,22 +22,50 @@ fun solveCnf(cnf: CnfRequest): List<Boolean>? {
     }
 }
 
+/**
+ * CDCL (Conflict-Driven Clause Learning) solver instance
+ * for solving Boolean satisfiability (SAT) problem.
+ */
 class CDCL {
+    /**
+     * Configuration of the solver.
+     */
+    var config: Config = Config()
+
     /**
      * Clause database.
      */
-    private val db: ClauseDatabase = ClauseDatabase(this)
+    val db: ClauseDatabase = ClauseDatabase(this)
 
     /**
      * Assignment.
      */
-    val assignment: Assignment = Assignment()
+    val assignment: Assignment = Assignment(this)
+
+    /**
+     * DRAT proof builder. Can be used to generate DRAT proofs,
+     * but disabled by default. It is intentionally made public
+     * variable.
+     */
+    var dratBuilder: AbstractDratBuilder = NoOpDratBuilder()
+
+    /**
+     * Overall statistics of the solver.
+     * @see Stats
+     */
+    val stats: Stats = Stats()
+
+    /**
+     * An optional reporter, which can be used to report
+     * certain events and indicate solver progress to the user.
+     */
+    var reporter: Reporter = Reporter(blackholeSink().buffer())
 
     /**
      * Can solver perform the search? This becomes false if given constraints
      * cause unsatisfiability in some way.
      */
-    private var ok = true
+    var ok = true
 
     /**
      * Two-watched literals heuristic.
@@ -44,36 +75,19 @@ class CDCL {
     val watchers: MutableList<MutableList<Clause>> = mutableListOf()
 
     /**
-     * The number of variables.
-     */
-    var numberOfVariables: Int = 0
-        private set
-
-    /**
-     * The maximum amount of probes expected to be returned
-     * by [generateProbes].
+     * The reconstruction stack, used to restore the solver state
+     * before adding new clauses or assumptions incrementally and
+     * to reconstruct the model after solving.
      *
-     * @see [failedLiteralProbing]
+     * @see getModel
+     * @see ReconstructionStack
      */
-    private val flpMaxProbes = 1000
-
-    /**
-     * Used in analyzeConflict() to simplify clauses by
-     * removing literals implied by their reasons.
-     */
-    private val minimizeMarks = mutableListOf<Int>()
-
-    /**
-     * @see [minimizeMarks]
-     */
-    private var currentMinimizationMark = 0
-
-    // ---- Heuristics ---- //
+    val reconstructionStack: ReconstructionStack = ReconstructionStack()
 
     /**
      * The branching heuristic, used to choose the next decision variable.
      */
-    private val variableSelector: VariableSelector = VSIDS(numberOfVariables)
+    val vsids: VSIDS = VSIDS(this)
 
     /**
      * The restart strategy, used to decide when to restart the search.
@@ -81,7 +95,10 @@ class CDCL {
      */
     private val restarter = Restarter(this)
 
-    // ---- Public Interface ---- //
+    /**
+     * A list of clauses which were added since the last call to [solve].
+     */
+    private val newClauses = mutableListOf<Clause>()
 
     /**
      * Create a new solver instance with no clauses.
@@ -90,20 +107,21 @@ class CDCL {
 
     /**
      * Create a new solver instance with given clauses.
+     *
      * @param initialClauses the initial clauses.
      * @param initialVarsNumber the number of variables in the problem, if known.
-     * Can help to avoid resizing of internal data structures.
+     *        Can help to avoid resizing of internal data structures.
      */
     constructor(
         initialClauses: Iterable<Clause>,
         initialVarsNumber: Int = 0,
     ) {
-        while (numberOfVariables < initialVarsNumber) {
+        while (assignment.numberOfVariables < initialVarsNumber) {
             newVariable()
         }
 
         initialClauses.forEach { newClause(it) }
-        polarity = MutableList(numberOfVariables + 1) { LBool.UNDEF }
+        polarity = MutableList(assignment.numberOfVariables) { LBool.UNDEF }
     }
 
     constructor(cnf: CNF) : this(cnf.clauses.map { Clause.fromDimacs(it) }, cnf.numVars)
@@ -114,9 +132,7 @@ class CDCL {
      * The [newClause] technically adds variables automatically,
      * but sometimes not all variables have to be mentioned in the clauses.
      */
-    fun newVariable(): Int {
-        numberOfVariables++
-
+    fun newVariable() {
         // Watch
         watchers.add(mutableListOf())
         watchers.add(mutableListOf())
@@ -125,18 +141,18 @@ class CDCL {
         assignment.addVariable()
 
         // Variable selection strategy
-        variableSelector.addVariable()
+        vsids.addVariable()
 
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
-
-        // Used for lemma minimization in analyzeConflict()
-        minimizeMarks.add(0)
-        minimizeMarks.add(0)
-
-        return numberOfVariables
     }
 
+    /**
+     * Return a value of the given literal, assuming it is not substituted.
+     * It is a shortcut for [Assignment.value].
+     *
+     * @see Assignment.value
+     */
     fun value(lit: Lit): LBool {
         return assignment.value(lit)
     }
@@ -145,54 +161,54 @@ class CDCL {
      * Add a new clause to the solver.
      */
     fun newClause(clause: Clause) {
-        check(assignment.decisionLevel == 0)
-
-        // early return when already UNSAT
+        // Return early when already UNSAT
         if (!ok) return
 
-        // add not mentioned variables from new clause
+        // Add not mentioned variables from the new clause
         val maxVar = clause.lits.maxOfOrNull { it.variable.index } ?: 0
-        while (numberOfVariables < maxVar) {
+        while (assignment.numberOfVariables < maxVar) {
             newVariable()
         }
 
-        // don't add clause if it already had true literal
-        if (clause.lits.any { value(it) == LBool.TRUE }) {
-            return
+        // Remove falsified literals from the new clause
+        clause.lits.removeAll {
+            assignment.isActive(it) && assignment.value(it) == LBool.FALSE
         }
 
-        // delete all falsified literals from new clause
-        clause.lits.removeAll { value(it) == LBool.FALSE }
+        // If the clause contains complementary literals, ignore it as useless.
+        if (sortDedupAndCheckComplimentary(clause.lits)) return
 
-        // if the clause contains x and -x then it is useless
-        if (clause.lits.any { it.neg in clause.lits }) {
-            return
-        }
+        newClauses.add(clause)
+        clause.fromInput = true
 
         when (clause.size) {
-            0 -> {
-                ok = false
-            }
+            // Empty clause is an immediate UNSAT
+            0 -> finishWithUnsat()
 
+            // Enqueue the literal from a unit clauses.
             1 -> {
-                assignment.uncheckedEnqueue(clause[0], null)
+                // Note that this enqueue can't cause a conflict
+                // because if the negation of the literal is in the clause,
+                // it is already removed above.
+                check(assignment.value(clause[0]) != LBool.FALSE)
+
+                if (assignment.value(clause[0]) == LBool.UNDEF) {
+                    assignment.uncheckedEnqueue(clause[0], null)
+                }
             }
 
-            else -> {
-                attachClause(clause)
-            }
+            // Clauses of size >2 are added to the database.
+            else -> attachClause(clause)
         }
     }
 
-    // ---- Trail ---- //
-
     fun backtrack(level: Int) {
-        while (assignment.trail.isNotEmpty() && assignment.level(assignment.trail.last().variable) > level) {
+        while (assignment.trail.size > 0 && assignment.level(assignment.trail.last().variable) > level) {
             val lit = assignment.trail.removeLast()
             val v = lit.variable
             polarity[v] = assignment.value(v)
             assignment.unassign(v)
-            variableSelector.backTrack(v)
+            vsids.enqueueAgain(v)
         }
 
         check(assignment.qhead >= assignment.trail.size)
@@ -204,145 +220,215 @@ class CDCL {
      * Used for phase saving heuristic. Memorizes the polarity of
      * the given variable when it was last assigned, but reset during backtracking.
      */
-    private var polarity: MutableList<LBool> = mutableListOf()
-
-    // --- Solve with assumptions ---- //
+    var polarity: MutableList<LBool> = mutableListOf()
 
     /**
      * The assumptions given to an incremental solver.
      */
-    private var assumptions: List<Lit> = emptyList()
+    private var assumptions: LitVec = LitVec()
 
     /**
-     * Solve the problem with the given assumptions.
+     * Solves the CNF problem using the CDCL algorithm.
+     *
+     * @return The [result][SolveResult] of the solving process:
+     *   [SolveResult.SAT], [SolveResult.UNSAT], or [SolveResult.UNKNOWN].
      */
-    fun solve(currentAssumptions: List<Lit>): SolveResult {
-        assumptions = currentAssumptions
-        variableSelector.initAssumptions(assumptions)
+    fun solve(assumptions: List<Lit> = emptyList()): SolveResult {
+        reporter.restartTimer()
+        // Unfreeze assumptions from the previous solve
+        for (assumption in this.assumptions) assignment.unfreeze(assumption)
+        // and assign new assumptions
+        this.assumptions = LitVec(assumptions)
 
-        val result = solve()
+        // If given clauses are already cause UNSAT, no need to do anything
+        if (!ok) return finishWithUnsat()
 
-        if (result == SolveResult.UNSAT) {
-            assumptions = emptyList()
-            return result
-        }
+        // Check if the assumptions are trivially unsatisfiable
+        if (sortDedupAndCheckComplimentary(this.assumptions)) return finishWithAssumptionsUnsat()
 
-        val model = getModel()
+        // Clean up from the previous solve
+        if (assignment.decisionLevel > 0) backtrack(0)
+        cachedModel = null
+        reconstructionStack.restore(this, newClauses, this.assumptions)
+        for (assumption in this.assumptions) assignment.freeze(assumption)
+        newClauses.clear()
 
-        currentAssumptions.forEach { lit ->
-            if (model[lit.variable] != lit.isPos) {
-                assumptions = emptyList()
-                return SolveResult.UNSAT
-            }
-        }
-        assumptions = emptyList()
-        return result
-    }
+        // Check for an immediate level 0 conflict
+        propagate()?.let { return finishWithUnsat() }
 
-    // ---- Solve ---- //
-
-    fun solve(): SolveResult {
-        var numberOfConflicts = 0
-        var numberOfDecisions = 0
-
-        if (!ok) {
-            return SolveResult.UNSAT
-        }
-
-        if (db.clauses.isEmpty()) {
-            return SolveResult.SAT
-        }
-
-        if (db.clauses.any { clause -> clause.lits.isEmpty() }) {
-            return SolveResult.UNSAT
-        }
-
-        if (db.clauses.any { clause -> clause.lits.all { value(it) == LBool.FALSE } }) {
-            return SolveResult.UNSAT
-        }
-
-        if (assignment.decisionLevel > 0) {
-            backtrack(0)
-            cachedModel = null
-        }
-
-        variableSelector.build(db.clauses)
-
-        // Don't bother with anything if there is already
-        // a level 0 conflict
-        propagate()?.let { return SolveResult.UNSAT }
-
+        // Rebuild the variable selector
+        // TODO: is there a way to not rebuild the selector every solve?
+        vsids.build(db.clauses)
         preprocess()?.let { return it }
 
-        // main loop
+        return search()
+    }
+
+    /**
+     * The main CDCL search loop.
+     *
+     * @return the result of the search.
+     */
+    fun search(): SolveResult {
         while (true) {
-            val conflictClause = propagate()
-            if (conflictClause != null) {
-                // CONFLICT
-                numberOfConflicts++
+            check(assignment.qhead == assignment.trail.size)
 
-                // in case there is a conflict in CNF and trail is already in 0 state
-                if (assignment.decisionLevel == 0) {
-                    // println("KoSat conflicts:   $numberOfConflicts")
-                    // println("KoSat decisions:   $numberOfDecisions")
-                    ok = false
-                    return SolveResult.UNSAT
+            // Check if all variables are assigned, indicating satisfiability,
+            // (unless assumptions are falsified)
+            if (assignment.trail.size == assignment.numberOfActiveVariables) {
+                return finishWithSatIfAssumptionsOk()
+            }
+
+            // At this point, the state of the solver is predictable and coherent,
+            // the trail is propagated, the clauses are satisfied,
+            // it is safe to backtrack, make a decision, remove or add clauses, etc.
+            // We use this opportunity to do some "maintenance".
+            // For example, it is safe to shrink clauses
+            // (by removing the falsified literals from them),
+            // because it won't cause a clause becoming empty or unit.
+
+            db.reduceIfNeeded()
+            restarter.restartIfNeeded()
+
+            check(assignment.qhead == assignment.trail.size)
+
+            // And after that, we are ready to make a decision.
+            assignment.newDecisionLevel()
+
+            // We first enqueue unassigned assumptions, if any.
+            var assignedAssumption = false
+            for (assumption in assumptions) {
+                when (assignment.value(assumption)) {
+                    LBool.UNDEF -> {
+                        assignment.uncheckedEnqueue(assumption, null)
+                        assignedAssumption = true
+                        break
+                    }
+                    LBool.TRUE -> {
+                        // The assumption is already satisfied, so we can ignore it.
+                    }
+                    LBool.FALSE -> {
+                        // The assumption is falsified, so we can return UNSAT.
+                        return finishWithAssumptionsUnsat()
+                    }
                 }
+            }
 
-                // build new clause by conflict clause
-                val lemma = analyzeConflict(conflictClause)
+            // If there are no assumptions left to enqueue,
+            // we make a decision on the next variable.
+            if (!assignedAssumption) {
+                val nextDecisionVariable = vsids.nextDecision(assignment)
 
-                // compute lbd "score" for lemma
-                lemma.lbd = lemma.lits.distinctBy { assignment.level(it.variable) }.size
-
-                // return to decision level where lemma would be propagated
-                val level = if (lemma.size > 1) assignment.level(lemma[1].variable) else 0
-                backtrack(level)
-                // if lemma.size == 1 we just add it to 0 decision level of trail
-                if (lemma.size == 1) {
-                    assignment.uncheckedEnqueue(lemma[0], null)
-                } else {
-                    attachClause(lemma)
-                    assignment.uncheckedEnqueue(lemma[0], lemma)
-                    db.clauseBumpActivity(lemma)
-                }
-
-                variableSelector.update(lemma)
-                db.clauseDecayActivity()
-
-                restarter.numberOfConflictsAfterRestart++
-            } else {
-                // NO CONFLICT
-                require(assignment.qhead == assignment.trail.size)
-
-                // If (the problem is already) SAT, return the current assignment
-                if (assignment.trail.size == numberOfVariables) {
-                    // println("KoSat conflicts:   $numberOfConflicts")
-                    // println("KoSat decisions:   $numberOfDecisions")
-                    return SolveResult.SAT
-                }
-
-                db.reduceIfNeeded()
-                restarter.restartIfNeeded()
-
-                // try to guess variable
-                assignment.newDecisionLevel()
-                var nextDecisionLiteral = variableSelector.nextDecision(assignment)
-                numberOfDecisions++
-
-                // in case there is assumption propagated to false
-                if (nextDecisionLiteral == null) {
-                    return SolveResult.UNSAT
-                }
-
-                // phase saving heuristic
-                if (assignment.decisionLevel > assumptions.size && polarity[nextDecisionLiteral.variable] == LBool.FALSE) {
-                    nextDecisionLiteral = nextDecisionLiteral.neg
+                // Use the phase from the search before, if possible (so-called "Phase Saving")
+                val nextDecisionLiteral = when (polarity[nextDecisionVariable]) {
+                    LBool.UNDEF -> {
+                        // If the polarity is undefined, we can choose it freely.
+                        // We choose the positive literal.
+                        nextDecisionVariable.posLit
+                    }
+                    LBool.TRUE -> {
+                        // If we remember that the last chosen polarity was positive,
+                        // we choose the positive literal.
+                        nextDecisionVariable.posLit
+                    }
+                    LBool.FALSE -> {
+                        // If we remember that the last chosen polarity was negative,
+                        // we choose the negative literal.
+                        nextDecisionVariable.negLit
+                    }
                 }
 
                 assignment.uncheckedEnqueue(nextDecisionLiteral, null)
+                stats.decisions++
+            }
+
+            // Propagate the decision,
+            // in case there is a conflict, backtrack, and repeat
+            // (until the conflict is resolved).
+            val shouldContinue = propagateAnalyzeBacktrack()
+
+            // If the conflict on level 0 is reached, the problem is UNSAT.
+            if (!shouldContinue) return finishWithUnsat()
+        }
+    }
+
+    /**
+     * [propagate]. If the conflict is found, [analyzeConflict], [backtrack],
+     * and with the literal learned from the conflict, repeat the process.
+     *
+     * If level 0 conflict is eventually found, return false
+     * (setting the solver in UNSAT state is left to the caller).
+     * Otherwise, if no conflict is found and the decision has to be made,
+     * return true.
+     */
+    private fun propagateAnalyzeBacktrack(): Boolean {
+        while (true) {
+            val conflict = propagate() ?: return true
+            stats.conflicts++
+
+            // If there is a conflict on level 0, the problem is UNSAT
+            if (assignment.decisionLevel == 0) return false
+
+            // Construct a new clause by analyzing conflict
+            val learnt = analyzeConflict(conflict)
+
+            // Return to decision level where learnt would be propagated
+            val level = if (learnt.size > 1) assignment.level(learnt[1].variable) else 0
+            backtrack(level)
+
+            // Attach learnt to the solver
+            if (learnt.size == 1) {
+                assignment.uncheckedEnqueue(learnt[0], null)
+            } else {
+                attachClause(learnt)
+                // Failure Driven Assertion: at level we backtracked to,
+                // the learnt will be propagated and will result in a literal
+                // added to the trail. We do that here.
+                assignment.uncheckedEnqueue(learnt[0], learnt)
+                db.clauseBumpActivity(learnt)
+            }
+
+            // Update the heuristics
+            vsids.bump(learnt)
+            db.clauseDecayActivity()
+
+            restarter.numberOfConflictsAfterRestart++
+        }
+    }
+
+    /**
+     * Finish solving with UNSAT (without considering assumptions),
+     * mark the solver as not ok, add empty clause to the DRAT proof,
+     * flush the proof and return [SolveResult.UNSAT].
+     */
+    fun finishWithUnsat(): SolveResult {
+        ok = false
+        dratBuilder.addEmptyClauseAndFlush()
+        return SolveResult.UNSAT
+    }
+
+    /**
+     * Finish solving due to unsatisfiability under assumptions.
+     * Solver will still be able to perform search after this.
+     */
+    private fun finishWithAssumptionsUnsat(): SolveResult {
+        return SolveResult.UNSAT
+    }
+
+    /**
+     * Finish solving with SAT and check if all assumptions are satisfied.
+     * If not, return [SolveResult.UNSAT] due to assumptions being impossible
+     * to satisfy, otherwise return [SolveResult.SAT].
+     */
+    fun finishWithSatIfAssumptionsOk(): SolveResult {
+        for (assumption in assumptions) {
+            if (value(assumption) == LBool.FALSE) {
+                return finishWithAssumptionsUnsat()
             }
         }
+
+        dratBuilder.flush()
+        return SolveResult.SAT
     }
 
     /**
@@ -359,17 +445,10 @@ class CDCL {
     fun getModel(): List<Boolean> {
         if (cachedModel != null) return cachedModel!!
 
-        cachedModel = assignment.value.map {
-            when (it) {
-                LBool.TRUE, LBool.UNDEF -> true
-                LBool.FALSE -> false
-            }
-        }
+        cachedModel = reconstructionStack.reconstruct(assignment)
 
         return cachedModel!!
     }
-
-    // ---- Preprocessing ---- //
 
     /**
      * Preprocessing is ran before the main loop of the solver,
@@ -383,51 +462,333 @@ class CDCL {
         require(assignment.decisionLevel == 0)
         require(assignment.qhead == assignment.trail.size)
 
-        failedLiteralProbing()?.let { return it }
+        dratBuilder.addComment("Preprocessing")
+
+        if (config.els) {
+            dratBuilder.addComment("Preprocessing: Equivalent literal substitution")
+            // Running ELS before FLP helps to get more binary clauses
+            // and remove cycles in the binary implication graph
+            // to make probes for FLP more effective
+            equivalentLiteralSubstitutionRounds(config.elsRoundsBeforeFlp)?.let { return it }
+        }
+
+        if (config.flp) {
+            dratBuilder.addComment("Preprocessing: Failed literal probing")
+            failedLiteralProbing()?.let { return it }
+        }
+
+        if (config.els) {
+            dratBuilder.addComment("Preprocessing: Equivalent literal substitution (post FLP)")
+            // After FLP we might have gotten new binary clauses
+            // though hyper-binary resolution, so we run ELS again
+            // to substitute literals that are now equivalent
+            equivalentLiteralSubstitutionRounds(config.elsRoundsAfterFlp)?.let { return it }
+        }
+
+        if (config.bve) {
+            boundedVariableElimination()?.let { return it }
+        }
 
         // Without this, we might let the solver propagate nothing
         // and make a decision after all values are set.
-        if (assignment.trail.size == numberOfVariables) {
-            return SolveResult.SAT
+        if (assignment.trail.size == assignment.numberOfVariables) {
+            return finishWithSatIfAssumptionsOk()
         }
 
+        dratBuilder.addComment("Post-Preprocessing cleanup")
+
+        // Remove satisfied clauses and shrink the clauses by
+        // removing falsified literals
         db.simplify()
+
+        // Remove deleted clauses which may have occurred during preprocessing
         db.removeDeleted()
+
+        dratBuilder.addComment("Finished preprocessing")
 
         return null
     }
 
     /**
-     * Literal probing is only useful if the probe can lead
+     * Returns the list of literals that are directly implied by
+     * the given literal though binary clauses.
+     *
+     * @see equivalentLiteralSubstitution
+     */
+    private fun binaryImplicationsFrom(lit: Lit): LitVec {
+        check(value(lit) == LBool.UNDEF)
+        val implied = LitVec()
+
+        for (watched in watchers[lit.neg]) {
+            if (watched.deleted) continue
+            if (watched.size != 2) continue
+
+            val other = Lit(watched[0].inner xor watched[1].inner xor lit.neg.inner)
+
+            check(value(other) != LBool.FALSE)
+            if (value(other) != LBool.UNDEF) continue
+            implied.add(other)
+        }
+
+        return implied
+    }
+
+    /**
+     * Performs multiple rounds of [equivalentLiteralSubstitution].
+     *
+     * This is because ELS can be used to derive new binary clauses,
+     * which in turn can be used to derive new ELS substitutions.
+     */
+    private fun equivalentLiteralSubstitutionRounds(rounds: Int): SolveResult? {
+        // This simplify helps to increase the number of binary clauses
+        // and allows to not think about assigned literals in ELS itself.
+        db.simplify()
+
+        for (i in 0 until rounds) {
+            equivalentLiteralSubstitution()?.let { return it }
+        }
+
+        return null
+    }
+
+    /**
+     * Equivalent Literal Substitution (ELS) is a preprocessing technique
+     * that tries to find literals that are equivalent to each other.
+     *
+     * Consider clauses (-1, -2), (2, 3) and (-3, 1). In every satisfying
+     * assignment, 1 is equal to -2, and -2 is equal to 3. This means that
+     * we can substitute, for example, -2 and 3 with 1 in every clause,
+     * and the problem will generally remain the same.
+     *
+     * This function tries to find such literals and substitute them. To do
+     * this, it searches for strongly connected components in the binary
+     * implication graph, selects one representative literal from each
+     * component, and substitutes all other literals in the component with
+     * the representative.
+     */
+    private fun equivalentLiteralSubstitution(): SolveResult? {
+        require(assignment.decisionLevel == 0)
+
+        reporter.report("Equivalent Literal Substitution round", stats)
+        stats.els.rounds++
+
+        // To find strongly connected components, we use Tarjan's algorithm.
+        // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+
+        // Indicates that the literal is not visited yet
+        val markUnvisited = 0
+        // Indicates that the literal is in the stack (from Tarjan's algorithm)
+        val markInStack = 1
+        // Indicates that the literal got in the strongly connected component
+        // after stack unwinding, but not substituted yet
+        val markInScc = 2
+        // Indicates that the literal is processed, and possibly substituted
+        val markProcessed = 3
+
+        // Marks for each literal, as above
+        val marks = MutableList(assignment.numberOfVariables * 2) { markUnvisited }
+        // Tarjan's algorithm counter per literal
+        val num = MutableList(assignment.numberOfVariables * 2) { 0 }
+        var counter = 0
+
+        // Stack for Tarjan's algorithm
+        val stack = mutableListOf<Lit>()
+
+        // The representative literal for each variable.
+        // Same for every literal in the SCC.
+        val representatives = MutableList<Lit?>(assignment.numberOfVariables) { null }
+
+        // Total number of literals substituted
+        var totalSubstituted = 0
+
+        val recursionLimit = 5000
+
+        // Tarjan's algorithm, returns the lowest number of all reachable nodes
+        // from the given node, or null if the node is in a cycle with the
+        // negation of itself, and the problem is UNSAT
+        fun dfs(v: Lit, recursionDepthLeft: Int): Int? {
+            check(value(v) == LBool.UNDEF)
+            check(marks[v] == 0)
+
+            marks[v] = markInStack
+            stack.add(v)
+
+            counter++
+            num[v] = counter
+            var lowest = counter
+
+            if (recursionDepthLeft == 0) {
+                return counter
+            }
+
+            for (u in binaryImplicationsFrom(v)) {
+                if (marks[u] == markUnvisited) {
+                    val otherLowest = dfs(u, recursionDepthLeft - 1) ?: return null
+                    lowest = min(otherLowest, lowest)
+                } else if (marks[u] != markProcessed) {
+                    lowest = min(lowest, num[u])
+                }
+            }
+
+            if (lowest == num[v]) {
+                val scc = mutableListOf<Lit>()
+                while (true) {
+                    val u = stack.removeLast()
+                    marks[u] = markInScc
+                    scc.add(u)
+                    if (u == v) {
+                        // We can choose any literal from the SCC as a
+                        // representative. We cannot substitute frozen literals,
+                        // so we prioritize them as representatives. Moreover,
+                        // there might be a problem with assigning different
+                        // literals to the same variable, if DFS visits the same
+                        // variable twice, so among all literals we choose the
+                        // one with the smallest index.
+                        var minFrozen = Int.MAX_VALUE
+                        var minLit = Int.MAX_VALUE
+
+                        for (w in scc) {
+                            // If two complementary literals are in the same SCC,
+                            // the problem is UNSAT
+                            if (marks[w.neg] == markInScc) {
+                                dratBuilder.addComment(
+                                    "Discovered UNSAT due to complement literals being in the same SCC"
+                                )
+                                // Adding unit clauses is required for the proof
+                                dratBuilder.addClause(Clause(LitVec.of(w)))
+                                dratBuilder.addClause(Clause(LitVec.of(w.neg)))
+                                return null
+                            }
+                            marks[w] = markProcessed
+
+                            minLit = min(minLit, w.inner)
+                            if (assignment.isFrozen(w)) {
+                                minFrozen = min(minFrozen, w.inner)
+                            }
+                        }
+
+                        val repr = if (minFrozen != Int.MAX_VALUE) Lit(minFrozen) else Lit(minLit)
+
+                        for (w in scc) {
+                            if (w != repr && !assignment.isFrozen(w)) {
+                                representatives[w.variable] = repr xor w.isNeg
+                            }
+                        }
+                        // Note that there is no need to add clauses to the proof
+                        totalSubstituted += scc.size - 1
+                        break
+                    }
+                }
+            }
+
+            return lowest
+        }
+
+        // We perform substitution for all reachable SCCs from every positive
+        // literal. There is no need to do it for negative literals, because
+        // those will just produce the same substitutions (the binary
+        // implication graph is symmetrical), and we are likely to visit both
+        // positive and negative literals anyway.
+        for (varIndex in 0 until assignment.numberOfVariables) {
+            val variable = Var(varIndex)
+            val lit = variable.posLit
+
+            if (
+                !assignment.isActive(variable) ||
+                (marks[lit] != markUnvisited || marks[lit.neg] != markUnvisited) ||
+                value(lit) != LBool.UNDEF
+            ) continue
+
+            dfs(lit, recursionLimit) ?: return finishWithUnsat()
+        }
+
+        if (totalSubstituted == 0) return null
+
+        // Mark all substituted variables as inactive and memorize the substitution
+        // in the reconstruction stack
+        for (varIndex in 0 until assignment.numberOfVariables) {
+            val v = Var(varIndex)
+            if (representatives[v] == null) continue
+            assignment.markInactive(v)
+            reconstructionStack.pushSubstitution(representatives[v]!!, v.posLit)
+            stats.els.substitutions++
+        }
+
+        // We cannot remove clauses that contain substituted literals right
+        // away, because we need to build the proof, and removing clauses right
+        // after performing substitution may cause the clauses which caused the
+        // equivalence to be removed, which will make the proof invalid.
+        // Instead, we remember which clauses we no longer need, and remove them
+        // later.
+        val clausesToDelete = mutableListOf<Clause>()
+
+        // Replace clauses which might have simplified due to substitution
+        for (clause in db.clauses + db.learnts) {
+            if (clause.deleted) continue
+
+            val willChange = clause.lits.any { representatives[it.variable] != null }
+            if (!willChange) continue
+
+            val newLits = LitVec(clause.lits.map { representatives[it.variable]?.xor(it.isNeg) ?: it })
+            val containsComplementary = sortDedupAndCheckComplimentary(newLits)
+            // Note that clause cannot become empty,
+            // however, it can contain complementary literals.
+            // We simply remove such clauses.
+            if (!containsComplementary) {
+                val newClause = Clause(newLits, clause.learnt)
+                if (newClause.size == 1) {
+                    check(assignment.enqueue(newClause[0], null))
+                } else {
+                    attachClause(newClause)
+                }
+            }
+
+            clausesToDelete.add(clause)
+        }
+
+        for (clause in clausesToDelete) {
+            markDeleted(clause)
+        }
+
+        // Propagate all the new unit clauses which might have been discovered.
+        propagate()?.let { return finishWithUnsat() }
+
+        return null
+    }
+
+    /**
+     * Literal probing is only useful if the probe can
      * lead to derivation of something by itself. We can
      * generate list of possibly useful probes ahead of time.
      *
-     * TODO: Right now, this implementation is very naive.
-     *       If there is a cycle in binary implication graph,
-     *       we will generate a lot of useless probes that will
-     *       propagate in exactly the same way and possibly
-     *       produce a lot of duplicate/implied binary clauses.
-     *       This will be fixed with the implementation of
-     *       Equivalent Literal Substitution (ELS).
-     *
      *  @return list of literals to try probing with
      */
-    private fun generateProbes(): List<Lit> {
+    private fun generateProbes(): LitVec {
         val probes = mutableSetOf<Lit>()
 
         for (clause in db.clauses) {
+            if (clause.deleted) continue
+            if (clause.size == 2) continue
+
             // (A | B) <==> (-A -> B) <==> (-B -> A)
-            // Both -A and -B can be used as probes
-            if (clause.size == 2) {
-                val (a, b) = clause.lits
-                if (assignment.value(a) == LBool.UNDEF) probes.add(a.neg)
-                if (probes.size >= flpMaxProbes) break
-                if (assignment.value(b) == LBool.UNDEF) probes.add(b.neg)
-                if (probes.size >= flpMaxProbes) break
-            }
+            // Both -A and -B can be used as probes, there is little need
+            // to choose both, however.
+            val (a, b) = clause.lits
+            probes.add(if (a.inner < b.inner) a.neg else b.neg)
         }
 
-        return probes.toMutableList()
+        // Remove probes that follow from binary clauses,
+        // leaving only roots of the binary implication graph
+        for (clause in db.clauses) {
+            if (clause.deleted) continue
+            if (clause.size != 2) continue
+
+            val (a, b) = clause.lits
+            probes.remove(a)
+            probes.remove(b)
+        }
+
+        return LitVec(probes.take(config.flpMaxProbes))
     }
 
     /**
@@ -452,9 +813,14 @@ class CDCL {
     private fun failedLiteralProbing(): SolveResult? {
         require(assignment.decisionLevel == 0)
 
+        reporter.report("Failed Literal Probing", stats)
+        stats.flp.rounds++
+
         val probesToTry = generateProbes()
 
         for (probe in probesToTry) {
+            stats.flp.probes++
+
             // If we know that the probe is already assigned, skip it
             if (assignment.value(probe) != LBool.UNDEF) {
                 continue
@@ -464,16 +830,26 @@ class CDCL {
 
             assignment.decisionLevel++
             assignment.uncheckedEnqueue(probe, null)
-            val conflict = propagateProbeAndLearnBinary()
+
+            val conflict = if (config.flpHyperBinaryResolution) {
+                propagateProbeAndLearnBinary()
+            } else {
+                propagate()
+            }
+
             backtrack(0)
 
             if (conflict != null) {
+                stats.flp.probesFailed++
+
                 if (!assignment.enqueue(probe.neg, null)) {
-                    return SolveResult.UNSAT
+                    return finishWithUnsat()
                 }
 
                 // Can we learn more while we are at level 0?
-                propagate()?.let { return SolveResult.UNSAT }
+                propagate()?.let {
+                    return finishWithUnsat()
+                }
             }
         }
 
@@ -503,6 +879,10 @@ class CDCL {
 
         while (assignment.qhead < assignment.trail.size) {
             val lit = assignment.trail[assignment.qhead++]
+
+            // Unlike how in normal propagate we only remove clauses from watch
+            // lists, here we can also add new binary clauses, so using two
+            // pointers is not the easiest option here.
             val clausesToKeep = mutableListOf<Clause>()
 
             // Iterating with indexes to prevent ConcurrentModificationException
@@ -536,29 +916,36 @@ class CDCL {
                 if (firstNotFalse == -1 && value(clause[0]) == LBool.FALSE) {
                     conflict = clause
                 } else if (firstNotFalse == -1) {
+                    // Note: if hyper-binary resolution is disabled in the
+                    // config, we simply use the default propagate.
+
                     // we deduced this literal from a non-binary clause,
                     // so we can learn a new clause
-                    val newBinary = hyperBinaryResolve(clause)
+                    var newBinary = hyperBinaryResolve(clause)
+
+                    // Check that lit in either at index 0 of the clause and negated,
+                    // or not in the clause at all.
+                    check(
+                        newBinary[0] == lit.neg ||
+                            lit.variable != newBinary[0].variable && lit.variable != newBinary[1].variable
+                    )
 
                     // The new clause may subsume the old one, rendering it useless
-                    // TODO: However, we don't know if this clause is learned or given,
-                    //   so we can't let it be deleted. On the other hand, we can't
-                    //   allow just adding it to the list of clauses to keep, because
-                    //   this may result in too many clauses being kept.
-                    //   This should be reworked with the new clause storage mechanism,
-                    //   and new flags for clauses. Won't fix for now.
-                    // TODO: this turns out to be more difficult than I expected and
-                    //   requires further investigation.
-                    // if (newBinary[0] in clause.lits) {
-                    //     clause.deleted = true
-                    //     clausesToKeep.removeLast()
-                    //     newBinary.learnt = clause.learnt
-                    // }
+                    if (newBinary[0] in clause.lits) {
+                        // We don't need to keep the clause in the watcher list
+                        clausesToKeep.removeLast()
+                        newBinary = newBinary.copy(learnt = clause.learnt)
+                        attachClause(newBinary)
+                        markDeleted(clause)
+                    } else {
+                        // If not, simply add the new clause
+                        attachClause(newBinary)
+                    }
 
-                    attachClause(newBinary)
+                    stats.flp.hbrResolvents++
 
                     // Make sure watch is not overwritten at the end of the loop
-                    if (lit == newBinary[0]) clausesToKeep.add(newBinary)
+                    if (lit.neg == newBinary[0]) clausesToKeep.add(newBinary)
 
                     assignment.uncheckedEnqueue(clause[0], newBinary)
                     // again, we try to only use binary clauses first
@@ -594,11 +981,7 @@ class CDCL {
                 if (clause.deleted) continue
                 if (clause.size != 2) continue
 
-                val other = if (clause[0].variable == lit.variable) {
-                    clause[1]
-                } else {
-                    clause[0]
-                }
+                val other = Lit(clause[0].inner xor clause[1].inner xor lit.neg.inner)
 
                 when (value(other)) {
                     // if the other literal is true, the
@@ -701,74 +1084,798 @@ class CDCL {
                 if (assignment.trailIndex(lcaVar) > assignment.trailIndex(litVar)) {
                     check(assignment.reason(lcaVar)!!.size == 2)
                     val (a, b) = assignment.reason(lcaVar)!!.lits
-                    // TODO: this can be done with xor,
-                    //   will fix after merging feature/assignment
-                    lca = if (a == lca) b.neg else a.neg
+                    lca = Lit(lca.inner xor a.inner xor b.inner).neg
                 } else {
                     check(assignment.reason(litVar)!!.size == 2)
                     val (a, b) = assignment.reason(litVar)!!.lits
-                    lit = if (a == lit) b.neg else a.neg
+                    lit = Lit(lit.inner xor a.inner xor b.inner).neg
                 }
             }
         }
 
         requireNotNull(lca)
-        return Clause(mutableListOf(lca.neg, clause[0]), true)
+        return Clause(LitVec.of(lca.neg, clause[0]), true)
     }
 
-    // ---- CDCL functions ---- //
+    /**
+     * Priority queue for variables, used in [boundedVariableElimination].
+     * It is a min-heap, where the key is the score of the variable
+     * obtained by [bveVariableScore].
+     */
+    class VariableMinPriorityQueue(var size: Int) {
+        private val keys: DoubleArray = DoubleArray(size)
+        private val heap: IntArray = IntArray(size) { it }
+        private val indices: IntArray = IntArray(size) { it }
+
+        fun contains(x: Var): Boolean = indices[x] != -1
+
+        private fun parent(v: Int) = (v - 1) / 2
+        private fun left(v: Int) = 2 * v + 1
+        private fun right(v: Int) = 2 * v + 2
+
+        private fun swap(v: Int, u: Int) {
+            indices[heap[v]] = u
+            indices[heap[u]] = v
+            heap.swap(v, u)
+        }
+
+        private fun siftUp(x: Var) {
+            var v = indices[x]
+            var p = parent(v)
+            while (v > 0 && keys[heap[p]] < keys[heap[v]]) {
+                swap(v, p)
+                v = p
+                p = parent(v)
+            }
+        }
+
+        private fun siftDown(x: Var) {
+            var v = indices[x]
+            while (true) {
+                val l = left(v)
+                val r = right(v)
+                var smallest = v
+                if (l < size && keys[heap[l]] < keys[heap[smallest]]) smallest = l
+                if (r < size && keys[heap[r]] < keys[heap[smallest]]) smallest = r
+                if (smallest == v) break
+                swap(v, smallest)
+                v = smallest
+            }
+        }
+
+        fun getKey(x: Var): Double = keys[x]
+
+        fun setKey(x: Var, value: Double) {
+            if (!contains(x)) return
+            keys[x] = value
+            siftUp(x)
+            siftDown(x)
+        }
+
+        fun pop(): Var {
+            require(size > 0)
+            val result = Var(heap[0])
+            swap(0, size - 1)
+            size--
+            if (heap.isNotEmpty()) siftDown(Var(heap[0]))
+            indices[result] = -1
+            return result
+        }
+    }
+
+    /**
+     * [boundedVariableElimination] requires a global mutable state, which is
+     * stored here.
+     */
+    class EliminationState(numberOfVariables: Int) {
+        /**
+         * Occurrences of each literal in the problem: for every literal we
+         * store the clauses it is in. Some clauses may be deleted and should
+         * be ignored. The size of the occurrences list for each literal is not
+         * necessarily equal to the value in [occurrenceNumbers] because we
+         * don't count deleted clauses.
+         */
+        val occurrences: List<MutableList<Clause>> = MutableList(numberOfVariables * 2) { mutableListOf() }
+
+        /**
+         * This is the "real" amount of occurrences of each literal in the
+         * problem.
+         */
+        val occurrenceNumbers: IntArray = IntArray(numberOfVariables * 2)
+
+        /**
+         * We use this queue to find the next variable to eliminate.
+         */
+        val variableOrder: VariableMinPriorityQueue = VariableMinPriorityQueue(numberOfVariables)
+
+        /**
+         * Number of not-deleted clauses in the problem. BVE creates and deletes
+         * a lot of clauses, which take a lot of memory. We need garbage
+         * collector to clean them up, which means we must remove references to
+         * deleted clauses from time to time. After eliminating a variable,
+         * we check if the number of clauses in the database (including deleted
+         * ones) is more than twice the number of not-deleted clauses, which we
+         * store here. If it is, we remove all deleted clauses from the
+         * [db], [watchers], and [occurrences] lists.
+         */
+        var numberOfClauses: Int = 0
+
+        /**
+         * In [findOrGates] we use this list to store indices of binary clauses
+         * that contain pivot literal. It is too expensive to create a new list
+         * for each pivot, so we reuse this one for the entire BVE.
+         */
+        val gateMarks: IntArray = IntArray(numberOfVariables * 2)
+
+        /**
+         * In [removeSubsumedBy] we mark literals from the clause to
+         * quickly check if other clauses contain all literals from it.
+         */
+        val subsumptionMarks: BooleanArray = BooleanArray(numberOfVariables * 2)
+    }
+
+    /**
+     * The priority of a variable in [boundedVariableElimination]. The less,
+     * the higher priority. The computed score is used as a key in the
+     * [EliminationState.variableOrder] queue.
+     */
+    private fun bveVariableScore(state: EliminationState, x: Var): Double {
+        val pos = state.occurrenceNumbers[x.posLit]
+        val neg = state.occurrenceNumbers[x.negLit]
+        val weightedSum = config.bveVarScoreSumWeight * (pos + neg)
+        val weightedProd = config.bveVarScoreProdWeight * (pos * neg)
+        return weightedSum + weightedProd
+    }
+
+    /**
+     * In [boundedVariableElimination], we must keep track of occurrences list
+     * ([EliminationState.occurrences]), number of clauses, and other things.
+     * To simplify the code, we use this function to mark clauses as deleted
+     * during BVE.
+     */
+    private fun bveMarkDeleted(state: EliminationState, clause: Clause) {
+        require(!clause.deleted)
+        require(!clause.learnt)
+        stats.bve.clausesDeleted++
+        state.numberOfClauses--
+        markDeleted(clause)
+        for (lit in clause.lits) {
+            state.occurrenceNumbers[lit]--
+            state.variableOrder.setKey(lit.variable, bveVariableScore(state, lit.variable))
+        }
+    }
+
+    /**
+     * In [boundedVariableElimination], we must keep track of occurrences list
+     * ([EliminationState.occurrences]), number of clauses, and other things.
+     * To simplify the code, we use this function to attach new clauses.
+     *
+     * Similar to [bveMarkDeleted], but for adding new clauses.
+     */
+    private fun bveAttachClause(state: EliminationState, clause: Clause) {
+        require(clause.size > 1)
+        stats.bve.clausesAttached++
+        state.numberOfClauses++
+        attachClause(clause)
+        for (lit in clause.lits) {
+            state.occurrences[lit].add(clause)
+            state.occurrenceNumbers[lit]++
+            state.variableOrder.setKey(lit.variable, bveVariableScore(state, lit.variable))
+        }
+    }
+
+    /**
+     * Shrinks the clause by removing all literals that are assigned to false,
+     * and adds it through [bveAttachClause]. This function can derive empty
+     * clause, or a unit clause which, when propagated, leads to empty clause,
+     * so it returns [SolveResult.UNSAT] in those cases.
+     */
+    private fun bveAttachShrunkClause(state: EliminationState, clause: Clause): SolveResult? {
+        if (clause.lits.any { assignment.value(it) == LBool.TRUE }) return null
+        clause.lits.removeAll { assignment.value(it) == LBool.FALSE }
+
+        when (clause.size) {
+            0 -> return finishWithUnsat()
+            1 -> {
+                stats.bve.unitsAssigned++
+                if (!assignment.enqueue(clause.lits[0], null)) return finishWithUnsat()
+                bvePropagate()?.let { return finishWithUnsat() }
+            }
+            else -> {
+                bveAttachClause(state, clause)
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * The [boundedVariableElimination] is a preprocessing technique that tries
+     * to eliminate variables from the problem. It is based on multiple
+     * observations, which are described in [bveTryEliminate], but the overall
+     * idea is to choose a variable which does not occur often, and remove it
+     * by replacing all the clauses it is in with resolvents of those clauses.
+     * Of course, there can be too many resolvents, so we limit the number of
+     * resolvents per elimination, as well as do other things to prevent the
+     * algorithm and subsequent solving from taking too much time.
+     */
+    private fun boundedVariableElimination(): SolveResult? {
+        require(assignment.decisionLevel == 0)
+
+        stats.bve.rounds++
+        reporter.report("Bounded Variable Elimination", stats)
+
+        // This state will be used all throughout the BVE
+        val state = EliminationState(assignment.numberOfVariables)
+
+        for (clause in db.clauses) {
+            if (clause.deleted) continue
+            state.numberOfClauses++
+            for (lit in clause.lits) {
+                state.occurrenceNumbers[lit]++
+                state.occurrences[lit].add(clause)
+                state.variableOrder.setKey(lit.variable, bveVariableScore(state, lit.variable))
+            }
+        }
+
+        for (attemptNumber in 0 until config.bveMaxVarsToEliminate) {
+
+            // We first need to find the next variable to eliminate. We do this
+            // by choosing the variable with the smallest number of occurrences
+            // among all active variables.
+
+            var bestVariable: Var? = null
+
+            while (state.variableOrder.size > 0) {
+                // Variable ordering based on binary heap provides fast access
+                // to the smallest element, significantly faster than simple
+                // linear search.
+                val v = state.variableOrder.pop()
+
+                // Not every variable can be eliminated though. We check for
+                // that here
+                if (assignment.isActive(v) &&
+                    !assignment.isFrozen(v) &&
+                    assignment.value(v) == LBool.UNDEF &&
+                    state.variableOrder.getKey(v) <= config.bveMaxVarScore
+                ) {
+                    bestVariable = v
+                    break
+                }
+            }
+
+            if (bestVariable == null) break
+
+            // Once we found a variable, we try to eliminate it. Note that
+            // during the elimination, we can learn a unit clause which may
+            // derive UNSAT.
+
+            stats.bve.eliminationAttempts++
+            bveTryEliminate(state, bestVariable)?.let { return it }
+
+            /*
+            // To check how efficient the elimination is, we check the ratio
+            // of eliminated variables to the number of elimination attempts,
+            // after we tried to eliminate a certain number of variables.
+            // If the ratio is too low, we stop the elimination, because
+            // if it didn't work at the beginning, when variables are supposedly
+            // easier to eliminate, it is unlikely to work later.
+            if (stats.bve.eliminationAttempts > bveConfig.minimumVarsToTry) {
+                val relEfficiency = stats.bve.eliminatedVariables.toDouble() / stats.bve.eliminationAttempts
+                if (relEfficiency < bveConfig.relativeEfficiencyThreshold) {
+                    break
+                }
+            }
+             */
+
+            // This is the "garbage collection" routine we store number of
+            // clauses for. If there are too many deleted clauses, we remove
+            // them from the database, watchers, and occurrences list, allowing
+            // the garbage collector to clean them up. It is easy to run out of
+            // memory without this.
+            if (db.clauses.size > state.numberOfClauses * 2) {
+                db.clauses.removeAll { it.deleted }
+
+                for (watches in watchers) {
+                    watches.removeAll { it.deleted }
+                }
+
+                for (occurrenceList in state.occurrences) {
+                    occurrenceList.removeAll { it.deleted }
+                }
+            }
+        }
+
+        // After the elimination is complete, we need to remove learnt clauses
+        // which now contain eliminated variables. We also need to shrink
+        // learnt clauses, because they may contain literals which are now
+        // falsified.
+        for (learnt in db.learnts.toMutableList()) {
+            if (learnt.deleted) continue
+            if (learnt.lits.any { !assignment.isActive(it) || assignment.value(it) == LBool.TRUE }) {
+                markDeleted(learnt)
+            } else {
+                val needsShrink = learnt.lits.any { assignment.value(it) == LBool.UNDEF }
+                if (!needsShrink) continue
+
+                val newLearnt = learnt.copy(lits = learnt.lits.copy())
+                newLearnt.lits.removeAll { assignment.value(it) == LBool.FALSE }
+
+                when (newLearnt.size) {
+                    0 -> return finishWithUnsat()
+
+                    1 -> {
+                        if (!assignment.enqueue(newLearnt.lits[0], null)) {
+                            return finishWithUnsat()
+                        }
+                        bvePropagate()?.let { return finishWithUnsat() }
+                    }
+
+                    else -> attachClause(newLearnt)
+                }
+
+                markDeleted(learnt)
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * Try to eliminate a variable [pivot] from the problem. This is the core of
+     * [boundedVariableElimination].
+     *
+     * The idea is to first find all clauses containing [pivot] variable. We
+     * then perform "variable elimination by distribution", described in
+     * the SatElite paper. This function can cause the problem to become UNSAT,
+     * in which case it returns [SolveResult.UNSAT].
+     *
+     * The implementation details and overall algorithm are explained in the
+     * function source code itself.
+     */
+    private fun bveTryEliminate(state: EliminationState, pivot: Var): SolveResult? {
+        require(assignment.isActive(pivot))
+        require(!assignment.isFrozen(pivot))
+        require(!assignment.value(pivot) == LBool.UNDEF)
+
+        // We first find all clauses containing the variable
+        val posOccurrences = state.occurrences[pivot.posLit]
+        val negOccurrences = state.occurrences[pivot.negLit]
+
+        // This is what makes variable elimination "bounded". By setting the
+        // limit for the number of resolvents, we can prevent the algorithm
+        // from generating too many clauses.
+        val bound: Int = config.bveMaxNewClausesPerElimination +
+            posOccurrences.count { !it.deleted } +
+            negOccurrences.count { !it.deleted }
+
+        // As observed in SatElite paper, there are special kinds of clause
+        // formations, called "gates", which, when resolved with other gates,
+        // produce a tautological resolvent. Those are valuable for the
+        // algorithm, so we try to find them here.
+        var gateClauses: List<Clause>? = null
+
+        // We can only use a single gate, so we just use the first one we found
+        // Below we look for OR-gates. Those are constraints in the form
+        // x = (a1 | a2 | ... | aK), where x is the pivot literal, and a1, a2,
+        // ..., aK are other literals. This is also AND-gate for the negation
+        // of the literal, of course. See the implementation for more details.
+        if (gateClauses == null) gateClauses = findOrGates(state, pivot.posLit)
+        if (gateClauses == null) gateClauses = findOrGates(state, pivot.negLit)
+        if (gateClauses != null) stats.bve.gatesFound++
+
+        // Finally, we perform the resolutions.
+        val resolventsToAdd = mutableListOf<Clause>()
+
+        for (i in 0 until posOccurrences.size) {
+            val posClause = posOccurrences[i]
+            if (posClause.deleted) continue
+
+            for (j in 0 until negOccurrences.size) {
+                val negClause = negOccurrences[j]
+                if (negClause.deleted) continue
+
+                // As noted above, gates hold special meaning. Turns out
+                // resolving gate clause with another gate clause produces
+                // a tautological resolvent, so we skip those.
+                // Moreover, resolving non-gate clause with another non-gate
+                // clause produces a clause subsumed by the other resolvents,
+                // which only leaves us with the case of resolving a gate
+                // clause with a non-gate clause! See the SatElite paper for
+                // more details.
+                if (gateClauses != null) {
+                    val isPosClauseGate = gateClauses.any { it === posClause }
+                    val isNegClauseGate = gateClauses.any { it === negClause }
+                    if (isPosClauseGate == isNegClauseGate) continue
+                }
+
+                // We perform the resolution here.
+                val resolvent = resolve(posClause, negClause, pivot)
+
+                // If it is tautological, we skip it.
+                if (resolvent == null) {
+                    stats.bve.tautologicalResolvents++
+                    continue
+                }
+
+                // If it is too big, we can't eliminate the variable. This limit
+                // is added to prevent the algorithm from generating resolvents
+                // of exponential size and running out of memory.
+                if (resolvent.size > config.bveResolventSizeLimit) {
+                    stats.bve.resolventsTooBig++
+                    return null
+                }
+
+                resolventsToAdd.add(resolvent)
+
+                // We also limit the number of resolvents we add per elimination
+                // to prevent the algorithm from generating too many clauses.
+                if (resolventsToAdd.size > bound) return null
+            }
+        }
+
+        // Finally, we eliminate the variable. Notice that the removal of the
+        // learnts with the eliminated variable is done outside the main loop of
+        // boundedVariableElimination, and performed later. We use the
+        // specialized propagate procedure to overcome that.
+        assignment.markInactive(pivot)
+        stats.bve.eliminatedVariables++
+
+        // We add resolvents to the database, removing falsified literals from
+        // them.
+        for (resolvent in resolventsToAdd) {
+            stats.bve.resolventsAdded++
+            bveAttachShrunkClause(state, resolvent)?.let { return it }
+            removeSubsumedBy(state, resolvent)?.let { return it }
+        }
+
+        // Finally, we remove old clauses containing the variable.
+        for (clause in posOccurrences) {
+            if (clause.deleted) continue
+            bveMarkDeleted(state, clause)
+            stats.bve.clausesResolved++
+            reconstructionStack.push(clause, pivot.posLit)
+        }
+
+        for (clause in negOccurrences) {
+            if (clause.deleted) continue
+            bveMarkDeleted(state, clause)
+            stats.bve.clausesResolved++
+            reconstructionStack.push(clause, pivot.negLit)
+        }
+
+        return null
+    }
+
+    /**
+     * As mentioned in the SatElite paper, when clauses form a gate circuit, we
+     * don't need to add every resolvent. This function looks for OR-gates,
+     * which is the gate in form `x = (a1 | a2 | ... | aK)`. This is equivalent
+     * to `-x = (-a1 & -a2 & ... & -aK)` so this function also discovers
+     * AND-gates when used on the negation of the pivot literal. Note that this
+     * function also discovers equivalences, that is, the gates of the form
+     * `x = a`.
+     *
+     * In clausal form, this gate is represented as a big clause, the negation
+     * of `x` and all the `a1, a2, ..., aK` literals, and a bunch of binary
+     * clauses between `x` and negations of `a1, a2, ..., aK` literals. This
+     * function returns such clauses. `x` is [pivot].
+     */
+    private fun findOrGates(
+        state: EliminationState,
+        pivot: Lit,
+    ): List<Clause>? {
+        val posOccurrences = state.occurrences[pivot]
+        val negOccurrences = state.occurrences[pivot.neg]
+        var foundAny = false
+
+        val gateClauses = mutableListOf<Clause>()
+
+        // We first mark all literals which occur in binary clauses with the
+        // positive pivot.
+        for (i in 0 until posOccurrences.size) {
+            val clause = posOccurrences[i]
+            if (clause.deleted) continue
+            if (clause.size != 2) continue
+            val other = Lit(clause[0].inner xor clause[1].inner xor pivot.inner)
+            // We use the index of the clause + 1 as the mark, because we need
+            // to restore the clause from the mark later. Of course, we can't
+            // use 0 as the mark.
+            state.gateMarks[other.neg] = i + 1
+        }
+
+        // We then look for the "big clause"
+        for (i in 0 until negOccurrences.size) {
+            val clause = negOccurrences[i]
+            if (clause.deleted) continue
+
+            // If all the literals in the clause, except the negation of the
+            // pivot, are marked, then we found that clause.
+            if (clause.lits.all { state.gateMarks[it] != 0 || it == pivot.neg }) {
+                foundAny = true
+                gateClauses.add(clause)
+
+                for (lit in clause.lits) {
+                    if (lit != pivot.neg) {
+                        gateClauses.add(posOccurrences[state.gateMarks[lit] - 1])
+                    }
+                }
+
+                break
+            }
+        }
+
+        // We then must reset the marks.
+        for (i in 0 until posOccurrences.size) {
+            val clause = posOccurrences[i]
+            if (clause.deleted) continue
+            if (clause.size != 2) continue
+            val other = Lit(clause[0].inner xor clause[1].inner xor pivot.inner)
+            state.gateMarks[other.neg] = 0
+        }
+
+        if (!foundAny) return null
+        return gateClauses
+    }
+
+    /*
+     * Given a [clause], this function removes all the clauses which are
+     * subsumed by it, as well as strengthens the clause by self-subsumption.
+     *
+     * During the [boundedVariableElimination] procedure, we produce a lot of
+     * resolvents, some of which are subsumed by other clauses. This happens a
+     * lot and removing such clauses is crucial for the performance of the BVE.
+     *
+     * Moreover, sometimes a clause can be "almost subsumed" by another clause,
+     * that is, it would have been subsumed if not the one literal in the wrong
+     * phase. Consider two clauses, `x or A` and `-x or B`, and assume `A`
+     * subsumes `B`. Then, by resolving the two clauses, we get `A or B`, which
+     * is equivalent to `B`. In that case, we say that `-x or B` is strengthened
+     * by self-subsumption using `x or A`.
+     *
+     * Note that strengthening can cause a clause to become a unit, in which
+     * case we must propagate it, and in case of a conflict, return UNSAT.
+     */
+    private fun removeSubsumedBy(state: EliminationState, clause: Clause): SolveResult? {
+        // This function uses multiple heuristics to speed up the process.
+
+        // First of all, we only consider clauses which are occurrences of the
+        // least occurring literal. This may cause us to miss strengthening, but
+        // the performance gain is worth it.
+        val leastOccurrenceLit = clause.lits.minBy { state.occurrences[it].size }
+
+        // We mark all the literals in the clause.
+        for (lit in clause.lits) state.subsumptionMarks[lit] = true
+
+        // And iterate over all the clauses which contain the least occurring
+        // literal.
+        val initialSize = state.occurrences[leastOccurrenceLit].size
+        outer@ for (i in 0 until initialSize) {
+            val otherClause = state.occurrences[leastOccurrenceLit][i]
+
+            if (otherClause === clause) continue
+            if (otherClause.deleted) continue
+
+            // We also only consider clauses which are at least as big as the
+            // clause we are trying to subsume.
+            if (otherClause.size < clause.size) continue
+
+            // This is the mismatch used for strengthening.
+            var mismatch: Lit? = null
+
+            for (lit in otherClause.lits) {
+                if (!state.subsumptionMarks[lit]) {
+                    // If mismatch is already set, then we have two literals
+                    // which are not in the clause we are trying to subsume.
+                    // If mismatch does not occur in the clause in the
+                    // other phase, then we can't strengthen.
+                    if (mismatch != null || !state.subsumptionMarks[lit.neg]) {
+                        continue@outer
+                    }
+
+                    mismatch = lit
+                }
+            }
+
+            if (mismatch == null) {
+                // Finally, if there are no mismatches, then the clause is simply
+                // subsumed.
+                stats.bve.clausesSubsumed++
+                bveMarkDeleted(state, otherClause)
+            } else if (state.subsumptionMarks[mismatch.neg]) {
+                val lits = clause.lits.copy()
+                lits.remove(mismatch.neg)
+                // Otherwise, we can strengthen the clause.
+                val strengthenedClause = Clause(lits)
+                // Note that we don't reset marks here with a hope that those
+                // will never be used after UNSAT anyway.
+                stats.bve.clausesStrengthened++
+                bveAttachShrunkClause(state, strengthenedClause)?.let { return it }
+                bveMarkDeleted(state, otherClause)
+            }
+        }
+
+        // We then must reset the marks.
+        for (lit in clause.lits) state.subsumptionMarks[lit] = false
+
+        return null
+    }
+
+    /**
+     * The resolution procedure used by the [boundedVariableElimination].
+     *
+     * Given two clauses, [clause1] and [clause2], which
+     * contain the same variable in opposite phases, this function returns the
+     * resolvent of the two clauses, or null if the resolvent is a tautology,
+     * or satisfied.
+     *
+     * It may return a unit clause, but it should never return an empty clause.
+     */
+    private fun resolve(clause1: Clause, clause2: Clause, pivot: Var): Clause? {
+        require(!clause1.learnt && !clause2.learnt)
+        require(!clause1.deleted && !clause2.deleted)
+        val resolvent = LitVec.emptyOfCapacity(clause1.size + clause2.size - 2)
+
+        for (lit in clause1.lits) {
+            if (lit.variable == pivot) continue
+            val value = assignment.value(lit)
+            if (value == LBool.FALSE) continue
+            if (value == LBool.TRUE) return null
+
+            resolvent.add(lit)
+        }
+
+        for (lit in clause2.lits) {
+            if (lit.variable == pivot) continue
+            val value = assignment.value(lit)
+            if (value == LBool.FALSE) continue
+            if (value == LBool.TRUE) return null
+
+            resolvent.add(lit)
+        }
+
+        if (sortDedupAndCheckComplimentary(resolvent)) {
+            return null
+        }
+
+        return Clause(resolvent)
+    }
+
+    /**
+     * This is the custom propagation procedure used by the
+     * [boundedVariableElimination]. It is similar to the regular propagation
+     * except it ignores clauses which contain non-active literals. This is
+     * because when propagating, we may accidentally use a learnt clause which
+     * will cause learning non-active variables, and since removing learnt
+     * clauses is not cheap, we cannot afford to do that every elimination.
+     *
+     * It also removes such clauses from the watch list, since they are useless
+     * anyway.
+     */
+    private fun bvePropagate(): Clause? {
+        require(ok && assignment.decisionLevel == 0)
+
+        var conflict: Clause? = null
+
+        while (assignment.qhead < assignment.trail.size) {
+            val lit = assignment.dequeue()
+
+            check(value(lit) == LBool.TRUE)
+
+            var j = 0
+            val possiblyBrokenClauses = watchers[lit.neg]
+
+            for (i in 0 until possiblyBrokenClauses.size) {
+                val clause = possiblyBrokenClauses[i]
+                if (clause.deleted) continue
+
+                possiblyBrokenClauses[j++] = clause
+
+                if (conflict != null) continue
+
+                // This is where we ignore clauses with non-active literals.
+                if (clause.lits.any { !assignment.isActive(it) }) {
+                    j--
+                    continue
+                }
+
+                if (clause[0].variable == lit.variable) {
+                    clause.lits.swap(0, 1)
+                }
+
+                if (value(clause[0]) == LBool.TRUE) continue
+
+                var firstNotFalse = -1
+                for (ind in 2 until clause.size) {
+                    if (value(clause[ind]) != LBool.FALSE) {
+                        firstNotFalse = ind
+                        break
+                    }
+                }
+
+                if (firstNotFalse == -1 && value(clause[0]) == LBool.FALSE) {
+                    conflict = clause
+                } else if (firstNotFalse == -1) {
+                    assignment.uncheckedEnqueue(clause[0], clause)
+                } else {
+                    watchers[clause[firstNotFalse]].add(clause)
+                    clause.lits.swap(firstNotFalse, 1)
+                    j--
+                }
+            }
+
+            watchers[lit.neg].retainFirst(j)
+
+            if (conflict != null) break
+        }
+
+        return conflict
+    }
 
     /**
      * Add [clause] into the database and attach watchers for it.
      */
-    private fun attachClause(clause: Clause) {
+    fun attachClause(clause: Clause) {
         require(clause.size >= 2) { clause }
         check(ok)
         db.add(clause)
         watchers[clause[0]].add(clause)
         watchers[clause[1]].add(clause)
+        if (!clause.fromInput) dratBuilder.addClause(clause)
     }
 
     /**
-     * Propagate all the literals in the trail that are
-     * not yet propagated. If a conflict is found, return
-     * the clause that caused it.
-     *
-     * This function takes every literal on the trail that
-     * has not been propagated (that is, all literals for
-     * which `qhead <= index < trail.size`) and applies
-     * the unit propagation rule to it, possibly leading
-     * to deducing new literals. The new literals are added
-     * to the trail, and the process is repeated until no
-     * more literals can be propagated, or a conflict
-     * is found.
+     * Mark [clause] for deletion. During [ClauseDatabase.reduceIfNeeded]
+     * it will be removed from the database, and the watchers
+     * will be detached (the latter may also happen in [propagate]).
      */
-    private fun propagate(): Clause? {
+    fun markDeleted(clause: Clause) {
         check(ok)
+        clause.deleted = true
+        if (!clause.fromInput) dratBuilder.deleteClause(clause)
+    }
+
+    /**
+     * Propagate all the literals in the trail that are not yet propagated. If
+     * a conflict is found, return the clause that caused it.
+     *
+     * This function takes every literal on the trail that has not been
+     * propagated (that is, all literals for which `qhead <= index < trail.size`)
+     * and applies the unit propagation rule to it, possibly leading to deducing
+     * new literals. The new literals are added to the trail, and the process is
+     * repeated until no more literals can be propagated, or a conflict is found.
+     *
+     * @return the conflict clause if a conflict is found, or `null` if no
+     * conflict occurs.
+     */
+    fun propagate(): Clause? {
+        // check(ok)
+
+        stats.propagations++
 
         var conflict: Clause? = null
 
         while (assignment.qhead < assignment.trail.size) {
-            val lit = assignment.dequeue()!!
+            val lit = assignment.dequeue()
 
-            check(value(lit) == LBool.TRUE)
+            // check(value(lit) == LBool.TRUE)
 
-            if (value(lit) == LBool.FALSE) {
-                return assignment.reason(lit.variable)
-            }
+            // We use two pointers to iterate over the list of clauses, removing
+            // the ones that are deleted or already satisfied. This pointer
+            // points to the next position to write the kept clause.
+            var j = 0
+            val possiblyBrokenClauses = watchers[lit.neg]
 
-            // Checking the list of clauses watching the negation of the literal.
+            // Check the list of clauses watching the negation of the literal.
             // In those clauses, both of the watched literals might be false,
             // which can either lead to a conflict (all literals in clause are false),
             // unit propagation (only one unassigned literal left), or invalidation
             // of the watchers (both watchers are false, but there are others)
-            val clausesToKeep = mutableListOf<Clause>()
-            val possiblyBrokenClauses = watchers[lit.neg]
-
-            for (clause in possiblyBrokenClauses) {
+            for (i in 0 until possiblyBrokenClauses.size) {
+                val clause = possiblyBrokenClauses[i]
                 if (clause.deleted) continue
 
-                clausesToKeep.add(clause)
+                possiblyBrokenClauses[j++] = clause
 
                 if (conflict != null) continue
 
@@ -802,11 +1909,11 @@ class CDCL {
                     // so we can use it as a new first watcher instead
                     watchers[clause[firstNotFalse]].add(clause)
                     clause.lits.swap(firstNotFalse, 1)
-                    clausesToKeep.removeLast()
+                    j--
                 }
             }
 
-            watchers[lit.neg] = clausesToKeep
+            watchers[lit.neg].retainFirst(j)
 
             if (conflict != null) break
         }
@@ -816,88 +1923,141 @@ class CDCL {
 
     /**
      * Analyzes the conflict clause returned by [propagate]
-     * and returns a new clause that can be learnt.
-     * Post-conditions:
-     *      - first element in clause has max (current) propagate level
-     *      - second element in clause has second max propagate level
+     * and returns a new clause that can be learned.
+     *
+     * This function analyzes the conflict clause by walking back on
+     * the trail and replacing all but one literal in the conflict clause
+     * by their reasons. The learned clause is then simplified by removing
+     * redundant literals.
+     *
+     * @param conflict the conflict clause.
+     * @param minimize if true, the learned clause will be minimized by
+     *                 removing literals which follow from the other literals
+     *                 in the learned clause.
+     * @return the learned clause.
      */
-    private fun analyzeConflict(conflict: Clause): Clause {
-        var numberOfActiveVariables = 0
-        val lemma = mutableSetOf<Lit>()
-        val seen = BooleanArray(numberOfVariables)
+    fun analyzeConflict(conflict: Clause, minimize: Boolean = true): Clause {
+        // We analyze conflict by walking back on implication graph,
+        // starting with the literals in the conflict clause.
+        // (Technically, the literals of the conflict are added on
+        // the first iteration, and we start with nothing, but it
+        // is easier to think about it this way.)
+        // For every literal from the last decision level, we replace
+        // that literal with its reason, until only one literal from
+        // the last decision level is left. This literal is called
+        // the "Unique Implication Point" (UIP).
 
-        conflict.lits.forEach { lit ->
-            if (assignment.level(lit.variable) == assignment.decisionLevel) {
+        // Keep track of the variables we have "seen" during the analysis
+        // (see implementation below for details)
+        val seen = BooleanArray(assignment.numberOfVariables)
+
+        // The list of literals of the learnt
+        val learntLits = mutableListOf<Lit>()
+
+        // How many literals from the last decision level we have seen,
+        // but not yet replaced with their reasons?
+        var lastLevelLitCount = 0
+
+        // The next clause we are about to add to the cut
+        var clauseToAdd = conflict
+
+        // The index of the last literal from the last decision level,
+        // not yet replaced with its reason
+        var index = assignment.trail.lastIndex
+
+        while (true) {
+            db.clauseBumpActivity(clauseToAdd)
+
+            for (lit in clauseToAdd.lits) {
+                if (seen[lit.variable]) continue
+
+                // Mark all the variables in the clause as seen, if not already
                 seen[lit.variable] = true
-                numberOfActiveVariables++
-            } else {
-                lemma.add(lit)
-            }
-        }
 
-        var lastLevelWalkIndex = assignment.trail.lastIndex
-
-        // The UIP is the only literal in the current decision level
-        // of the conflict clause. To build it, we walk back on the
-        // last level of the trail and replace all but one literal
-        // in the conflict clause by their reason.
-        while (numberOfActiveVariables > 1) {
-            val v = assignment.trail[lastLevelWalkIndex--].variable
-            if (!seen[v]) continue
-
-            // The null assertion is safe because we only traverse
-            // the last level, and every variable on this level
-            // has a reason except for the decision variable,
-            // which will not be visited because even if it is seen,
-            // it is the last seen variable in order of the trail.
-            val reason = assignment.reason(v)!!
-
-            db.clauseBumpActivity(reason)
-
-            reason.lits.forEach { u ->
-                val current = u.variable
-                if (assignment.level(current) != assignment.decisionLevel) {
-                    lemma.add(u)
-                } else if (current != v && !seen[current]) {
-                    seen[current] = true
-                    numberOfActiveVariables++
+                if (assignment.level(lit) == assignment.decisionLevel) {
+                    // If the literal is from the last decision level,
+                    // just count it here: we will replace it with its reason later
+                    // because every literal (except lit) in its reason
+                    // is before lit on the trail, and lit is already seen
+                    lastLevelLitCount++
+                } else {
+                    // Literals from the previous decision levels are added to the learnt
+                    learntLits.add(lit)
                 }
             }
 
-            seen[v] = false
-            numberOfActiveVariables--
+            // After we added all the literals from the clause to the learnt,
+            // we find the next literal from the last decision level to replace
+            // with its reason. We do this by walking back on the trail.
+            while (!seen[assignment.trail[index].variable]) index--
+
+            // If only one literal from the last decision level is left,
+            // we have found the UIP.
+            if (lastLevelLitCount == 1) break
+
+            // Otherwise, it must be replaced with its reason on the next iteration
+            lastLevelLitCount--
+            val lastLevelVar = assignment.trail[index].variable
+            index--
+            clauseToAdd = assignment.reason(lastLevelVar)!!
         }
 
-        var newClause: Clause
+        // Add the UIP to the learnt in the correct phase.
+        val uip = assignment.trail[index]
+        learntLits.add(uip.neg)
 
-        assignment.trail.last { seen[it.variable] }.let { lit ->
-            val v = lit.variable
-            lemma.add(if (value(v.posLit) == LBool.TRUE) v.negLit else v.posLit)
-
-            // Simplify clause by removing redundant literals which follow from their reasons
-            currentMinimizationMark++
-            lemma.forEach { minimizeMarks[it] = currentMinimizationMark }
-            newClause = Clause(
-                lemma.filter { possiblyImpliedLit ->
-                    assignment.reason(possiblyImpliedLit.variable)?.lits?.any {
-                        minimizeMarks[it] != currentMinimizationMark
-                    } ?: true
-                }.toMutableList(),
-                learnt = true,
-            )
-
-            val uipIndex = newClause.lits.indexOfFirst { it.variable == v }
-            // move UIP vertex to 0 position
-            newClause.lits.swap(uipIndex, 0)
-            seen[v] = false
+        // Some literals in the learnt can follow from their reasons,
+        // included in the learnt. We remove them here, if requested.
+        if (minimize) {
+            learntLits.removeAll { lit ->
+                val reason = assignment.reason(lit.variable) ?: return@removeAll false
+                // lit is redundant if all the literals in its reason are already seen
+                // (and, therefore, included in the learnt or follow from it)
+                val redundant = reason.lits.all { it == lit.neg || seen[it.variable] }
+                redundant
+            }
         }
-        // move last defined literal to 1 position
-        if (newClause.size > 1) {
-            val secondMax = newClause.lits.drop(1).indices.maxByOrNull {
-                assignment.level(newClause[it + 1].variable)
-            } ?: 0
-            newClause.lits.swap(1, secondMax + 1)
+
+        // Sort the learnt by the decision level of the literals
+        // (highest level first), making sure UIP is the first literal,
+        // and the second max level literal is the second.
+        // This is required to have watchers work correctly during the
+        // next propagate (only the first two literals are watched).
+        learntLits.sortByDescending { assignment.level(it) }
+
+        val learnt = Clause(LitVec(learntLits), learnt = true)
+
+        // Sorting also helps to calculate the LBD of the learnt
+        // without additional memory.
+        learnt.lbd = 1
+        for (i in 0 until learnt.size - 1) {
+            if (assignment.level(learnt[i]) != assignment.level(learnt[i + 1])) {
+                learnt.lbd++
+            }
         }
-        return newClause
+
+        return learnt
     }
+}
+
+/**
+ * Takes a list of literals, sorts it and removes duplicates in place,
+ * then checks if the list contains a literal and its negation
+ * and returns true if so.
+ */
+private fun sortDedupAndCheckComplimentary(lits: LitVec): Boolean {
+    lits.sort()
+
+    var i = 0
+    for (j in 1 until lits.size) {
+        if (lits[i] == lits[j].neg) return true
+        if (lits[i] != lits[j]) {
+            i++
+            lits[i] = lits[j]
+        }
+    }
+
+    lits.retainFirst(i + 1)
+
+    return false
 }

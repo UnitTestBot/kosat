@@ -63,6 +63,7 @@ tasks.register("downloadLibs") {
                 src(names.map { urlTemplate.format(it) })
                 dest(dest)
                 tempAndMove(true)
+                retries(3)
             }
         }
 

@@ -1,5 +1,7 @@
 package org.kosat
 
+import kotlin.math.max
+
 enum class ReduceStrategy {
     ACTIVITY, LBD
 }
@@ -8,10 +10,7 @@ class ClauseDatabase(private val solver: CDCL) {
     val clauses: MutableList<Clause> = mutableListOf()
     val learnts: MutableList<Clause> = mutableListOf()
 
-    private val clauseDecay: Double = 0.999
     private var clauseInc: Double = 1.0
-
-    private val reduceStrategy = ReduceStrategy.LBD
 
     fun add(clause: Clause) {
         if (clause.learnt) {
@@ -22,7 +21,7 @@ class ClauseDatabase(private val solver: CDCL) {
     }
 
     fun clauseDecayActivity() {
-        clauseInc *= 1.0 / clauseDecay
+        clauseInc *= 1.0 / solver.config.clauseDbActivityDecay
     }
 
     fun clauseBumpActivity(clause: Clause) {
@@ -68,22 +67,36 @@ class ClauseDatabase(private val solver: CDCL) {
      * in the remaining clauses.
      */
     fun simplify() {
-        outer@for (clause in clauses + learnts) {
+        solver.dratBuilder.addComment("Simplifying clauses")
+        outer@ for (clause in clauses + learnts) {
             if (clause.deleted) continue
 
             for (lit in clause.lits) {
                 if (solver.assignment.fixed(lit) == LBool.TRUE) {
-                    clause.deleted = true
+                    solver.markDeleted(clause)
                     continue@outer
                 }
             }
 
-            clause.lits.removeAll {
+            val needsShrink = clause.lits.any {
                 solver.assignment.fixed(it) == LBool.FALSE
             }
 
-            check(clause.size >= 2)
+            if (!needsShrink) continue
+
+            val newClause = clause.copy(lits = clause.lits.copy())
+
+            newClause.lits.removeAll {
+                solver.assignment.fixed(it) == LBool.FALSE
+            }
+
+            solver.attachClause(newClause)
+            solver.markDeleted(clause)
+
+            check(newClause.size >= 2)
         }
+
+        solver.dratBuilder.addComment("Simplification done")
     }
 
     /**
@@ -117,7 +130,7 @@ class ClauseDatabase(private val solver: CDCL) {
             // technically, this is not needed, but might be used later
             if (isClauseLocked(learnt)) continue
 
-            learnt.deleted = true
+            solver.markDeleted(learnt)
         }
     }
 
@@ -146,24 +159,25 @@ class ClauseDatabase(private val solver: CDCL) {
             if (learnt.deleted) break
             if (isClauseLocked(learnt)) continue
 
-            learnt.deleted = true
+            solver.markDeleted(learnt)
         }
     }
 
-    // TODO: Move to solver parameters
-    private var reduceMaxLearnts = 6000
-    private val reduceMaxLearntsIncrement = 500
+    private var reduceMaxLearnts = 0
 
     /**
      * Run the configured reduce if the number of learnt clauses is too high.
      */
     fun reduceIfNeeded() {
+        reduceMaxLearnts = max(reduceMaxLearnts, solver.config.clauseDbMaxSizeInitial)
         if (learnts.size > reduceMaxLearnts + solver.assignment.trail.size) {
-            reduceMaxLearnts += reduceMaxLearntsIncrement
+            reduceMaxLearnts += solver.config.clauseDbMaxSizeIncrement
+
+            solver.reporter.report("Clause DB reduction (${learnts.size} learnts)", solver.stats)
 
             simplify()
 
-            when (reduceStrategy) {
+            when (solver.config.clauseDbStrategy) {
                 ReduceStrategy.ACTIVITY -> reduceBasedOnActivity()
                 ReduceStrategy.LBD -> reduceBasedOnLBD()
             }

@@ -1,4 +1,4 @@
-@file:Suppress("PublicApiImplicitType", "MemberVisibilityCanBePrivate", "unused")
+@file:Suppress("PublicApiImplicitType", "MemberVisibilityCanBePrivate", "unused", "ConstPropertyName")
 
 object Versions {
     const val clikt = "4.1.0"
@@ -10,10 +10,12 @@ object Versions {
     const val kotlin = "1.9.0"
     const val kotlin_logging = "3.0.5"
     const val kotlin_satlib = "0.24.2"
+    const val kotlin_wrappers = "1.0.0-pre.619"
     const val kotlinx_collections = "0.3.5"
     const val kotlinx_coroutines = "1.7.2"
     const val log4j = "2.20.0"
     const val okio = "3.4.0"
+    const val react_window = "1.8.9"
     const val shadow = "8.1.1"
 }
 
