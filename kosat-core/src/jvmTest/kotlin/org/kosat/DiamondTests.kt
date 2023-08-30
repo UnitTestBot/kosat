@@ -157,9 +157,9 @@ internal class DiamondTests {
 
     private fun solveWithMiniSat(cnf: CNF): SolveResult {
         return MiniSatSolver().use { minisat ->
-            repeat(cnf.numVars) { minisat.newLiteral() }
+            repeat(cnf.numVars){minisat.newLiteral()}
             for (clause in cnf.clauses) {
-                minisat.addClause(clause.lits.map { it.toDimacs() })
+                minisat.addClause(clause.toDimacs())
             }
             val result = if (minisat.solve()) {
                 SolveResult.SAT
@@ -202,7 +202,9 @@ internal class DiamondTests {
             solver.solve()
         }
 
-        Assertions.assertEquals(resultExpected, resultActual) { "MiniSat and KoSat results are different." }
+        Assertions.assertEquals(resultExpected, resultActual) {
+            "MiniSat and KoSat results are different."
+        }
 
         println("MiniSat and KoSat results are the same: $resultActual")
 
@@ -229,10 +231,7 @@ internal class DiamondTests {
 
                 assertContains(stdout, "s VERIFIED")
 
-                Assertions.assertNotEquals(
-                    80,
-                    validator.exitValue()
-                ) {
+                Assertions.assertNotEquals(80, validator.exitValue()) {
                     "DRAT-TRIM exited with code 80 " +
                         "(possibly because of a termination due to warning if ran with -W flag)"
                 }
@@ -284,7 +283,9 @@ internal class DiamondTests {
                 solver.solve(assumptions.map { Lit.fromDimacs(it) })
             }
 
-            Assertions.assertEquals(resultExpected, resultActual) { "MiniSat and KoSat results are different" }
+            Assertions.assertEquals(resultExpected, resultActual) {
+                "MiniSat and KoSat results are different"
+            }
             println("MiniSat and KoSat results are the same: $resultActual")
 
             if (resultActual == SolveResult.SAT) {
@@ -299,12 +300,16 @@ internal class DiamondTests {
                         }
                     }
 
-                    Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                    Assertions.assertTrue(satisfied) {
+                        "Clause $clause is not satisfied. Model: $model"
+                    }
                 }
 
                 for (assumption in assumptions) {
                     val assumptionValue = model[abs(assumption) - 1] == (assumption.sign == 1)
-                    Assertions.assertTrue(assumptionValue) { "Assumption $assumption is not satisfied. Model: $model" }
+                    Assertions.assertTrue(assumptionValue) {
+                        "Assumption $assumption is not satisfied. Model: $model"
+                    }
                 }
             }
 
@@ -326,7 +331,9 @@ internal class DiamondTests {
 
             val actualResult = solver.solve()
 
-            Assertions.assertEquals(expectedResult, actualResult) { "MiniSat and KoSat results are different" }
+            Assertions.assertEquals(expectedResult, actualResult) {
+                "MiniSat and KoSat results are different"
+            }
             println("MiniSat and KoSat results are the same: $actualResult")
 
             if (actualResult == SolveResult.SAT) {
@@ -341,7 +348,9 @@ internal class DiamondTests {
                         }
                     }
 
-                    Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                    Assertions.assertTrue(satisfied) {
+                        "Clause $clause is not satisfied. Model: $model"
+                    }
                 }
 
                 results.add(model)

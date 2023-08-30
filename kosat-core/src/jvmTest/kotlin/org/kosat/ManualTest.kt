@@ -8,9 +8,9 @@ import kotlin.test.Test
 internal class ManualTest {
     @Test
     fun testManual() {
-        val path = "src/jvmTest/resources/testCover/cover/cover0015.cnf".toPath()
+        val path = "src/jvmTest/resources/testCover/cover/cover0023.cnf".toPath()
         // val path = "../data/satcomp-2017/g2-mizh-md5-48-5.cnf".toPath()
-        // val path = "../data/satcomp-2017/g2-UCG-15-10p1.cnf".toPath()
+        // val path = "../data/satcomp-2017/mp1-qpr-bmp280-driver-5.cnf".toPath()
         println("Reading '$path'...")
         val cnf = FileSystem.SYSTEM.read(path) { CNF.from(this) }
         println("Creating solver from CNF...")
