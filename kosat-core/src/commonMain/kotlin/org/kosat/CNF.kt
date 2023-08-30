@@ -14,7 +14,7 @@ class CNF(
         }
         for (clause in clauses) {
             for (lit in clause.lits) {
-                sink.writeUtf8(lit.toString()).writeUtf8(" ")
+                sink.writeUtf8(lit.toDimacs().toString()).writeUtf8(" ")
             }
             sink.writeUtf8("0\n")
         }
