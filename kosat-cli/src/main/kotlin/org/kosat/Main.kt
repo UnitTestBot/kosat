@@ -12,7 +12,7 @@ import com.github.ajalt.clikt.parameters.types.int
 import okio.buffer
 import okio.sink
 import okio.source
-import org.kosat.cnf.CNF
+import org.kosat.cnf.parseDimacs
 import java.io.File
 import kotlin.time.DurationUnit
 import kotlin.time.measureTimedValue
@@ -71,17 +71,13 @@ class KoSAT : CliktCommand(name = "kosat") {
             System.`in`.source().buffer()
         }
 
-        val cnf: CNF
-        try {
-            cnf = CNF.from(cnfSource)
-        } catch (e: Exception) {
-            println("c Parsing Error: ${e.message}")
-            return
+        val solver = CDCL()
+
+        cnfSource.use {
+            for (clause in parseDimacs(cnfSource)) {
+                solver.newClause(clause)
+            }
         }
-
-        cnfSource.close()
-
-        val solver = CDCL(cnf)
 
         solver.config.timeLimit = timeLimit
 

@@ -3,6 +3,7 @@ package org.kosat.cnf
 import okio.Buffer
 import okio.BufferedSink
 import okio.BufferedSource
+import org.kosat.Clause
 import kotlin.math.abs
 
 class CNF(
@@ -89,4 +90,38 @@ class CNF(
 
 fun determineNumberOfVariables(clauses: List<List<Int>>): Int {
     return clauses.maxOfOrNull { clause -> clause.maxOfOrNull { lit -> abs(lit) } ?: 0 } ?: 0
+}
+
+fun parseDimacs(source: BufferedSource): Sequence<Clause> = sequence {
+    val regexSpace = """\s+""".toRegex()
+    while (true) {
+        val line = source.readUtf8Line()?.trim() ?: break
+
+        if (line.startsWith('c')) {
+            // Skip comment
+        } else if (line.isBlank()) {
+            // Skip empty line
+        } else if (line.startsWith('p')) {
+            // Header
+            val tokens = line.split(regexSpace)
+            check(tokens[0] == "p") {
+                "First header token must be 'p': \"$line\""
+            }
+            check(tokens[1] == "cnf") {
+                "Second header token must be 'cnf': \"$line\""
+            }
+            check(tokens.size == 4) {
+                "Header should have exactly 4 tokens: \"$line\""
+            }
+        } else {
+            // Clause
+            val tokens = line.split(regexSpace)
+            check(tokens.last() == "0") {
+                "Last token of clause must be '0': \"$line\""
+            }
+            val lits = tokens.map { it.toInt() }
+            val clause = Clause.fromDimacs(lits.dropLast(1))
+            yield(clause)
+        }
+    }
 }

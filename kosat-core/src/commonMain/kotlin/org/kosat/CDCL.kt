@@ -151,7 +151,7 @@ class CDCL {
         if (!ok) return
 
         // Add not mentioned variables from the new clause
-        val maxVar = clause.lits.maxOfOrNull { it.variable.index } ?: 0
+        val maxVar = clause.lits.maxOfOrNull { it.variable.index + 1 } ?: 0
         while (assignment.numberOfVariables < maxVar) {
             newVariable()
         }
