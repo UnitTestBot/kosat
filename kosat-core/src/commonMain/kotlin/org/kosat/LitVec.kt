@@ -26,7 +26,7 @@ class LitVec private constructor(
     val lastIndex get() = size - 1
 
     constructor() : this(IntArray(0))
-    constructor(lits: List<Lit>) : this(lits.map { it.inner }.toIntArray())
+    constructor(lits: Iterable<Lit>) : this(lits.map { it.inner }.toIntArray())
 
     operator fun get(index: Int): Lit {
         // require(index < size)

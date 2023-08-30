@@ -13,12 +13,11 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import org.kosat.cnf.from
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.UUID
+import java.util.*
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.relativeTo
@@ -158,9 +157,9 @@ internal class DiamondTests {
 
     private fun solveWithMiniSat(cnf: CNF): SolveResult {
         return MiniSatSolver().use { minisat ->
-            val lits = List(cnf.numVars) { minisat.newLiteral() }
+            repeat(cnf.numVars) { minisat.newLiteral() }
             for (clause in cnf.clauses) {
-                minisat.addClause(clause.map { it.sign * lits[abs(it) - 1] })
+                minisat.addClause(clause.lits.map { it.toDimacs() })
             }
             val result = if (minisat.solve()) {
                 SolveResult.SAT
@@ -247,8 +246,8 @@ internal class DiamondTests {
 
             for (clause in cnf.clauses) {
                 var satisfied = false
-                for (lit in clause) {
-                    if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                for (lit in clause.lits) {
+                    if (model[lit.variable] == lit.isPos) {
                         satisfied = true
                         break
                     }
@@ -269,13 +268,13 @@ internal class DiamondTests {
         println("KoSat time: ${timeKoSat.roundMilliseconds()}")
     }
 
-    private fun runTestWithAssumptions(cnf: CNF, assumptionsSets: List<List<Int>>, config: Config) {
+    private fun runTestWithAssumptions(cnf: CNF, assumptionsSets: Iterable<List<Int>>, config: Config) {
         val solver = CDCL(cnf)
         solver.config = config
 
         for (assumptions in assumptionsSets) {
             println("## Solving with assumptions: $assumptions")
-            val cnfWithAssumptions = CNF(cnf.clauses + assumptions.map { listOf(it) }, cnf.numVars)
+            val cnfWithAssumptions = CNF(cnf.clauses + assumptions.map { Clause.fromDimacs(listOf(it)) }, cnf.numVars)
 
             val (resultExpected, timeMiniSat) = measureTimeWithResult {
                 solveWithMiniSat(cnfWithAssumptions)
@@ -293,8 +292,8 @@ internal class DiamondTests {
 
                 for (clause in cnf.clauses) {
                     var satisfied = false
-                    for (lit in clause) {
-                        if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                    for (lit in clause.lits) {
+                        if (model[lit.variable] == lit.isPos) {
                             satisfied = true
                             break
                         }
@@ -335,8 +334,8 @@ internal class DiamondTests {
 
                 for (clause in fullCnf.clauses) {
                     var satisfied = false
-                    for (lit in clause) {
-                        if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                    for (lit in clause.lits) {
+                        if (model[lit.variable] == lit.isPos) {
                             satisfied = true
                             break
                         }
@@ -347,13 +346,12 @@ internal class DiamondTests {
 
                 results.add(model)
 
-                val incrementalDimacsClause = model.mapIndexed { index, value ->
-                    if (value) index + 1 else -(index + 1)
-                }
+                val incrementalClause = Clause.fromDimacs(model.mapIndexed { index0, value ->
+                    val v = index0 + 1
+                    if (value) v else -v
+                })
 
-                fullCnf = CNF(fullCnf.clauses + listOf(incrementalDimacsClause), fullCnf.numVars)
-
-                val incrementalClause = Clause.fromDimacs(incrementalDimacsClause)
+                fullCnf = CNF(fullCnf.clauses + incrementalClause, fullCnf.numVars)
 
                 solver.newClause(incrementalClause)
             } else {

@@ -25,7 +25,7 @@ class ClauseVec private constructor(
     val lastIndex get() = size - 1
 
     constructor() : this(emptyArray<Clause>())
-    constructor(clauses: List<Clause>) : this(clauses.toTypedArray())
+    constructor(clauses: Collection<Clause>) : this(clauses.toTypedArray())
 
     operator fun get(index: Int): Clause {
         // require(index < size)
