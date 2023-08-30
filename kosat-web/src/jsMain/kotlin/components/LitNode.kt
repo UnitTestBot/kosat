@@ -40,19 +40,23 @@ val LitNode: FC<LitProps> = FC("LitNode") { props ->
 
     val lit = props.lit
 
-    val data = solver.state.inner.assignment.varData[lit.variable]
-    val value = if (!data.active) {
+    val level = solver.state.inner.assignment.level(lit)
+    val active = solver.state.inner.assignment.isActive(lit)
+    val frozen = solver.state.inner.assignment.isFrozen(lit)
+    val reason = solver.state.inner.assignment.reason(lit)
+
+    val value = if (!active) {
         LBool.UNDEF
     } else {
         solver.state.inner.assignment.value(lit)
     }
-    val level0 = data.level == 0
+    val level0 = level == 0
 
     val fill = when {
         value == LBool.TRUE && level0 -> Colors.truth
         value == LBool.FALSE && level0 -> Colors.falsity
-        !data.active -> Colors.inactive
-        data.frozen -> Colors.frozen
+        !active -> Colors.inactive
+        frozen -> Colors.frozen
         else -> Colors.bg
     }
 
@@ -77,21 +81,21 @@ val LitNode: FC<LitProps> = FC("LitNode") { props ->
             } else {
                 Box { +"Negative literal" }
             }
-            if (value == LBool.TRUE) Box { +"Assigned to TRUE at level ${data.level}" }
-            if (value == LBool.FALSE) Box { +"Assigned to FALSE at level ${data.level}" }
+            if (value == LBool.TRUE) Box { +"Assigned to TRUE at level $level" }
+            if (value == LBool.FALSE) Box { +"Assigned to FALSE at level $level" }
 
             // if (!data.active) Box { +"Inactive (eliminated)" }
-            if (data.active) Box {
+            if (active) Box {
                 val activity = solver.state.inner.vsids.activity[lit.variable]
                 +"VSIDS activity: ${activity.round(2)}"
             }
-            if (data.frozen) Box { +"Frozen" }
-            if (data.reason != null) Box {
+            if (frozen) Box { +"Frozen" }
+            if (reason != null) Box {
                 +"Reason:"
                 Box {
                     component = span
                     ClauseNode {
-                        clause = data.reason!!
+                        clause = reason
                         scale = 0.5
                     }
                 }
@@ -110,7 +114,7 @@ val LitNode: FC<LitProps> = FC("LitNode") { props ->
                 justifyContent = JustifyContent.center
                 backgroundColor = fill.main
                 cursor = Cursor.pointer
-                fontStyle = if (data.frozen) FontStyle.italic else null
+                fontStyle = if (frozen) FontStyle.italic else null
                 border = borderColor?.let { Border(3.pt, LineStyle.solid, it) }
             }
 

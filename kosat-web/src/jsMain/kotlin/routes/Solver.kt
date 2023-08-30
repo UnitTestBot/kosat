@@ -20,7 +20,7 @@ import mui.material.styles.TypographyVariant
 import mui.material.styles.useTheme
 import mui.system.sx
 import org.kosat.SolveResult
-import org.kosat.cnf.CNF
+import org.kosat.CNF
 import react.FC
 import react.Props
 import react.dom.html.ReactHTML
@@ -51,7 +51,7 @@ val Solver: FC<Props> = FC("Solver") {
     val solver = useContext(cdclWrapperContext)!!
     val dispatch = useContext(cdclDispatchContext)!!
     val theme = useTheme<Theme>()
-    var problem by useState(solver.problem.toDimacsString(includeHeader = true))
+    var problem by useState(solver.problem.toDimacsString())
     var error by useState<String?>(null)
     var errorShown by useState(false)
     val navigate = useNavigate()

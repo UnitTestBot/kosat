@@ -1,28 +1,25 @@
 package org.kosat
 
+import korlibs.time.measureTimeWithResult
+import okio.FileSystem
 import okio.Path.Companion.toPath
-import org.junit.jupiter.api.Timeout
-import org.kosat.cnf.CNF
-import org.kosat.cnf.from
 import kotlin.test.Test
 
-@Timeout(1000_000_000)
 internal class ManualTest {
     @Test
     fun testManual() {
-        val path = "src/jvmTest/resources/testCover/cover/cover0015.cnf".toPath()
-        val cnf = CNF.from(path)
-        val clauses = cnf.clauses.map { lits ->
-            Clause(LitVec(lits.map { Lit.fromDimacs(it) }))
+        val path = "src/jvmTest/resources/testCover/cover/cover0023.cnf".toPath()
+        // val path = "../data/satcomp-2017/g2-mizh-md5-48-5.cnf".toPath()
+        // val path = "../data/satcomp-2017/mp1-qpr-bmp280-driver-5.cnf".toPath()
+        println("Reading '$path'...")
+        val cnf = FileSystem.SYSTEM.read(path) { CNF.from(this) }
+        println("Creating solver from CNF...")
+        val solver = CDCL(cnf)
+        println("Solving...")
+        val (result, timeSolve) = measureTimeWithResult {
+            solver.solve()
         }
-        val solver = CDCL(clauses, cnf.numVars)
-        // solver.dratBuilder = DratBuilder(System.err.sink().buffer())
-        val model = solver.solve()
-        println("${solver.getModel()}")
-        println("model = $model")
-        val model2 = solver.solve(listOf(81, 148, -1, -183, 158, -183, 35, 111, -139, 30, 67, 56, 151).map { Lit.fromDimacs(it) })
-        println("model = $model2")
-        // solver.solve(listOf(Lit.fromDimacs(2), Lit.fromDimacs(-1)))
-        // println("${solver.getModel()}")
+        println("result = $result")
+        println("All done in ${timeSolve.seconds} s")
     }
 }

@@ -114,14 +114,14 @@ val StateSection: FC<Props> = FC("StateSection") {
 
                     LabelledNumber {
                         label = "Unassigned"
-                        value = assignment.value.withIndex().count {
+                        value = assignment.value.toList().withIndex().count {
                             assignment.isActive(Var(it.index)) && it.value == LBool.UNDEF
                         }
                     }
 
                     LabelledNumber {
                         label = "Not fixed"
-                        value = assignment.value.indices.count {
+                        value = assignment.value.toList().indices.count {
                             val v = Var(it)
                             assignment.isActive(v) && assignment.fixed(v) == LBool.UNDEF
                         }

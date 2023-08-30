@@ -38,7 +38,7 @@ class Stats {
     }
 
     /** Statistics for [CDCL.failedLiteralProbing] */
-    val flp = FlpStats()
+    val flp: FlpStats = FlpStats()
 
     class ElsStats {
         /** Number of full equivalent literal substitution attempts performed */
@@ -49,7 +49,7 @@ class Stats {
     }
 
     /** Statistics for [CDCL.equivalentLiteralSubstitution] */
-    val els = ElsStats()
+    val els: ElsStats = ElsStats()
 
     class BveStats {
         /** Number of full bounded variable elimination attempts performed */
@@ -93,7 +93,7 @@ class Stats {
     }
 
     /** Statistics for [CDCL.boundedVariableElimination] */
-    val bve = BveStats()
+    val bve: BveStats = BveStats()
 
     fun write(sink: BufferedSink) {
         fun line(name: String, value: Any?) {

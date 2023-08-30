@@ -4,11 +4,9 @@ import org.kosat.LBool
 import org.kosat.LitVec
 import org.kosat.SolveResult
 import org.kosat.Var
-import org.kosat.cnf.CNF
+import org.kosat.CNF
 import org.kosat.get
 import org.kosat.retainFirst
-import org.kosat.set
-import org.kosat.swap
 
 /**
  * To allow user to interact with the solver in a granular way, we have to
@@ -73,8 +71,8 @@ class CdclState(initialProblem: CNF) {
     init {
         // FIXME: workaround
         inner.vsids.build(
-            inner.db.clauses +
-                Clause(LitVec(List(inner.assignment.numberOfVariables) { Var(it).posLit }))
+            inner.assignment.numberOfVariables,
+            inner.db.clauses,
         )
     }
 
@@ -109,8 +107,8 @@ class CdclState(initialProblem: CNF) {
             is SolverCommand.Search -> {
                 // FIXME: workaround, same as above
                 inner.vsids.build(
-                    inner.db.clauses +
-                        Clause(LitVec(List(inner.assignment.numberOfVariables) { Var(it).posLit }))
+                    inner.assignment.numberOfVariables,
+                    inner.db.clauses,
                 )
                 inner.search()
             }

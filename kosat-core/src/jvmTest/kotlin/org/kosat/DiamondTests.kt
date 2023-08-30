@@ -13,13 +13,11 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import org.kosat.cnf.CNF
-import org.kosat.cnf.from
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.UUID
+import java.util.*
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.relativeTo
@@ -159,9 +157,9 @@ internal class DiamondTests {
 
     private fun solveWithMiniSat(cnf: CNF): SolveResult {
         return MiniSatSolver().use { minisat ->
-            val lits = List(cnf.numVars) { minisat.newLiteral() }
+            repeat(cnf.numVars){minisat.newLiteral()}
             for (clause in cnf.clauses) {
-                minisat.addClause(clause.map { it.sign * lits[abs(it) - 1] })
+                minisat.addClause(clause.toDimacs())
             }
             val result = if (minisat.solve()) {
                 SolveResult.SAT
@@ -204,14 +202,16 @@ internal class DiamondTests {
             solver.solve()
         }
 
-        Assertions.assertEquals(resultExpected, resultActual) { "MiniSat and KoSat results are different." }
+        Assertions.assertEquals(resultExpected, resultActual) {
+            "MiniSat and KoSat results are different."
+        }
 
         println("MiniSat and KoSat results are the same: $resultActual")
 
         if (resultActual == SolveResult.UNSAT) {
             if (!generateAndCheckDrat) {
                 println(
-                    "Path to DRAT-TRIM in environment variable DRAT_TRIM_EXECUTABLE is not set. " +
+                    "Environment variable TEST_CHECK_UNSAT_PROOF is not set to true. " +
                         "Skipping DRAT-trim test."
                 )
             } else {
@@ -231,10 +231,7 @@ internal class DiamondTests {
 
                 assertContains(stdout, "s VERIFIED")
 
-                Assertions.assertNotEquals(
-                    80,
-                    validator.exitValue()
-                ) {
+                Assertions.assertNotEquals(80, validator.exitValue()) {
                     "DRAT-TRIM exited with code 80 " +
                         "(possibly because of a termination due to warning if ran with -W flag)"
                 }
@@ -248,8 +245,8 @@ internal class DiamondTests {
 
             for (clause in cnf.clauses) {
                 var satisfied = false
-                for (lit in clause) {
-                    if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                for (lit in clause.lits) {
+                    if (model[lit.variable] == lit.isPos) {
                         satisfied = true
                         break
                     }
@@ -270,13 +267,13 @@ internal class DiamondTests {
         println("KoSat time: ${timeKoSat.roundMilliseconds()}")
     }
 
-    private fun runTestWithAssumptions(cnf: CNF, assumptionsSets: List<List<Int>>, config: Config) {
+    private fun runTestWithAssumptions(cnf: CNF, assumptionsSets: Iterable<List<Int>>, config: Config) {
         val solver = CDCL(cnf)
         solver.config = config
 
         for (assumptions in assumptionsSets) {
             println("## Solving with assumptions: $assumptions")
-            val cnfWithAssumptions = CNF(cnf.clauses + assumptions.map { listOf(it) }, cnf.numVars)
+            val cnfWithAssumptions = CNF(cnf.clauses + assumptions.map { Clause.fromDimacs(listOf(it)) }, cnf.numVars)
 
             val (resultExpected, timeMiniSat) = measureTimeWithResult {
                 solveWithMiniSat(cnfWithAssumptions)
@@ -286,7 +283,9 @@ internal class DiamondTests {
                 solver.solve(assumptions.map { Lit.fromDimacs(it) })
             }
 
-            Assertions.assertEquals(resultExpected, resultActual) { "MiniSat and KoSat results are different" }
+            Assertions.assertEquals(resultExpected, resultActual) {
+                "MiniSat and KoSat results are different"
+            }
             println("MiniSat and KoSat results are the same: $resultActual")
 
             if (resultActual == SolveResult.SAT) {
@@ -294,19 +293,23 @@ internal class DiamondTests {
 
                 for (clause in cnf.clauses) {
                     var satisfied = false
-                    for (lit in clause) {
-                        if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                    for (lit in clause.lits) {
+                        if (model[lit.variable] == lit.isPos) {
                             satisfied = true
                             break
                         }
                     }
 
-                    Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                    Assertions.assertTrue(satisfied) {
+                        "Clause $clause is not satisfied. Model: $model"
+                    }
                 }
 
                 for (assumption in assumptions) {
                     val assumptionValue = model[abs(assumption) - 1] == (assumption.sign == 1)
-                    Assertions.assertTrue(assumptionValue) { "Assumption $assumption is not satisfied. Model: $model" }
+                    Assertions.assertTrue(assumptionValue) {
+                        "Assumption $assumption is not satisfied. Model: $model"
+                    }
                 }
             }
 
@@ -328,7 +331,9 @@ internal class DiamondTests {
 
             val actualResult = solver.solve()
 
-            Assertions.assertEquals(expectedResult, actualResult) { "MiniSat and KoSat results are different" }
+            Assertions.assertEquals(expectedResult, actualResult) {
+                "MiniSat and KoSat results are different"
+            }
             println("MiniSat and KoSat results are the same: $actualResult")
 
             if (actualResult == SolveResult.SAT) {
@@ -336,25 +341,26 @@ internal class DiamondTests {
 
                 for (clause in fullCnf.clauses) {
                     var satisfied = false
-                    for (lit in clause) {
-                        if (model[abs(lit) - 1] == (lit.sign == 1)) {
+                    for (lit in clause.lits) {
+                        if (model[lit.variable] == lit.isPos) {
                             satisfied = true
                             break
                         }
                     }
 
-                    Assertions.assertTrue(satisfied) { "Clause $clause is not satisfied. Model: $model" }
+                    Assertions.assertTrue(satisfied) {
+                        "Clause $clause is not satisfied. Model: $model"
+                    }
                 }
 
                 results.add(model)
 
-                val incrementalDimacsClause = model.mapIndexed { index, value ->
-                    if (value) index + 1 else -(index + 1)
-                }
+                val incrementalClause = Clause.fromDimacs(model.mapIndexed { index0, value ->
+                    val v = index0 + 1
+                    if (value) v else -v
+                })
 
-                fullCnf = CNF(fullCnf.clauses + listOf(incrementalDimacsClause), fullCnf.numVars)
-
-                val incrementalClause = Clause.fromDimacs(incrementalDimacsClause)
+                fullCnf = CNF(fullCnf.clauses + incrementalClause, fullCnf.numVars)
 
                 solver.newClause(incrementalClause)
             } else {

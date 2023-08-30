@@ -24,3 +24,10 @@ fun <T> MutableList<T>.retainFirst(n: Int) {
         this.removeLast()
     }
 }
+
+fun ClauseVec.retainFirst(n: Int) {
+    require(n <= this.size)
+    while (this.size > n) {
+        this.removeLast()
+    }
+}

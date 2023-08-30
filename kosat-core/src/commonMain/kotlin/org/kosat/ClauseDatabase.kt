@@ -1,14 +1,12 @@
 package org.kosat
 
-import kotlin.math.max
-
 enum class ReduceStrategy {
     ACTIVITY, LBD
 }
 
 class ClauseDatabase(private val solver: CDCL) {
-    val clauses: MutableList<Clause> = mutableListOf()
-    val learnts: MutableList<Clause> = mutableListOf()
+    val clauses = mutableListOf<Clause>()
+    val learnts = mutableListOf<Clause>()
 
     private var clauseInc: Double = 1.0
 
@@ -47,7 +45,8 @@ class ClauseDatabase(private val solver: CDCL) {
      * with a reason being that clause (propagated because of it)?
      */
     fun isClauseLocked(clause: Clause): Boolean {
-        return solver.assignment.reason(clause[0].variable) === clause
+        return solver.assignment.reason(clause[0].variable) === clause &&
+            solver.assignment.level(clause[0]) > 0
     }
 
     /**
@@ -70,6 +69,7 @@ class ClauseDatabase(private val solver: CDCL) {
         solver.dratBuilder.addComment("Simplifying clauses")
         outer@ for (clause in clauses + learnts) {
             if (clause.deleted) continue
+            if (isClauseLocked(clause)) continue
 
             for (lit in clause.lits) {
                 if (solver.assignment.fixed(lit) == LBool.TRUE) {
@@ -102,12 +102,12 @@ class ClauseDatabase(private val solver: CDCL) {
     /**
      * Remove the least active learned clauses.
      *
-     * @see [Clause.activity]
+     * @see Clause.activity
      */
     private fun reduceBasedOnActivity() {
         // Putting the least active clauses at the start of the list,
         // keeping binary clauses and deleted clauses at the end
-        learnts.sortedBy {
+        learnts.sortBy {
             if (it.deleted || it.lits.size == 2) {
                 Double.POSITIVE_INFINITY
             } else {
@@ -118,16 +118,15 @@ class ClauseDatabase(private val solver: CDCL) {
         val countLimit = learnts.size / 2
         val activityLimit = clauseInc / learnts.size.toDouble()
 
-        // Remove the least active learned clauses, at most countLimit
-        for (i in 0 until countLimit) {
+        // Remove the least active learned clauses, at least countLimit
+        for (i in 0 until learnts.size) {
             val learnt = learnts[i]
 
             if (learnt.lits.size == 2) break
             if (learnt.deleted) break
-            if (learnt.activity >= activityLimit) break
+            if (learnt.activity >= activityLimit && i > countLimit) break
 
             // Do not remove clauses if they are used in the trail
-            // technically, this is not needed, but might be used later
             if (isClauseLocked(learnt)) continue
 
             solver.markDeleted(learnt)
@@ -169,9 +168,14 @@ class ClauseDatabase(private val solver: CDCL) {
      * Run the configured reduce if the number of learnt clauses is too high.
      */
     fun reduceIfNeeded() {
-        reduceMaxLearnts = max(reduceMaxLearnts, solver.config.clauseDbMaxSizeInitial)
+        reduceMaxLearnts = maxOf(
+            reduceMaxLearnts,
+            solver.config.clauseDbMaxSizeInitial,
+            (clauses.size * solver.config.clauseDbMaxSizeInitialRelative).toInt(),
+        )
+
         if (learnts.size > reduceMaxLearnts + solver.assignment.trail.size) {
-            reduceMaxLearnts += solver.config.clauseDbMaxSizeIncrement
+            reduceMaxLearnts = (reduceMaxLearnts.toDouble() * solver.config.clauseDbMaxSizeIncrement).toInt()
 
             solver.reporter.report("Clause DB reduction (${learnts.size} learnts)", solver.stats)
 

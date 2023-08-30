@@ -1,25 +1,12 @@
 package org.kosat
 
-data class VarState(
-    /** A clause which lead to assigning a value to this variable during [CDCL.propagate] */
-    var reason: Clause?,
-
-    /** Level of decision on which the variable was assigned a value */
-    var level: Int,
-
-    /** Index of the variable in the trail */
-    var trailIndex: Int = -1,
-
-    /** Whether the variable is active, i.e. used in the search and not eliminated in some way */
-    var active: Boolean = true,
-
-    /** Whether the variable is frozen (cannot be eliminated) */
-    var frozen: Boolean = false,
-)
-
 class Assignment(private val solver: CDCL) {
-    val value: MutableList<LBool> = mutableListOf()
-    val varData: MutableList<VarState> = mutableListOf()
+    val value: LBoolVec = LBoolVec()
+    private val reasons: MutableList<Clause?> = mutableListOf()
+    private var levels: IntArray = IntArray(16) { -1 }
+    private var trailIndices: IntArray = IntArray(16) { -1 }
+    private var active: BooleanArray = BooleanArray(16) { true }
+    private var frozen: BooleanArray = BooleanArray(16) { false }
     val trail: LitVec = LitVec()
     val numberOfVariables get() = value.size
     private var numberOfInactiveVariables = 0
@@ -47,67 +34,74 @@ class Assignment(private val solver: CDCL) {
         return value[lit.variable] xor lit.isNeg
     }
 
-    /** @return whether the variable is [VarState.frozen] */
+    /** @return whether the variable is [frozen] */
     fun isFrozen(v: Var): Boolean {
-        return varData[v].frozen
+        return frozen[v]
     }
 
-    /** @return whether the variable corresponding to the [lit] is [VarState.frozen] */
+    /** @return whether the variable corresponding to the [lit] is [frozen] */
     fun isFrozen(lit: Lit): Boolean = isFrozen(lit.variable)
 
-    /** Marks active variable corresponding to [lit] as [VarState.frozen] */
+    /** Marks active variable corresponding to [lit] as [frozen] */
     fun freeze(lit: Lit) {
-        require(varData[lit.variable].active)
-        varData[lit.variable].frozen = true
+        require(active[lit.variable])
+        frozen[lit.variable] = true
     }
 
-    /** Marks variable corresponding to [lit] as not [VarState.frozen] */
+    /** Marks variable corresponding to [lit] as not [frozen] */
     fun unfreeze(lit: Lit) {
-        varData[lit.variable].frozen = false
+        frozen[lit.variable] = false
     }
 
-    /** @return whether the variable is [VarState.active] */
+    /** @return whether the variable is [active] */
     fun isActive(v: Var): Boolean {
-        return varData[v].active
+        return active[v]
     }
 
-    /** @return whether the variable corresponding to the [lit] is [VarState.active] */
+    /** @return whether the variable corresponding to the [lit] is [active] */
     fun isActive(lit: Lit): Boolean = isActive(lit.variable)
 
-    /** Marks variable as [VarState.active] */
+    /** Marks variable as [active] */
     fun markActive(v: Var) {
-        if (varData[v].active) return
+        if (active[v]) return
         numberOfInactiveVariables--
-        varData[v].active = true
+        if (numberOfInactiveVariables < 0) {
+            numberOfInactiveVariables = 0
+        }
+        active[v] = true
     }
 
-    /** Marks variable corresponding to the [lit] as [VarState.active] */
+    /** Marks variable corresponding to the [lit] as [active] */
     fun markActive(lit: Lit) = markActive(lit.variable)
 
-    /** Marks variable as not [VarState.active] */
+    /** Marks variable as not [active] */
     fun markInactive(v: Var) {
-        require(!varData[v].frozen)
-        if (!varData[v].active) return
+        require(!frozen[v])
+        if (!active[v]) return
         numberOfInactiveVariables++
-        varData[v].active = false
+        active[v] = false
     }
 
-    /** Marks variable corresponding to the [lit] as not [VarState.active] */
+    /** Marks variable corresponding to the [lit] as not [active] */
     fun markInactive(lit: Lit) = markInactive(lit.variable)
 
     fun unassign(v: Var) {
         value[v] = LBool.UNDEF
-        varData[v].reason = null
-        varData[v].level = -1
-        varData[v].trailIndex = -1
+        reasons[v] = null
+        levels[v] = -1
+        trailIndices[v] = -1
     }
 
     fun reason(v: Var): Clause? {
-        return varData[v].reason
+        return reasons[v.index]
+    }
+
+    fun reason(lit: Lit): Clause? {
+        return reason(lit.variable)
     }
 
     fun level(v: Var): Int {
-        return varData[v].level
+        return levels[v.index]
     }
 
     fun level(v: Lit): Int {
@@ -115,7 +109,7 @@ class Assignment(private val solver: CDCL) {
     }
 
     fun trailIndex(v: Var): Int {
-        return varData[v].trailIndex
+        return trailIndices[v]
     }
 
     fun fixed(v: Var): LBool {
@@ -137,7 +131,21 @@ class Assignment(private val solver: CDCL) {
     fun addVariable() {
         check(decisionLevel == 0)
         value.add(LBool.UNDEF)
-        varData.add(VarState(null, -1))
+        reasons.add(null)
+        if (value.size > levels.size) {
+            val oldSize = levels.size
+            val newSize = oldSize * 2
+            levels = levels.copyOf(newSize)
+            trailIndices = trailIndices.copyOf(newSize)
+            active = active.copyOf(newSize)
+            frozen = frozen.copyOf(newSize)
+            for (i in oldSize until newSize) {
+                levels[i] = -1
+                trailIndices[i] = -1
+                active[i] = true
+                frozen[i] = false
+            }
+        }
     }
 
     fun newDecisionLevel() {
@@ -153,21 +161,16 @@ class Assignment(private val solver: CDCL) {
             solver.stats.unitsFound++
         }
 
-        value[lit.variable] = LBool.from(lit.isPos)
-        val data = varData[lit.variable]
-        data.reason = reason
-        data.level = decisionLevel
-        data.trailIndex = trail.size
+        val v = lit.variable
+        value[v] = LBool.from(lit.isPos)
+        reasons[v] = reason
+        levels[v] = decisionLevel
+        trailIndices[v] = trail.size
         trail.add(lit)
     }
 
     fun enqueue(lit: Lit, reason: Clause?): Boolean {
         return when (value(lit)) {
-            LBool.UNDEF -> {
-                uncheckedEnqueue(lit, reason)
-                true
-            }
-
             LBool.TRUE -> {
                 // Existing consistent assignment of `lit`
                 true
@@ -176,6 +179,11 @@ class Assignment(private val solver: CDCL) {
             LBool.FALSE -> {
                 // Conflict
                 false
+            }
+
+            else -> {
+                uncheckedEnqueue(lit, reason)
+                true
             }
         }
     }

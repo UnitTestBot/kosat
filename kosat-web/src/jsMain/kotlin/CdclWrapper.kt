@@ -1,4 +1,4 @@
-import org.kosat.cnf.CNF
+import org.kosat.CNF
 
 /**
  * Immutable wrapper around the [CdclState]. This is the main interface for
