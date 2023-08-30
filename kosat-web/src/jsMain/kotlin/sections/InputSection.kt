@@ -11,7 +11,7 @@ import mui.material.Dialog
 import mui.material.DialogContent
 import mui.material.TextField
 import mui.system.sx
-import org.kosat.cnf.CNF
+import org.kosat.CNF
 import react.FC
 import react.Props
 import react.dom.onChange
@@ -35,7 +35,7 @@ val InputSection: FC<Props> = FC("InputSection") {
     var errorShown by useState(false)
     val inputField = useRef<HTMLDivElement>(null)
 
-    var problem by useState(solver.problem.toDimacsString(includeHeader = true))
+    var problem by useState(solver.problem.toDimacsString())
 
     fun recreate() {
         val cnf: CNF

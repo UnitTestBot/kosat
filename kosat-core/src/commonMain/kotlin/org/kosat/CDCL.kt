@@ -2,7 +2,6 @@ package org.kosat
 
 import okio.blackholeSink
 import okio.buffer
-import org.kosat.cnf.CNF
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
@@ -109,7 +108,7 @@ class CDCL {
         initialClauses.forEach { newClause(it) }
     }
 
-    constructor(cnf: CNF) : this(cnf.clauses.map { Clause.fromDimacs(it) }, cnf.numVars)
+    constructor(cnf: CNF) : this(cnf.clauses, cnf.numVars)
 
     /**
      * Allocate a new variable in the solver.
@@ -212,10 +211,6 @@ class CDCL {
      * The assumptions given to an incremental solver.
      */
     private var assumptions: LitVec = LitVec()
-
-    fun solve(): SolveResult {
-        return solve(emptyList())
-    }
 
     /**
      * Solves the CNF problem using the CDCL algorithm.
@@ -1646,8 +1641,7 @@ class CDCL {
         // We mark all the literals in the clause.
         for (lit in clause.lits) state.subsumptionMarks[lit] = true
 
-        // And iterate over all the clauses which contain the least occurring
-        // literal.
+        // And iterate over all the clauses which contain the least occurring literal.
         val initialSize = state.occurrences[leastOccurrenceLit].size
         outer@ for (i in 0 until initialSize) {
             val otherClause = state.occurrences[leastOccurrenceLit][i]
@@ -1677,8 +1671,8 @@ class CDCL {
             }
 
             if (mismatch == null) {
-                // Finally, if there are no mismatches, then the clause is simply
-                // subsumed.
+                // Finally, if there are no mismatches,
+                // then the clause is simply subsumed.
                 stats.bve.clausesSubsumed++
                 bveMarkDeleted(state, otherClause)
             } else if (state.subsumptionMarks[mismatch.neg]) {
@@ -1703,19 +1697,19 @@ class CDCL {
     /**
      * The resolution procedure used by the [boundedVariableElimination].
      *
-     * Given two clauses, [clause1] and [clause2], which
+     * Given two clauses, [left] and [right], which
      * contain the same variable in opposite phases, this function returns the
      * resolvent of the two clauses, or null if the resolvent is a tautology,
      * or satisfied.
      *
      * It may return a unit clause, but it should never return an empty clause.
      */
-    private fun resolve(clause1: Clause, clause2: Clause, pivot: Var): Clause? {
-        require(!clause1.learnt && !clause2.learnt)
-        require(!clause1.deleted && !clause2.deleted)
-        val resolvent = LitVec.emptyOfCapacity(clause1.size + clause2.size - 2)
+    private fun resolve(left: Clause, right: Clause, pivot: Var): Clause? {
+        require(!left.learnt && !right.learnt)
+        require(!left.deleted && !right.deleted)
+        val resolvent = LitVec.emptyOfCapacity(left.size + right.size - 2)
 
-        for (lit in clause1.lits) {
+        for (lit in left.lits) {
             if (lit.variable == pivot) continue
             val value = assignment.value(lit)
             if (value == LBool.FALSE) continue
@@ -1724,7 +1718,7 @@ class CDCL {
             resolvent.add(lit)
         }
 
-        for (lit in clause2.lits) {
+        for (lit in right.lits) {
             if (lit.variable == pivot) continue
             val value = assignment.value(lit)
             if (value == LBool.FALSE) continue

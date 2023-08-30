@@ -1,7 +1,5 @@
 package org.kosat
 
-import kotlin.math.max
-
 enum class ReduceStrategy {
     ACTIVITY, LBD
 }

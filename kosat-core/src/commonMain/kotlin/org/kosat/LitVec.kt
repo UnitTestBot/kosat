@@ -20,22 +20,22 @@ import kotlin.math.min
  */
 class LitVec private constructor(
     var raw: IntArray,
-    var size: Int,
+    var size: Int = raw.size,
 ) {
     private val capacity get() = raw.size
     val lastIndex get() = size - 1
 
-    constructor(lits: List<Lit>) : this(lits.map { it.inner }.toIntArray(), lits.size)
-    constructor() : this(emptyArray, 0)
+    constructor() : this(IntArray(0))
+    constructor(lits: List<Lit>) : this(lits.map { it.inner }.toIntArray())
 
     operator fun get(index: Int): Lit {
+        // require(index < size)
         return Lit(raw[index])
     }
 
-    operator fun set(index: Int, element: Lit): Lit {
-        val prev = Lit(raw[index])
-        raw[index] = element.inner
-        return prev
+    operator fun set(index: Int, value: Lit) {
+        // require(index < size)
+        raw[index] = value.inner
     }
 
     fun isEmpty(): Boolean {
@@ -106,11 +106,11 @@ class LitVec private constructor(
         }
     }
 
-    inline fun removeAll(fn: (Lit) -> Boolean) {
+    inline fun removeAll(predicate: (Lit) -> Boolean) {
         var i = 0
         var j = 0
         while (i < size) {
-            if (!fn(Lit(raw[i]))) {
+            if (!predicate(Lit(raw[i]))) {
                 raw[j++] = raw[i]
             }
             i++
@@ -178,30 +178,30 @@ class LitVec private constructor(
         return LitVecIter()
     }
 
-    inline fun any(fn: (Lit) -> Boolean): Boolean {
+    inline fun any(predicate: (Lit) -> Boolean): Boolean {
         for (i in 0 until size) {
-            if (fn(Lit(raw[i]))) {
+            if (predicate(Lit(raw[i]))) {
                 return true
             }
         }
         return false
     }
 
-    inline fun all(fn: (Lit) -> Boolean): Boolean {
+    inline fun all(predicate: (Lit) -> Boolean): Boolean {
         for (i in 0 until size) {
-            if (!fn(Lit(raw[i]))) {
+            if (!predicate(Lit(raw[i]))) {
                 return false
             }
         }
         return true
     }
 
-    inline fun <T : Comparable<T>> minBy(fn: (Lit) -> T): Lit {
+    inline fun <T : Comparable<T>> minBy(selector: (Lit) -> T): Lit {
         var min = Lit(raw[0])
-        var minVal = fn(min)
+        var minVal = selector(min)
         for (i in 1 until size) {
             val lit = Lit(raw[i])
-            val value = fn(lit)
+            val value = selector(lit)
             if (value < minVal) {
                 min = lit
                 minVal = value
@@ -210,19 +210,19 @@ class LitVec private constructor(
         return min
     }
 
-    inline fun <T> map(fn: (Lit) -> T): List<T> {
+    inline fun <T> map(transform: (Lit) -> T): List<T> {
         val result = ArrayList<T>(size)
         for (i in 0 until size) {
-            result.add(fn(Lit(raw[i])))
+            result.add(transform(Lit(raw[i])))
         }
         return result
     }
 
-    inline fun <T : Comparable<T>> maxOfOrNull(fn: (Lit) -> T): T? {
+    inline fun <T : Comparable<T>> maxOfOrNull(selector: (Lit) -> T): T? {
         if (size == 0) return null
-        var max = fn(Lit(raw[0]))
+        var max = selector(Lit(raw[0]))
         for (i in 1 until size) {
-            val value = fn(Lit(raw[i]))
+            val value = selector(Lit(raw[i]))
             if (value > max) {
                 max = value
             }
@@ -230,26 +230,26 @@ class LitVec private constructor(
         return max
     }
 
-    inline fun forEach(fn: (Lit) -> Unit) {
+    inline fun forEach(action: (Lit) -> Unit) {
         for (i in 0 until size) {
-            fn(Lit(raw[i]))
+            action(Lit(raw[i]))
         }
     }
 
-    inline fun firstOrNull(fn: (Lit) -> Boolean): Lit? {
+    inline fun firstOrNull(predicate: (Lit) -> Boolean): Lit? {
         for (i in 0 until size) {
             val lit = Lit(raw[i])
-            if (fn(lit)) {
+            if (predicate(lit)) {
                 return lit
             }
         }
         return null
     }
 
-    inline fun count(fn: (Lit) -> Boolean): Int {
+    inline fun count(predicate: (Lit) -> Boolean): Int {
         var count = 0
         for (i in 0 until size) {
-            if (fn(Lit(raw[i]))) {
+            if (predicate(Lit(raw[i]))) {
                 count++
             }
         }
@@ -260,8 +260,8 @@ class LitVec private constructor(
      * This is a slow, one time operation, which should be rewritten for
      * performance sensitive code.
      */
-    inline fun <T : Comparable<T>> sortByDescending(crossinline fn: (Lit) -> T) {
-        raw = raw.copyOf(size).sortedByDescending { fn(Lit(it)) }.toIntArray()
+    inline fun <T : Comparable<T>> sortByDescending(crossinline selector: (Lit) -> T) {
+        raw = raw.copyOf(size).sortedByDescending { selector(Lit(it)) }.toIntArray()
     }
 
     inline fun first(fn: (Lit) -> Boolean): Lit {
@@ -290,12 +290,12 @@ class LitVec private constructor(
         return toList().joinToString(separator, prefix, postfix, limit, truncated, transform)
     }
 
-    inline fun maxBy(fn: (Lit) -> Int): Lit {
+    inline fun maxBy(selector: (Lit) -> Int): Lit {
         var max = Lit(raw[0])
-        var maxVal = fn(max)
+        var maxVal = selector(max)
         for (i in 1 until size) {
             val lit = Lit(raw[i])
-            val value = fn(lit)
+            val value = selector(lit)
             if (value > maxVal) {
                 max = lit
                 maxVal = value
@@ -310,11 +310,9 @@ class LitVec private constructor(
     }
 
     companion object {
-        private val emptyArray = IntArray(0)
-        fun of(a: Lit) = LitVec(intArrayOf(a.inner), 1)
-        fun of(a: Lit, b: Lit) = LitVec(intArrayOf(a.inner, b.inner), 2)
-        fun emptyOfCapacity(capacity: Int): LitVec {
-            return LitVec(IntArray(capacity), 0)
-        }
+        fun of(a: Lit): LitVec = LitVec(intArrayOf(a.inner))
+        fun of(a: Lit, b: Lit): LitVec = LitVec(intArrayOf(a.inner, b.inner))
+
+        fun emptyOfCapacity(capacity: Int): LitVec = LitVec(IntArray(capacity), 0)
     }
 }

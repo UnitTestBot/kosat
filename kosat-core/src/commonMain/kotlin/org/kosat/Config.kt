@@ -135,5 +135,5 @@ data class Config(
      */
     var bveMaxVarsToEliminate: Int = Int.MAX_VALUE,
 
-    var timeLimit: Int? = null
+    var timeLimit: Int? = null,
 )

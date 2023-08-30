@@ -3,7 +3,7 @@ package org.kosat
 import kotlin.math.max
 
 /**
- * A vector of clauseerals. It is more efficient than a plain `List<Clause>` because
+ * A vector of clause literals. It is more efficient than a plain `List<Clause>` because
  * it is backed by an array and does not use boxing.
  *
  * Unfortunately, making it iterable will force [iterator] method to return an
@@ -19,13 +19,13 @@ import kotlin.math.max
  */
 class ClauseVec private constructor(
     var raw: Array<Clause>,
-    var size: Int
+    var size: Int = raw.size,
 ) {
     private val capacity get() = raw.size
     val lastIndex get() = size - 1
 
-    constructor() : this(emptyArray<Clause>(), 0)
-    constructor(clauses: List<Clause>) : this(clauses.toTypedArray(), clauses.size)
+    constructor() : this(emptyArray<Clause>())
+    constructor(clauses: List<Clause>) : this(clauses.toTypedArray())
 
     operator fun get(index: Int): Clause {
         // require(index < size)

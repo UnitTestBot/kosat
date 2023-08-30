@@ -4,14 +4,14 @@ import kotlin.jvm.JvmInline
 import kotlin.math.abs
 
 /**
- * A boolean value in the solver
+ * A (lifted) boolean value in the solver.
  */
 @JvmInline
-value class LBool(val inner: Byte) {
+value class LBool internal constructor(val inner: Byte) {
     companion object {
-        val FALSE = LBool(0b01)
-        val TRUE = LBool(0b10)
-        val UNDEF = LBool(0b00)
+        val FALSE: LBool = LBool(0b01)
+        val TRUE: LBool = LBool(0b10)
+        val UNDEF: LBool = LBool(0b00)
 
         fun from(b: Boolean): LBool = from(1 + b.toInt())
         private fun from(i: Int): LBool = LBool(i.toByte())
@@ -50,10 +50,10 @@ value class Lit(val inner: Int) {
     /** A variable of this literal */
     val variable: Var get() = Var(inner shr 1)
 
-    /** Is this a positive literal (Not a negation of a variable)? */
+    /** Is this a positive literal (i.e. not a negation of a variable)? */
     val isPos: Boolean get() = (inner and 1) == 0
 
-    /** Is this a negative literal (Negation of a variable)? */
+    /** Is this a negative literal (i.e. a negation of a variable)? */
     val isNeg: Boolean get() = (inner and 1) == 1
 
     fun toDimacs(): Int {
@@ -82,9 +82,40 @@ operator fun <T> MutableList<T>.set(lit: Lit, value: T) {
     this[lit.inner] = value
 }
 
+operator fun IntArray.get(lit: Lit): Int {
+    return this[lit.inner]
+}
+
+operator fun IntArray.set(lit: Lit, value: Int) {
+    this[lit.inner] = value
+}
+
+operator fun BooleanArray.get(lit: Lit): Boolean {
+    return this[lit.inner]
+}
+
+operator fun BooleanArray.set(lit: Lit, value: Boolean) {
+    this[lit.inner] = value
+}
+
+operator fun DoubleArray.get(lit: Lit): Double {
+    return this[lit.inner]
+}
+
+operator fun DoubleArray.set(lit: Lit, value: Double) {
+    this[lit.inner] = value
+}
+
+operator fun ByteArray.get(lit: Lit): Byte {
+    return this[lit.inner]
+}
+
+operator fun ByteArray.set(lit: Lit, value: Byte) {
+    this[lit.inner] = value
+}
+
 /**
  * An opaque and safe type representation of a variable **index** in the solver.
- * @see VarState
  */
 @JvmInline
 value class Var(val index: Int) {
@@ -111,28 +142,12 @@ operator fun IntArray.set(variable: Var, value: Int) {
     this[variable.index] = value
 }
 
-operator fun IntArray.get(lit: Lit): Int {
-    return this[lit.inner]
-}
-
-operator fun IntArray.set(lit: Lit, value: Int) {
-    this[lit.inner] = value
-}
-
 operator fun BooleanArray.get(variable: Var): Boolean {
     return this[variable.index]
 }
 
 operator fun BooleanArray.set(variable: Var, value: Boolean) {
     this[variable.index] = value
-}
-
-operator fun BooleanArray.get(lit: Lit): Boolean {
-    return this[lit.inner]
-}
-
-operator fun BooleanArray.set(lit: Lit, value: Boolean) {
-    this[lit.inner] = value
 }
 
 operator fun DoubleArray.get(variable: Var): Double {
@@ -143,12 +158,12 @@ operator fun DoubleArray.set(variable: Var, value: Double) {
     this[variable.index] = value
 }
 
-operator fun DoubleArray.get(lit: Lit): Double {
-    return this[lit.inner]
+operator fun ByteArray.get(variable: Var): Byte {
+    return this[variable.index]
 }
 
-operator fun DoubleArray.set(lit: Lit, value: Double) {
-    this[lit.inner] = value
+operator fun ByteArray.set(variable: Var, value: Byte) {
+    this[variable.index] = value
 }
 
 /**

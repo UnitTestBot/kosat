@@ -4,9 +4,8 @@ import org.kosat.LBool
 import org.kosat.LitVec
 import org.kosat.SolveResult
 import org.kosat.Var
-import org.kosat.cnf.CNF
+import org.kosat.CNF
 import org.kosat.get
-import org.kosat.retainFirst
 import org.kosat.retainFirst
 
 /**

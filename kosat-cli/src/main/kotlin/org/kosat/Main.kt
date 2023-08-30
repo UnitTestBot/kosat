@@ -12,7 +12,6 @@ import com.github.ajalt.clikt.parameters.types.int
 import okio.buffer
 import okio.sink
 import okio.source
-import org.kosat.cnf.parseDimacs
 import java.io.File
 import kotlin.time.DurationUnit
 import kotlin.time.measureTimedValue
@@ -33,7 +32,7 @@ class KoSAT : CliktCommand(name = "kosat") {
 
     private val cnfFile: File? by argument(
         name = "cnf",
-        help = "File with CNF"
+        help = "File with CNF (read from stdin if the argument is absent)"
     ).file(
         mustExist = true,
         canBeDir = false,
@@ -58,6 +57,12 @@ class KoSAT : CliktCommand(name = "kosat") {
         help = "Time limit"
     ).int()
 
+    private val isNotPrintModel: Boolean by option(
+        "-n",
+        "--no-print-model",
+        help = "Do not print satisfying assignment"
+    ).flag()
+
     override fun run() {
         println("c KoSAT: pure-Kotlin modern CDCL SAT solver")
         println("c The input must be formatted according to the simplified DIMACS format")
@@ -70,16 +75,10 @@ class KoSAT : CliktCommand(name = "kosat") {
             println("c Reading from STDIN")
             System.`in`.source().buffer()
         }
+        val cnf = cnfSource.use { CNF.from(it) }
+        val solver = CDCL(cnf)
 
-        val solver = CDCL()
-
-        cnfSource.use {
-            for (clause in parseDimacs(cnfSource)) {
-                solver.newClause(clause)
-            }
-        }
-
-        solver.config.timeLimit = timeLimit
+        solver.reporter = Reporter(System.out.sink().buffer())
 
         val dratProofSink = if (proofFile != null) {
             println("c Writing proof to '$proofFile'")
@@ -87,19 +86,15 @@ class KoSAT : CliktCommand(name = "kosat") {
         } else {
             null
         }
-
-        val dratBuilder = if (dratProofSink != null) {
+        solver.dratBuilder = dratProofSink?.use {
             if (binaryProof) {
-                BinaryDratBuilder(dratProofSink)
+                BinaryDratBuilder(it)
             } else {
-                DratBuilder(dratProofSink)
+                DratBuilder(it)
             }
-        } else {
-            NoOpDratBuilder()
-        }
+        } ?: NoOpDratBuilder()
 
-        solver.dratBuilder = dratBuilder
-        solver.reporter = Reporter(System.out.sink().buffer())
+        solver.config.timeLimit = timeLimit
 
         val (result, timeSolve) = measureTimedValue {
             solver.solve()
@@ -108,15 +103,17 @@ class KoSAT : CliktCommand(name = "kosat") {
         when (result) {
             SolveResult.SAT -> {
                 println("s SATISFIABLE")
-                // val model = solver.getModel()
-                // val modelString = model.withIndex().joinToString(separator = " ") {
-                //     if (it.value) {
-                //         (it.index + 1).toString()
-                //     } else {
-                //         (-it.index - 1).toString()
-                //     }
-                // }
-                // println("v $modelString")
+                if (!isNotPrintModel) {
+                    val model = solver.getModel()
+                    val modelString = model.withIndex().joinToString(separator = " ") {
+                        if (it.value) {
+                            (it.index + 1).toString()
+                        } else {
+                            (-it.index - 1).toString()
+                        }
+                    }
+                    println("v $modelString")
+                }
             }
 
             SolveResult.UNSAT -> {
