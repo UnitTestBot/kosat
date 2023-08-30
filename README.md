@@ -1,92 +1,69 @@
-# What is KoSAT?
-![Windows](https://github.com/UnitTestBot/kosat/actions/workflows/build-windows.yml/badge.svg) ![Linux](https://github.com/UnitTestBot/kosat/actions/workflows/build-linux.yml/badge.svg) 
+# Pure Kotlin CDCL SAT solver
 
-KoSAT is **pure Kotlin** CDCL SAT solver based on MiniSat core.
-It is solving boolean satisfiability problems given in DIMACS format.
-Solver supports incremental solving.
+[![CI](https://github.com/UnitTestBot/kosat/actions/workflows/ci.yml/badge.svg)](https://github.com/UnitTestBot/kosat/actions/workflows/ci.yml)
+[![JitPack](https://jitpack.io/v/UnitTestBot/kosat.svg)](https://jitpack.io/p/UnitTestBot/kosat)
+![MIT](https://img.shields.io/badge/license-MIT-blue)
 
-## How to use KoSAT?
-There are different ways how to use our solver:
-<details>
-  <summary>On site</summary>
-<br/>
+> KoSAT is pure Kotlin CDCL SAT solver based on MiniSat
+> with some techniques included from other
+> state-of-the-art SAT solvers.
 
-In the picture below you can see site dialog window. 
-All you need is to enter the problem in DIMACS format and click
-`CHECK SAT` button.
+## 🔥 Web-based CDCL visualizer
 
+> https://www.utbot.org/kosat/
 
-[![img](assets/site.png)](http://www.utbot.org/kosat/)
+## 📦 Kotlin Multiplatform
 
-The site is available at the link below:
+KoSAT is implemented as Kotlin Multiplatform project.
+Core CDCL algorithm is written as a common module,
+so you can use KoSAT on any supported platform,
+e.g. JVM or JS.
 
-> http://www.utbot.org/kosat/
-____________
-</details>
-<details>
-  <summary>By Java/Kotlin</summary>
-<br/>
+### Kotlin/JVM
 
-Use KoSAT directly from Kotlin. You can add it as a JitPack
-dependency. 
+Add the JitPack repository and dependency
+in your `build.gradle.kts`:
 
-To get a Git project into your build:
-
-- **Step 1**. Add the JitPack repository to your build file
-
-Add it in your root build.gradle at the end of repositories:
-
-
-```
-allprojects {
-    repositories {
-        ...
-        maven(url = "https://jitpack.io")
-    }
+```kts
+repositories {
+    maven(url = "https://jitpack.io")
 }
-```
 
-- **Step 2**. Add the dependency
-
-```
 dependencies {
-    implementation("com.github.UnitTestBot.kosat:kosat:main-SNAPSHOT")
+    implementation("com.github.UnitTestBot.kosat:core:$version")
 }
 ```
 
-Now you can use KoSAT project.
-### Here is simple code example:
-``` kotlin
-import org.kosat.Kosat
+#### Usage example: Kotlin
+
+```kotlin
+import org.kosat.CDCL
 
 fun main() {
-// Create the SAT solver:
-val solver = Kosat(mutableListOf(), 0)
+    // Create the instance of KoSAT solver:
+    val solver = CDCL()
 
     // Allocate two variables:
-    solver.addVariable()
-    solver.addVariable()
+    solver.newVariable()
+    solver.newVariable()
 
-    // Encode TIE-SHIRT problem:
-    solver.addClause(-1, 2)
-    solver.addClause(1, 2)
-    solver.addClause(-1, -2)
-    // solver.addClause(1, -2) // UNSAT with this clause
+    // Encode the TIE-SHIRT problem:
+    solver.newClause(-1, 2)
+    solver.newClause(1, 2)
+    solver.newClause(-1, -2)
+    // solver.newClause(1, -2) // UNSAT with this clause
 
     // Solve the SAT problem:
     val result = solver.solve()
-    println("result = $result")
+    println("result = $result") // SAT
 
     // Get the model:
     val model = solver.getModel()
-    println("model = $model")
+    println("model = $model") // [false, true]
 }
 ```
-Find more about KoSAT interface [here](docs/interface.md).
-____________
-</details>
 
-## Heuristics and Features
+Find more about KoSAT interface [here](docs/interface.md).
 
 <details>
   <summary>Main features implemented in solver</summary>
@@ -103,21 +80,24 @@ ____________
 9. [Polarity choice](docs/polarity%20choice.md)
 10. [ReduceDB based on LBD](docs/reduceDB.md)
 11. [Incremental solving](docs/incremental.md)
+
 </details>
 
-## Documentation
+## 📚 Documentation
 
-Our solver has a detailed documentation about everything you might
-need to know. **It may be useful even if you are new to SAT problem.**
+Our solver has a detailed documentation
+about everything you might need to know.
+**It may be useful even if you are new to the SAT topic.**
 
+> Check the docs [here](docs/docs.md).
 
-> Check this out [here](docs/docs.md).
+## ⭐ Contribution & Support
 
-## Contribution & Support ⭐
-KoSAT is an open source project. If you have found any bugs
-or want to suggest some effective heuristics for solver, we are
-open for your help! 
+KoSAT is an open source project.
+If you have found any bugs or want to suggest
+some effective heuristics for solver,
+we are open for your help!
 
-If you have any troubles while using our solver, you can contact
-us in telegram:
-@AlxVlsv, @dvrr9, @polinarria
+## 📜 License
+
+[![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
