@@ -4,23 +4,9 @@ import okio.blackholeSink
 import okio.buffer
 import org.kosat.cnf.CNF
 import kotlin.math.min
-
-/**
- * Solves [cnf] and returns
- * `null` if request unsatisfiable
- * [emptyList] is request is tautology
- * assignments of literals otherwise
- */
-fun solveCnf(cnf: CnfRequest): List<Boolean>? {
-    val clauses = cnf.clauses.map { Clause.fromDimacs(it) }.toMutableList()
-    val solver = CDCL(clauses, cnf.vars)
-    val result = solver.solve()
-    return if (result == SolveResult.SAT) {
-        solver.getModel()
-    } else {
-        null
-    }
-}
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
 
 /**
  * CDCL (Conflict-Driven Clause Learning) solver instance
@@ -65,14 +51,14 @@ class CDCL {
      * Can solver perform the search? This becomes false if given constraints
      * cause unsatisfiability in some way.
      */
-    var ok = true
+    var ok: Boolean = true
 
     /**
      * Two-watched literals heuristic.
      *
      * `i`-th element of this list is the set of clauses watched by variable `i`.
      */
-    val watchers: MutableList<MutableList<Clause>> = mutableListOf()
+    val watchers: MutableList<ClauseVec> = mutableListOf()
 
     /**
      * The reconstruction stack, used to restore the solver state
@@ -91,19 +77,19 @@ class CDCL {
 
     /**
      * The restart strategy, used to decide when to restart the search.
-     * @see [solve]
+     * @see solve
      */
     private val restarter = Restarter(this)
 
     /**
      * A list of clauses which were added since the last call to [solve].
      */
-    private val newClauses = mutableListOf<Clause>()
+    private val newClauses = ClauseVec()
 
     /**
      * Create a new solver instance with no clauses.
      */
-    constructor() : this(mutableListOf<Clause>())
+    constructor()
 
     /**
      * Create a new solver instance with given clauses.
@@ -121,7 +107,6 @@ class CDCL {
         }
 
         initialClauses.forEach { newClause(it) }
-        polarity = MutableList(assignment.numberOfVariables) { LBool.UNDEF }
     }
 
     constructor(cnf: CNF) : this(cnf.clauses.map { Clause.fromDimacs(it) }, cnf.numVars)
@@ -134,14 +119,11 @@ class CDCL {
      */
     fun newVariable() {
         // Watch
-        watchers.add(mutableListOf())
-        watchers.add(mutableListOf())
+        watchers.add(ClauseVec())
+        watchers.add(ClauseVec())
 
         // Assignment
         assignment.addVariable()
-
-        // Variable selection strategy
-        vsids.addVariable()
 
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
@@ -157,6 +139,10 @@ class CDCL {
         return assignment.value(lit)
     }
 
+    fun newClause(vararg lits: Int) {
+        newClause(Clause(LitVec(lits.map { Lit.fromDimacs(it) })))
+    }
+
     /**
      * Add a new clause to the solver.
      */
@@ -165,7 +151,7 @@ class CDCL {
         if (!ok) return
 
         // Add not mentioned variables from the new clause
-        val maxVar = clause.lits.maxOfOrNull { it.variable.index } ?: 0
+        val maxVar = clause.lits.maxOfOrNull { it.variable.index + 1 } ?: 0
         while (assignment.numberOfVariables < maxVar) {
             newVariable()
         }
@@ -220,12 +206,16 @@ class CDCL {
      * Used for phase saving heuristic. Memorizes the polarity of
      * the given variable when it was last assigned, but reset during backtracking.
      */
-    var polarity: MutableList<LBool> = mutableListOf()
+    var polarity: LBoolVec = LBoolVec()
 
     /**
      * The assumptions given to an incremental solver.
      */
     private var assumptions: LitVec = LitVec()
+
+    fun solve(): SolveResult {
+        return solve(emptyList())
+    }
 
     /**
      * Solves the CNF problem using the CDCL algorithm.
@@ -258,7 +248,7 @@ class CDCL {
 
         // Rebuild the variable selector
         // TODO: is there a way to not rebuild the selector every solve?
-        vsids.build(db.clauses)
+        vsids.build(assignment.numberOfVariables, db.clauses)
         preprocess()?.let { return it }
 
         return search()
@@ -270,6 +260,8 @@ class CDCL {
      * @return the result of the search.
      */
     fun search(): SolveResult {
+        val startTime = TimeSource.Monotonic.markNow()
+
         while (true) {
             check(assignment.qhead == assignment.trail.size)
 
@@ -292,6 +284,14 @@ class CDCL {
 
             check(assignment.qhead == assignment.trail.size)
 
+            if (config.timeLimit != null) {
+                val elapsed = TimeSource.Monotonic.markNow() - startTime
+                if (elapsed > config.timeLimit!!.seconds) {
+                    println("c Timeout: ${elapsed.toDouble(DurationUnit.SECONDS)} s")
+                    return SolveResult.UNKNOWN
+                }
+            }
+
             // And after that, we are ready to make a decision.
             assignment.newDecisionLevel()
 
@@ -304,9 +304,11 @@ class CDCL {
                         assignedAssumption = true
                         break
                     }
+
                     LBool.TRUE -> {
                         // The assumption is already satisfied, so we can ignore it.
                     }
+
                     LBool.FALSE -> {
                         // The assumption is falsified, so we can return UNSAT.
                         return finishWithAssumptionsUnsat()
@@ -321,20 +323,22 @@ class CDCL {
 
                 // Use the phase from the search before, if possible (so-called "Phase Saving")
                 val nextDecisionLiteral = when (polarity[nextDecisionVariable]) {
-                    LBool.UNDEF -> {
-                        // If the polarity is undefined, we can choose it freely.
-                        // We choose the positive literal.
-                        nextDecisionVariable.posLit
-                    }
                     LBool.TRUE -> {
                         // If we remember that the last chosen polarity was positive,
                         // we choose the positive literal.
                         nextDecisionVariable.posLit
                     }
+
                     LBool.FALSE -> {
                         // If we remember that the last chosen polarity was negative,
                         // we choose the negative literal.
                         nextDecisionVariable.negLit
+                    }
+
+                    else -> {
+                        // If the polarity is undefined, we can choose it freely.
+                        // We choose the positive literal.
+                        nextDecisionVariable.posLit
                     }
                 }
 
@@ -388,7 +392,6 @@ class CDCL {
                 db.clauseBumpActivity(learnt)
             }
 
-            // Update the heuristics
             vsids.bump(learnt)
             db.clauseDecayActivity()
 
@@ -506,6 +509,8 @@ class CDCL {
 
         dratBuilder.addComment("Finished preprocessing")
 
+        reporter.report("Finished preprocessing", stats)
+
         return null
     }
 
@@ -601,7 +606,7 @@ class CDCL {
         // Total number of literals substituted
         var totalSubstituted = 0
 
-        val recursionLimit = 5000
+        val recursionLimit = 1000
 
         // Tarjan's algorithm, returns the lowest number of all reachable nodes
         // from the given node, or null if the node is in a cycle with the
@@ -617,16 +622,14 @@ class CDCL {
             num[v] = counter
             var lowest = counter
 
-            if (recursionDepthLeft == 0) {
-                return counter
-            }
-
-            for (u in binaryImplicationsFrom(v)) {
-                if (marks[u] == markUnvisited) {
-                    val otherLowest = dfs(u, recursionDepthLeft - 1) ?: return null
-                    lowest = min(otherLowest, lowest)
-                } else if (marks[u] != markProcessed) {
-                    lowest = min(lowest, num[u])
+            if (recursionDepthLeft != 0) {
+                for (u in binaryImplicationsFrom(v)) {
+                    if (marks[u] == markUnvisited) {
+                        val otherLowest = dfs(u, recursionDepthLeft - 1) ?: return null
+                        lowest = min(otherLowest, lowest)
+                    } else if (marks[u] != markProcessed) {
+                        lowest = min(lowest, num[u])
+                    }
                 }
             }
 
@@ -720,7 +723,7 @@ class CDCL {
         // equivalence to be removed, which will make the proof invalid.
         // Instead, we remember which clauses we no longer need, and remove them
         // later.
-        val clausesToDelete = mutableListOf<Clause>()
+        val clausesToDelete = ClauseVec()
 
         // Replace clauses which might have simplified due to substitution
         for (clause in db.clauses + db.learnts) {
@@ -803,7 +806,7 @@ class CDCL {
      * other mechanisms that can derive this clause, but
      * probing is one of them.
      *
-     * Now, this new added clause can be set as [VarState.reason]
+     * Now, this new added clause can be set as reason
      * of variable 3. In fact, every time we enqueue a literal,
      * we can guarantee that its reason is binary. That binary
      * clause, if new, is the result of Hyper-binary Resolution
@@ -883,7 +886,7 @@ class CDCL {
             // Unlike how in normal propagate we only remove clauses from watch
             // lists, here we can also add new binary clauses, so using two
             // pointers is not the easiest option here.
-            val clausesToKeep = mutableListOf<Clause>()
+            val clausesToKeep = ClauseVec()
 
             // Iterating with indexes to prevent ConcurrentModificationException
             // when adding new binary clauses. This is ok because any new clause
@@ -989,11 +992,6 @@ class CDCL {
                     LBool.TRUE -> continue
                     // both literals are false, there is a conflict
                     LBool.FALSE -> {
-                        // at this point, it does not matter how the conflict
-                        // was discovered, the caller won't do anything after
-                        // this anyway, but we still need to backtrack somehow,
-                        // starting from this literal:
-                        assignment.qhead = assignment.qheadBinaryOnly
                         return clause
                     }
                     // the other literal is unassigned
@@ -1175,7 +1173,7 @@ class CDCL {
          * necessarily equal to the value in [occurrenceNumbers] because we
          * don't count deleted clauses.
          */
-        val occurrences: List<MutableList<Clause>> = MutableList(numberOfVariables * 2) { mutableListOf() }
+        val occurrences: List<ClauseVec> = MutableList(numberOfVariables * 2) { ClauseVec() }
 
         /**
          * This is the "real" amount of occurrences of each literal in the
@@ -1281,6 +1279,7 @@ class CDCL {
                 if (!assignment.enqueue(clause.lits[0], null)) return finishWithUnsat()
                 bvePropagate()?.let { return finishWithUnsat() }
             }
+
             else -> {
                 bveAttachClause(state, clause)
             }
@@ -1453,7 +1452,7 @@ class CDCL {
         // formations, called "gates", which, when resolved with other gates,
         // produce a tautological resolvent. Those are valuable for the
         // algorithm, so we try to find them here.
-        var gateClauses: List<Clause>? = null
+        var gateClauses: ClauseVec? = null
 
         // We can only use a single gate, so we just use the first one we found
         // Below we look for OR-gates. Those are constraints in the form
@@ -1465,7 +1464,7 @@ class CDCL {
         if (gateClauses != null) stats.bve.gatesFound++
 
         // Finally, we perform the resolutions.
-        val resolventsToAdd = mutableListOf<Clause>()
+        val resolventsToAdd = ClauseVec()
 
         for (i in 0 until posOccurrences.size) {
             val posClause = posOccurrences[i]
@@ -1564,12 +1563,12 @@ class CDCL {
     private fun findOrGates(
         state: EliminationState,
         pivot: Lit,
-    ): List<Clause>? {
+    ): ClauseVec? {
         val posOccurrences = state.occurrences[pivot]
         val negOccurrences = state.occurrences[pivot.neg]
         var foundAny = false
 
-        val gateClauses = mutableListOf<Clause>()
+        val gateClauses = ClauseVec()
 
         // We first mark all literals which occur in binary clauses with the
         // positive pivot.
@@ -1765,11 +1764,12 @@ class CDCL {
             var j = 0
             val possiblyBrokenClauses = watchers[lit.neg]
 
+            val raw = possiblyBrokenClauses.raw
             for (i in 0 until possiblyBrokenClauses.size) {
                 val clause = possiblyBrokenClauses[i]
                 if (clause.deleted) continue
 
-                possiblyBrokenClauses[j++] = clause
+                raw[j++] = clause
 
                 if (conflict != null) continue
 
@@ -1830,7 +1830,8 @@ class CDCL {
      * will be detached (the latter may also happen in [propagate]).
      */
     fun markDeleted(clause: Clause) {
-        check(ok)
+        require(ok)
+        require(!db.isClauseLocked(clause))
         clause.deleted = true
         if (!clause.fromInput) dratBuilder.deleteClause(clause)
     }
@@ -1851,7 +1852,7 @@ class CDCL {
     fun propagate(): Clause? {
         // check(ok)
 
-        stats.propagations++
+        val startQhead = assignment.qhead
 
         var conflict: Clause? = null
 
@@ -1871,23 +1872,27 @@ class CDCL {
             // which can either lead to a conflict (all literals in clause are false),
             // unit propagation (only one unassigned literal left), or invalidation
             // of the watchers (both watchers are false, but there are others)
+            val raw = possiblyBrokenClauses.raw
             for (i in 0 until possiblyBrokenClauses.size) {
-                val clause = possiblyBrokenClauses[i]
+                val clause = raw[i]
                 if (clause.deleted) continue
 
-                possiblyBrokenClauses[j++] = clause
+                raw[j++] = clause
 
                 if (conflict != null) continue
+
+                var first = clause[0]
 
                 // we are always watching the first two literals in the clause
                 // this makes sure that the second watcher is lit,
                 // and the first one is the other one
-                if (clause[0].variable == lit.variable) {
+                if (first.variable == lit.variable) {
                     clause.lits.swap(0, 1)
+                    first = clause[0]
                 }
 
                 // if first watcher (not lit) is true then the clause is already true, skipping it
-                if (value(clause[0]) == LBool.TRUE) continue
+                if (value(first) == LBool.TRUE) continue
 
                 // Index of the first literal in the clause not assigned to false
                 var firstNotFalse = -1
@@ -1898,12 +1903,12 @@ class CDCL {
                     }
                 }
 
-                if (firstNotFalse == -1 && value(clause[0]) == LBool.FALSE) {
+                if (firstNotFalse == -1 && value(first) == LBool.FALSE) {
                     // all the literals in the clause are already assigned to false
                     conflict = clause
                 } else if (firstNotFalse == -1) { // getValue(brokenClause[0]) == VarValue.UNDEFINED
                     // the only unassigned literal (which is the second watcher) in the clause must be true
-                    assignment.uncheckedEnqueue(clause[0], clause)
+                    assignment.uncheckedEnqueue(first, clause)
                 } else {
                     // there is at least one literal in the clause not assigned to false,
                     // so we can use it as a new first watcher instead
@@ -1917,6 +1922,8 @@ class CDCL {
 
             if (conflict != null) break
         }
+
+        stats.propagations += assignment.trail.size - startQhead
 
         return conflict
     }
@@ -1973,6 +1980,8 @@ class CDCL {
 
                 // Mark all the variables in the clause as seen, if not already
                 seen[lit.variable] = true
+
+                vsids.bump(lit.variable)
 
                 if (assignment.level(lit) == assignment.decisionLevel) {
                     // If the literal is from the last decision level,

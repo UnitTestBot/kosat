@@ -13,18 +13,28 @@ data class Config(
      * [ReduceStrategy.ACTIVITY] will use the activity of the clauses, and will
      * remove half of the learnt clauses with the highest activity.
      */
-    var clauseDbStrategy: ReduceStrategy = ReduceStrategy.LBD,
+    var clauseDbStrategy: ReduceStrategy = ReduceStrategy.ACTIVITY,
     /**
-     * The initial maximum count of learnts in the database. Once this limit is
-     * reached, the database will be reduced, and the maximum count will be
-     * incremented by [clauseDbMaxSizeIncrement].
+     * The initial absolute maximum count of learnts in the database. The chosen
+     * initial count will be chosen between this value and total number of
+     * initial clauses times [clauseDbMaxSizeInitialRelative]. Once this limit
+     * is reached, the database will be reduced, and the maximum count will be
+     * multiplied by [clauseDbMaxSizeIncrement].
      */
     var clauseDbMaxSizeInitial: Int = 6000,
     /**
-     * The increment of the maximum count of learnts in the database. Every time
-     * the database is reduced, the maximum count is incremented by this value.
+     * The initial relative maximum count of learnts in the database. The chosen
+     * initial count will be chosen between [clauseDbMaxSizeInitial] and total
+     * number of initial clauses times this value. Once this limit is reached,
+     * the database will be reduced, and the maximum count will be multiplied
+     * by [clauseDbMaxSizeIncrement].
      */
-    var clauseDbMaxSizeIncrement: Int = 500,
+    var clauseDbMaxSizeInitialRelative: Double = 0.333,
+    /**
+     * The increment of the maximum count of learnts in the database. Every time
+     * the database is reduced, the maximum count is multiplied by this value.
+     */
+    var clauseDbMaxSizeIncrement: Double = 1.1,
     /**
      * When using [ReduceStrategy.ACTIVITY], this is how fast the clause
      * activity will decay. The higher the value, the slower the decay. Must be
@@ -36,7 +46,7 @@ data class Config(
      * The rate of variable activity decay in [VSIDS]. The higher the value, the
      * slower the decay. Must be between 0 and 1.
      */
-    var vsidsActivityDecay: Double = 0.9,
+    var vsidsActivityDecay: Double = 0.95,
 
     /**
      * Whether to run Luby restarts.
@@ -45,7 +55,21 @@ data class Config(
     /**
      * The starting constant to use for the Luby restart sequence.
      */
-    var restarterLubyConstant: Int = 50,
+    var restarterLubyConstant: Int = 100,
+    /**
+     * The base to use for the Luby restart sequence. For example, if set to 2,
+     * the sequence will be
+     * ```
+     * 1, 1, 2, 1, 1, 2, 4, 1, 1, 2, ...
+     * ```
+     * If set to 1.5, the sequence will be
+     * ```
+     * 1, 1, 1.5, 1, 1, 1.5, 2.25, 1, 1, 1.5, ...
+     * ```
+     * Multiplied by [restarterLubyConstant], this will be the number of
+     * conflicts between restarts.
+     */
+    var restarterLubyBase: Double = 2.0,
 
     /**
      * Whether to run Equivalent Literal Substitution.
@@ -110,4 +134,6 @@ data class Config(
      * The maximum number of variables to eliminate in a single run of BVE.
      */
     var bveMaxVarsToEliminate: Int = Int.MAX_VALUE,
+
+    var timeLimit: Int? = null
 )

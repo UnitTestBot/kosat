@@ -1,25 +1,23 @@
 package org.kosat
 
 class VSIDS(private val solver: CDCL) {
-    private var numberOfVariables = 0
-    private var numberOfConflicts = 0
-    private var activityInc = 1.0
-    private var activityLimit = 1e100
+    private var activityInc: Double = 1.0
+    private var activityLimit: Double = 1e20
 
     /**
      * Activities of variables
      */
-    val activity = mutableListOf<Double>()
+    var activity: DoubleArray = DoubleArray(0)
 
     /**
      * Priority queue of variables sorted by activity. The activity list is
      * shared between the priority queue and VSIDS.
      */
-    private var activityPQ = PriorityQueue(activity)
+    private var activityPQ: PriorityQueue = PriorityQueue(activity)
 
-    class PriorityQueue(private val activity: List<Double>) {
-        val heap: MutableList<Int> = mutableListOf()
-        val index: MutableList<Int> = mutableListOf()
+    class PriorityQueue(private val activity: DoubleArray) {
+        var heap: IntArray = IntArray(activity.size)
+        var index: IntArray = IntArray(activity.size)
         private var capacity = -1
         var size = 0
 
@@ -134,14 +132,14 @@ class VSIDS(private val solver: CDCL) {
             siftUp(size - 1)
         }
 
-        fun buildHeap(activity: MutableList<Double>) {
-            for (ind in 0..activity.lastIndex) {
-                heap.add(ind)
+        fun buildHeap() {
+            heap = IntArray(activity.size)
+            index = IntArray(activity.size)
+            for (i in activity.indices) {
+                heap[i] = i
+                index[i] = i
             }
-            size = heap.size
-            while (index.size < size) {
-                index.add(0)
-            }
+            size = activity.size
             heap.forEachIndexed { ind, elem ->
                 index[elem] = ind
             }
@@ -174,28 +172,37 @@ class VSIDS(private val solver: CDCL) {
         }
 
         activityInc /= solver.config.vsidsActivityDecay
-        numberOfConflicts++
     }
 
     /**
-     * Register a new variable in the variable selector.
+     * Bump the activity of a single variable.
      */
-    fun addVariable() {
-        activity.add(0.0)
-        numberOfVariables++
+    fun bump(variable: Var) {
+        activity[variable] += activityInc
+        if (activityPQ.index[variable] != -1) {
+            activityPQ.siftUp(activityPQ.index[variable])
+        }
+        if (activity[variable] > activityLimit) {
+            activity.forEachIndexed { ind, value ->
+                activity[ind] = value / activityLimit
+            }
+            activityInc /= activityLimit
+        }
     }
 
     /**
      * Build the priority queue of variables. Must be called before all
      * decisions.
      */
-    fun build(clauses: List<Clause>) {
+    fun build(numberOfVariables: Int, clauses: List<Clause>) {
+        activity = DoubleArray(numberOfVariables)
+        activityPQ = PriorityQueue(activity)
         clauses.forEach { clause ->
             clause.lits.forEach { lit ->
                 activity[lit.variable] += activityInc
             }
         }
-        activityPQ.buildHeap(activity)
+        activityPQ.buildHeap()
     }
 
     /**

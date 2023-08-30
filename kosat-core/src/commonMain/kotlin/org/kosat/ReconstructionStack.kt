@@ -28,38 +28,32 @@ package org.kosat
  * structure is pretty flexible and allows to implement any other stack without
  * breaking the interface too much.
  *
- * We currently use the simplest approach: a list of pairs of clauses and
- * their witness literals. In the example above, the stack would be
- * `[((-y, -z, x), x), ((-x, y), -x), ((-x, z), -x)]`. If we then substituted
- * `y` with `-z`, the stack would become
- * `[((-y, -z, x), x), ((-x, y), -x), ((-x, z), -x), ((-y, -z), -y), ((y, z), -y)]`.
+ * We use the approach from the Handbook of Satisfiability, which is to store
+ * the stack as a list of clauses, keeping first literal in the clause as the
+ * witness. In the example above, the stack would be
+ * `[[x, -y, -z], [-x, y], [-x, z]]`. If we then substituted `y` with `-z`, the
+ * stack would become `[[x, -y, -z], [-x, y], [-x, z], [-y, -z], [y, z]]`.
  *
  * Note that witness must be in the clause.
  */
 class ReconstructionStack {
-    data class ReconstructionStackEntry(
-        val clause: Clause,
-        val witness: Lit,
-    )
-
-    private val stack = mutableListOf<ReconstructionStackEntry>()
+    private val stack = mutableListOf<LitVec>()
 
     /**
      * Pushes a clause with a given witness to the stack.
      */
     fun push(clause: Clause, witness: Lit) {
-        check(!clause.learnt)
-        require(witness in clause.lits)
-        val copy = clause.copy()
-        copy.deleted = false
-        stack.add(ReconstructionStackEntry(copy, witness))
+        require(!clause.learnt)
+        val copy = clause.lits.copy()
+        copy.swap(0, copy.indexOf(witness))
+        stack.add(copy)
     }
 
     /**
      * Pushes a binary clause from a given literal and its witness to the stack.
      */
     fun pushBinary(lit: Lit, witness: Lit) {
-        stack.add(ReconstructionStackEntry(Clause(LitVec.of(lit, witness)), witness))
+        stack.add(LitVec.of(witness, lit))
     }
 
     /**
@@ -87,8 +81,9 @@ class ReconstructionStack {
         // If not, it means that to satisfy the clause, we need to flip the
         // value of the witness literal.
         for (stackIndex in stack.lastIndex downTo 0) {
-            val (clause, witness) = stack[stackIndex]
-            val satisfied = clause.lits.any { model[it.variable] xor it.isNeg }
+            val clause = stack[stackIndex]
+            val witness = clause[0]
+            val satisfied = clause.any { model[it.variable] xor it.isNeg }
             if (!satisfied) {
                 model[witness.variable] = witness.isPos
             }
@@ -110,7 +105,7 @@ class ReconstructionStack {
      *        (not required on the first solve)
      * @param assumptions the assumptions added to the solver this solve.
      */
-    fun restore(solver: CDCL, newClauses: List<Clause>, assumptions: LitVec) {
+    fun restore(solver: CDCL, newClauses: ClauseVec, assumptions: LitVec) {
         require(solver.assignment.decisionLevel == 0)
 
         // The term "tainted" is used in the original paper and refers to the
@@ -135,7 +130,8 @@ class ReconstructionStack {
         // or the witness of that clause is tainted and needs to be restored.
         var newStackTop = 0
         for (stackIndex in 0 until stack.size) {
-            val (clause, witness) = stack[stackIndex]
+            val clause = stack[stackIndex]
+            val witness = clause[0]
             stack[newStackTop++] = stack[stackIndex]
 
             // We simply keep the clause if there is no need to restore the
@@ -150,14 +146,14 @@ class ReconstructionStack {
             // removing a satisfied clauses does not affect the correctness of
             // its constraints. There must be an unsatisfied clause left, which
             // will be used to restore the variable and force its value.
-            val satisfied = clause.lits.any {
+            val satisfied = clause.any {
                 solver.assignment.isActive(it) && solver.assignment.value(it) == LBool.TRUE
             }
 
             // We also remove all false literals from the clause. Note that the
             // clause won't be empty, as it contains the witness literal, which
             // is unassigned.
-            clause.lits.removeAll {
+            clause.removeAll {
                 solver.assignment.isActive(it) && solver.assignment.value(it) == LBool.FALSE
             }
 
@@ -174,7 +170,7 @@ class ReconstructionStack {
             // possible that on the next preprocessing step, we will derive
             // the same information again, just acknowledging the new clauses
             // and assumptions.
-            for (lit in clause.lits) tainted[lit.variable] = true
+            for (lit in clause) tainted[lit.variable] = true
 
             // Now the variable we derived is active again.
             solver.assignment.markActive(witness)
@@ -183,9 +179,9 @@ class ReconstructionStack {
             // otherwise we might end up attaching watches to the falsified
             // literals, of that clause.
             if (clause.size > 1) {
-                solver.attachClause(clause)
+                solver.attachClause(Clause(clause))
             } else {
-                check(solver.assignment.enqueue(clause[0], clause))
+                check(solver.assignment.enqueue(clause[0], null))
             }
         }
 

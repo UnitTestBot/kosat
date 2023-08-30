@@ -1,6 +1,7 @@
 package org.kosat
 
 import kotlin.math.max
+import kotlin.math.pow
 
 // used for restarts between searches (luby restarts are used now)
 class Restarter(private val solver: CDCL) {
@@ -8,21 +9,26 @@ class Restarter(private val solver: CDCL) {
     private var restartNumber = 0
     var numberOfConflictsAfterRestart = 0
 
-    // 1, 1, 2, 1, 1, 2, 4, 1, 1, 2, 1, 1, 2, 4, 8, ...
-    // return i'th element of luby sequence
-    private fun luby(i: Int, initialDeg: Int = 1): Int {
-        if (i == 2) return 1
-        var deg = initialDeg
-        while (deg <= i) {
-            deg *= 2
+    /**
+     * Returns i-th element of the Luby sequence with parameter p.
+     * ```
+     * 1, 1, p, 1, 1, p, p^2, 1, 1, p, 1, 1, p, p^2, p^3, 1, ...
+     * ```
+     */
+    private fun luby(p: Double, i: Int): Double {
+        var k = 1
+        var size = 1
+        while (size < i + 1) {
+            k++
+            size = 2 * size + 1
         }
-        while (deg / 2 > i) {
-            deg /= 2
+        var cur = i
+        while (size - 1 != cur) {
+            size = (size - 1) / 2
+            k--
+            cur %= size
         }
-        if (deg - 1 == i) {
-            return deg / 2
-        }
-        return luby(i - deg / 2 + 1, deg / 2)
+        return p.pow(k - 1)
     }
 
     private var lubyPosition = 1
@@ -42,7 +48,7 @@ class Restarter(private val solver: CDCL) {
                 )
             }
 
-            restartNumber = lubyConstant * luby(lubyPosition++)
+            restartNumber = (lubyConstant * luby(solver.config.restarterLubyBase, lubyPosition++)).toInt()
             solver.backtrack(0)
             solver.stats.restarts++
 
