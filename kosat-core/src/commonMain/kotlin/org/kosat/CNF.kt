@@ -39,7 +39,7 @@ class CNF(
 }
 
 fun determineMaxVariable(clauses: List<Clause>): Int {
-    return clauses.maxOfOrNull { clause -> clause.lits.maxOfOrNull { lit -> lit.variable.index } ?: 0 } ?: 0
+    return clauses.maxOfOrNull { clause -> clause.lits.maxOfOrNull { lit -> lit.variable.index + 1 } ?: 0 } ?: 0
 }
 
 private val RE_SPACE: Regex = """\s+""".toRegex()
