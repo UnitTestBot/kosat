@@ -1,6 +1,7 @@
 @file:Suppress("PublicApiImplicitType", "MemberVisibilityCanBePrivate", "unused", "ConstPropertyName")
 
 object Versions {
+    const val dokka = "1.8.20"
     const val clikt = "4.1.0"
     const val git_versioning = "6.4.2"
     const val gradle_download = "5.4.0"
@@ -78,6 +79,12 @@ object Libs {
 }
 
 object Plugins {
+    // https://github.com/Kotlin/dokka
+    object Dokka {
+        const val version = Versions.dokka
+        const val id = "org.jetbrains.dokka"
+    }
+
     // https://github.com/qoomon/gradle-git-versioning-plugin
     object GitVersioning {
         const val version = Versions.git_versioning

@@ -1,13 +1,32 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
+import org.jetbrains.dokka.DokkaConfiguration
+import org.jetbrains.dokka.model.KotlinVisibility
 
 plugins {
     kotlin("multiplatform")
+    id(Plugins.Dokka.id)
 }
 
 repositories {
     // JitPack repo for `kotlin-satlib`:
     maven(url = "https://jitpack.io")
+}
+
+tasks.dokkaHtml.configure {
+    dokkaSourceSets {
+        configureEach {
+            documentedVisibilities.set(
+                listOf(
+                    DokkaConfiguration.Visibility.PUBLIC,
+                    DokkaConfiguration.Visibility.INTERNAL,
+                    DokkaConfiguration.Visibility.PACKAGE,
+                    DokkaConfiguration.Visibility.PROTECTED,
+                    DokkaConfiguration.Visibility.PRIVATE,
+                )
+            )
+        }
+    }
 }
 
 kotlin {
