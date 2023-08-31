@@ -115,8 +115,11 @@ class CDCL {
      *
      * The [newClause] technically adds variables automatically,
      * but sometimes not all variables have to be mentioned in the clauses.
+     *
+     * Returns 1-based index of the new variable, or, equivalently, number of
+     * variables in the solver after the call.
      */
-    fun newVariable() {
+    fun newVariable(): Int {
         // Watch
         watchers.add(ClauseVec())
         watchers.add(ClauseVec())
@@ -126,6 +129,8 @@ class CDCL {
 
         // Phase saving heuristics
         polarity.add(LBool.UNDEF)
+
+        return assignment.numberOfVariables
     }
 
     /**
@@ -138,6 +143,9 @@ class CDCL {
         return assignment.value(lit)
     }
 
+    /**
+     * Adds a new clause to the solver with the given literals in DIMACS format.
+     */
     fun newClause(vararg lits: Int) {
         newClause(Clause(LitVec(lits.map { Lit.fromDimacs(it) })))
     }
@@ -211,6 +219,21 @@ class CDCL {
      * The assumptions given to an incremental solver.
      */
     private var assumptions: LitVec = LitVec()
+
+    /**
+     * Solves the CNF problem using the CDCL algorithm.
+     */
+    // Overload for Java
+    fun solve(): SolveResult {
+        return solve(emptyList())
+    }
+
+    /**
+     * Solves the CNF problem using the CDCL algorithm.
+     */
+    fun solve(vararg assumptions: Int): SolveResult {
+        return solve(assumptions.map { Lit.fromDimacs(it) })
+    }
 
     /**
      * Solves the CNF problem using the CDCL algorithm.

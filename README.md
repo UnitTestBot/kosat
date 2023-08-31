@@ -43,10 +43,6 @@ fun main() {
     // Create the instance of KoSAT solver:
     val solver = CDCL()
 
-    // Allocate two variables:
-    solver.newVariable()
-    solver.newVariable()
-
     // Encode the TIE-SHIRT problem:
     solver.newClause(-1, 2)
     solver.newClause(1, 2)
