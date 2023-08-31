@@ -39,6 +39,15 @@ jobs:
           name: web-dist
           path: kosat-web/build/dist/js/productionExecutable/
 
+      - name: Generate documentation
+        run: ./gradlew dokkaHtml --stacktrace --scan
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v3
+        with:
+          name: docs-dist
+          path: kosat-core/build/dokka/html
+
       - name: Install drat-trim
         run: |
           git clone https://github.com/marijnheule/drat-trim
@@ -112,6 +121,12 @@ jobs:
         with:
           name: web-dist
           path: dist
+
+      - name: Download documentation
+        uses: actions/download-artifact@v3
+        with:
+          name: docs-dist
+          path: dist/docs
 
       - name: Deploy to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
