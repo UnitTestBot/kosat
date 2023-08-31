@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>CDCL</title>
+    <link href="../../../images/logo-icon.svg" rel="icon" type="image/svg">
+    <script>var pathToRoot = "../../../";</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="../../../scripts/sourceset_dependencies.js" async="async"></script>
+<link href="../../../styles/style.css" rel="Stylesheet">
+<link href="../../../styles/jetbrains-mono.css" rel="Stylesheet">
+<link href="../../../styles/main.css" rel="Stylesheet">
+<link href="../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../styles/logo-styles.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../scripts/clipboard.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/navigation-loader.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/platform-content-handler.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/main.js" defer="defer"></script>
+<script type="text/javascript" src="../../../scripts/prism.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/symbol-parameters-wrapper_deferred.js" defer="defer"></script>
+</head>
+<body>
+<div class="navigation-wrapper" id="navigation-wrapper">
+    <div id="leftToggler"><span class="icon-toggler"></span></div>
+    <div class="library-name">
+            <a href="../../../index.html">
+                    <span>core</span>
+            </a>
+    </div>
+    <div>
+1.0-SNAPSHOT    </div>
+    <div class="pull-right d-flex">
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector common-like" data-active="" data-filter=":core:dokkaHtml/commonMain">common</button>
+        </div>
+        <button id="theme-toggle-button"><span id="theme-toggle"></span></button>
+        <div id="searchBar"></div>
+    </div>
+</div>
+<div id="container">
+    <div id="leftColumn">
+        <div id="sideMenu"></div>
+    </div>
+    <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageIds="core::org.kosat/CDCL///PointingToDeclaration//-864720431">
+  <div class="breadcrumbs"><a href="../../../index.html">core</a><span class="delimiter">/</span><a href="../index.html">org.kosat</a><span class="delimiter">/</span><span class="current">CDCL</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span><span>CDCL</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">class </span><a href="index.html">CDCL</a></div><p class="paragraph">CDCL (Conflict-Driven Clause Learning) solver instance for solving Boolean satisfiability (SAT) problem.</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="-1909175370%2FConstructors%2F-864720431" anchor-label="CDCL" id="-1909175370%2FConstructors%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-c-d-c-l.html"><span><span>CDCL</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1909175370%2FConstructors%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Create a new solver instance with no clauses.</p></div><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">initialClauses<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-iterable/index.html">Iterable</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="../-clause/index.html">Clause</a><span class="token operator">&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">initialVarsNumber<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Create a new solver instance with given clauses.</p></div><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">cnf<span class="token operator">: </span><a href="../-c-n-f/index.html">CNF</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="TYPE">
+        <h2 class="">Types</h2>
+        <div class="table"><a data-name="1555863704%2FClasslikes%2F-864720431" anchor-label="EliminationState" id="1555863704%2FClasslikes%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-elimination-state/index.html"><span>Elimination</span><wbr></wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1555863704%2FClasslikes%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">class </span><a href="-elimination-state/index.html">EliminationState</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">numberOfVariables<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph"><a href="bounded-variable-elimination.html">boundedVariableElimination</a> requires a global mutable state, which is stored here.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="556284365%2FClasslikes%2F-864720431" anchor-label="VariableMinPriorityQueue" id="556284365%2FClasslikes%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-variable-min-priority-queue/index.html"><span>Variable</span><wbr></wbr><span>Min</span><wbr></wbr><span>Priority</span><wbr></wbr><span><span>Queue</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="556284365%2FClasslikes%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">class </span><a href="-variable-min-priority-queue/index.html">VariableMinPriorityQueue</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">var </span>size<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Priority queue for variables, used in <a href="bounded-variable-elimination.html">boundedVariableElimination</a>. It is a min-heap, where the key is the score of the variable obtained by <a href="bve-variable-score.html">bveVariableScore</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="-386290110%2FProperties%2F-864720431" anchor-label="assignment" id="-386290110%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="assignment.html"><span><span>assignment</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-386290110%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="assignment.html">assignment</a><span class="token operator">: </span><a href="../-assignment/index.html">Assignment</a></div><div class="brief "><p class="paragraph">Assignment.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="394921667%2FProperties%2F-864720431" anchor-label="assumptions" id="394921667%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="assumptions.html"><span><span>assumptions</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="394921667%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">var </span><a href="assumptions.html">assumptions</a><span class="token operator">: </span><a href="../-lit-vec/index.html">LitVec</a></div><div class="brief "><p class="paragraph">The assumptions given to an incremental solver.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-969288700%2FProperties%2F-864720431" anchor-label="cachedModel" id="-969288700%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="cached-model.html"><span>cached</span><wbr></wbr><span><span>Model</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-969288700%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">var </span><a href="cached-model.html">cachedModel</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Since returning the model is a potentially expensive operation, we cache the result of the first call to <a href="get-model.html">getModel</a> and return the cached value on subsequent calls. This is reset in <a href="solve.html">solve</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-931374995%2FProperties%2F-864720431" anchor-label="config" id="-931374995%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="config.html"><span><span>config</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-931374995%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">var </span><a href="config.html">config</a><span class="token operator">: </span><a href="../-config/index.html">Config</a></div><div class="brief "><p class="paragraph">Configuration of the solver.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2068573263%2FProperties%2F-864720431" anchor-label="db" id="-2068573263%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="db.html"><span><span>db</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2068573263%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="db.html">db</a><span class="token operator">: </span><a href="../-clause-database/index.html">ClauseDatabase</a></div><div class="brief "><p class="paragraph">Clause database.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-509432975%2FProperties%2F-864720431" anchor-label="dratBuilder" id="-509432975%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="drat-builder.html"><span>drat</span><wbr></wbr><span><span>Builder</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-509432975%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">var </span><a href="drat-builder.html">dratBuilder</a><span class="token operator">: </span><a href="../-abstract-drat-builder/index.html">AbstractDratBuilder</a></div><div class="brief "><p class="paragraph">DRAT proof builder. Can be used to generate DRAT proofs, but disabled by default. It is intentionally made public variable.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1517681099%2FProperties%2F-864720431" anchor-label="newClauses" id="1517681099%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="new-clauses.html"><span>new</span><wbr></wbr><span><span>Clauses</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1517681099%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">val </span><a href="new-clauses.html">newClauses</a><span class="token operator">: </span><a href="../-clause-vec/index.html">ClauseVec</a></div><div class="brief "><p class="paragraph">A list of clauses which were added since the last call to <a href="solve.html">solve</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="198424595%2FProperties%2F-864720431" anchor-label="ok" id="198424595%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="ok.html"><span><span>ok</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="198424595%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">var </span><a href="ok.html">ok</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Can solver perform the search? This becomes false if given constraints cause unsatisfiability in some way.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="382371391%2FProperties%2F-864720431" anchor-label="polarity" id="382371391%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="polarity.html"><span><span>polarity</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="382371391%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">var </span><a href="polarity.html">polarity</a><span class="token operator">: </span><a href="../-l-bool-vec/index.html">LBoolVec</a></div><div class="brief "><p class="paragraph">Used for phase saving heuristic. Memorizes the polarity of the given variable when it was last assigned, but reset during backtracking.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1871812249%2FProperties%2F-864720431" anchor-label="reconstructionStack" id="-1871812249%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="reconstruction-stack.html"><span>reconstruction</span><wbr></wbr><span><span>Stack</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1871812249%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="reconstruction-stack.html">reconstructionStack</a><span class="token operator">: </span><a href="../-reconstruction-stack/index.html">ReconstructionStack</a></div><div class="brief "><p class="paragraph">The reconstruction stack, used to restore the solver state before adding new clauses or assumptions incrementally and to reconstruct the model after solving.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="234230574%2FProperties%2F-864720431" anchor-label="reporter" id="234230574%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="reporter.html"><span><span>reporter</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="234230574%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">var </span><a href="reporter.html">reporter</a><span class="token operator">: </span><a href="../-reporter/index.html">Reporter</a></div><div class="brief "><p class="paragraph">An optional reporter, which can be used to report certain events and indicate solver progress to the user.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-495635121%2FProperties%2F-864720431" anchor-label="restarter" id="-495635121%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="restarter.html"><span><span>restarter</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-495635121%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">val </span><a href="restarter.html">restarter</a><span class="token operator">: </span><a href="../-restarter/index.html">Restarter</a></div><div class="brief "><p class="paragraph">The restart strategy, used to decide when to restart the search.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="850106380%2FProperties%2F-864720431" anchor-label="stats" id="850106380%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="stats.html"><span><span>stats</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="850106380%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="stats.html">stats</a><span class="token operator">: </span><a href="../-stats/index.html">Stats</a></div><div class="brief "><p class="paragraph">Overall statistics of the solver.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-52894384%2FProperties%2F-864720431" anchor-label="vsids" id="-52894384%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="vsids.html"><span><span>vsids</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-52894384%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="vsids.html">vsids</a><span class="token operator">: </span><a href="../-v-s-i-d-s/index.html">VSIDS</a></div><div class="brief "><p class="paragraph">The branching heuristic, used to choose the next decision variable.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-544233832%2FProperties%2F-864720431" anchor-label="watchers" id="-544233832%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="watchers.html"><span><span>watchers</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-544233832%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">val </span><a href="watchers.html">watchers</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-mutable-list/index.html">MutableList</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="../-clause-vec/index.html">ClauseVec</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Two-watched literals heuristic.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="874143004%2FFunctions%2F-864720431" anchor-label="analyzeConflict" id="874143004%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="analyze-conflict.html"><span>analyze</span><wbr></wbr><span><span>Conflict</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="874143004%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="analyze-conflict.html"><span class="token function">analyzeConflict</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">conflict<span class="token operator">: </span><a href="../-clause/index.html">Clause</a><span class="token punctuation">, </span></span><span class="parameter ">minimize<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-clause/index.html">Clause</a></div><div class="brief "><p class="paragraph">Analyzes the conflict clause returned by <a href="propagate.html">propagate</a> and returns a new clause that can be learned.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="391518454%2FFunctions%2F-864720431" anchor-label="attachClause" id="391518454%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="attach-clause.html"><span>attach</span><wbr></wbr><span><span>Clause</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="391518454%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="attach-clause.html"><span class="token function">attachClause</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">clause<span class="token operator">: </span><a href="../-clause/index.html">Clause</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Add <a href="attach-clause.html">clause</a> into the database and attach watchers for it.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-600047259%2FFunctions%2F-864720431" anchor-label="backtrack" id="-600047259%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="backtrack.html"><span><span>backtrack</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-600047259%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="backtrack.html"><span class="token function">backtrack</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">level<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-120152619%2FFunctions%2F-864720431" anchor-label="binaryImplicationsFrom" id="-120152619%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="binary-implications-from.html"><span>binary</span><wbr></wbr><span>Implications</span><wbr></wbr><span><span>From</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-120152619%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="binary-implications-from.html"><span class="token function">binaryImplicationsFrom</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">lit<span class="token operator">: </span><a href="../-lit/index.html">Lit</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-lit-vec/index.html">LitVec</a></div><div class="brief "><p class="paragraph">Returns the list of literals that are directly implied by the given literal though binary clauses.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="656270691%2FFunctions%2F-864720431" anchor-label="boundedVariableElimination" id="656270691%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="bounded-variable-elimination.html"><span>bounded</span><wbr></wbr><span>Variable</span><wbr></wbr><span><span>Elimination</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="656270691%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="bounded-variable-elimination.html"><span class="token function">boundedVariableElimination</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">The <a href="bounded-variable-elimination.html">boundedVariableElimination</a> is a preprocessing technique that tries to eliminate variables from the problem. It is based on multiple observations, which are described in <a href="bve-try-eliminate.html">bveTryEliminate</a>, but the overall idea is to choose a variable which does not occur often, and remove it by replacing all the clauses it is in with resolvents of those clauses. Of course, there can be too many resolvents, so we limit the number of resolvents per elimination, as well as do other things to prevent the algorithm and subsequent solving from taking too much time.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-885204264%2FFunctions%2F-864720431" anchor-label="bveAttachClause" id="-885204264%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="bve-attach-clause.html"><span>bve</span><wbr></wbr><span>Attach</span><wbr></wbr><span><span>Clause</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-885204264%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="bve-attach-clause.html"><span class="token function">bveAttachClause</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">state<span class="token operator">: </span><a href="-elimination-state/index.html">CDCL.EliminationState</a><span class="token punctuation">, </span></span><span class="parameter ">clause<span class="token operator">: </span><a href="../-clause/index.html">Clause</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">In <a href="bounded-variable-elimination.html">boundedVariableElimination</a>, we must keep track of occurrences list (<a href="-elimination-state/occurrences.html">EliminationState.occurrences</a>), number of clauses, and other things. To simplify the code, we use this function to attach new clauses.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="59613443%2FFunctions%2F-864720431" anchor-label="bveAttachShrunkClause" id="59613443%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="bve-attach-shrunk-clause.html"><span>bve</span><wbr></wbr><span>Attach</span><wbr></wbr><span>Shrunk</span><wbr></wbr><span><span>Clause</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="59613443%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="bve-attach-shrunk-clause.html"><span class="token function">bveAttachShrunkClause</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">state<span class="token operator">: </span><a href="-elimination-state/index.html">CDCL.EliminationState</a><span class="token punctuation">, </span></span><span class="parameter ">clause<span class="token operator">: </span><a href="../-clause/index.html">Clause</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Shrinks the clause by removing all literals that are assigned to false, and adds it through <a href="bve-attach-clause.html">bveAttachClause</a>. This function can derive empty clause, or a unit clause which, when propagated, leads to empty clause, so it returns <a href="../-solve-result/-u-n-s-a-t/index.html">SolveResult.UNSAT</a> in those cases.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1905337146%2FFunctions%2F-864720431" anchor-label="bveMarkDeleted" id="-1905337146%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="bve-mark-deleted.html"><span>bve</span><wbr></wbr><span>Mark</span><wbr></wbr><span><span>Deleted</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1905337146%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="bve-mark-deleted.html"><span class="token function">bveMarkDeleted</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">state<span class="token operator">: </span><a href="-elimination-state/index.html">CDCL.EliminationState</a><span class="token punctuation">, </span></span><span class="parameter ">clause<span class="token operator">: </span><a href="../-clause/index.html">Clause</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">In <a href="bounded-variable-elimination.html">boundedVariableElimination</a>, we must keep track of occurrences list (<a href="-elimination-state/occurrences.html">EliminationState.occurrences</a>), number of clauses, and other things. To simplify the code, we use this function to mark clauses as deleted during BVE.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1616219991%2FFunctions%2F-864720431" anchor-label="bvePropagate" id="1616219991%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="bve-propagate.html"><span>bve</span><wbr></wbr><span><span>Propagate</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1616219991%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="bve-propagate.html"><span class="token function">bvePropagate</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-clause/index.html">Clause</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">This is the custom propagation procedure used by the <a href="bounded-variable-elimination.html">boundedVariableElimination</a>. It is similar to the regular propagation except it ignores clauses which contain non-active literals. This is because when propagating, we may accidentally use a learnt clause which will cause learning non-active variables, and since removing learnt clauses is not cheap, we cannot afford to do that every elimination.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="237441031%2FFunctions%2F-864720431" anchor-label="bveTryEliminate" id="237441031%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="bve-try-eliminate.html"><span>bve</span><wbr></wbr><span>Try</span><wbr></wbr><span><span>Eliminate</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="237441031%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="bve-try-eliminate.html"><span class="token function">bveTryEliminate</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">state<span class="token operator">: </span><a href="-elimination-state/index.html">CDCL.EliminationState</a><span class="token punctuation">, </span></span><span class="parameter ">pivot<span class="token operator">: </span><a href="../-var/index.html">Var</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Try to eliminate a variable <a href="bve-try-eliminate.html">pivot</a> from the problem. This is the core of <a href="bounded-variable-elimination.html">boundedVariableElimination</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1047444144%2FFunctions%2F-864720431" anchor-label="bveVariableScore" id="1047444144%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="bve-variable-score.html"><span>bve</span><wbr></wbr><span>Variable</span><wbr></wbr><span><span>Score</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1047444144%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="bve-variable-score.html"><span class="token function">bveVariableScore</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">state<span class="token operator">: </span><a href="-elimination-state/index.html">CDCL.EliminationState</a><span class="token punctuation">, </span></span><span class="parameter ">x<span class="token operator">: </span><a href="../-var/index.html">Var</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-double/index.html">Double</a></div><div class="brief "><p class="paragraph">The priority of a variable in <a href="bounded-variable-elimination.html">boundedVariableElimination</a>. The less, the higher priority. The computed score is used as a key in the <a href="-elimination-state/variable-order.html">EliminationState.variableOrder</a> queue.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="475104649%2FFunctions%2F-864720431" anchor-label="equivalentLiteralSubstitution" id="475104649%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="equivalent-literal-substitution.html"><span>equivalent</span><wbr></wbr><span>Literal</span><wbr></wbr><span><span>Substitution</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="475104649%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="equivalent-literal-substitution.html"><span class="token function">equivalentLiteralSubstitution</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Equivalent Literal Substitution (ELS) is a preprocessing technique that tries to find literals that are equivalent to each other.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="755569666%2FFunctions%2F-864720431" anchor-label="equivalentLiteralSubstitutionRounds" id="755569666%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="equivalent-literal-substitution-rounds.html"><span>equivalent</span><wbr></wbr><span>Literal</span><wbr></wbr><span>Substitution</span><wbr></wbr><span><span>Rounds</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="755569666%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="equivalent-literal-substitution-rounds.html"><span class="token function">equivalentLiteralSubstitutionRounds</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">rounds<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Performs multiple rounds of <a href="equivalent-literal-substitution.html">equivalentLiteralSubstitution</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1876300812%2FFunctions%2F-864720431" anchor-label="failedLiteralProbing" id="-1876300812%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="failed-literal-probing.html"><span>failed</span><wbr></wbr><span>Literal</span><wbr></wbr><span><span>Probing</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1876300812%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="failed-literal-probing.html"><span class="token function">failedLiteralProbing</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Try to propagate each probe and see if it leads to deduction of new binary clauses, or maybe even a conflict.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-472550997%2FFunctions%2F-864720431" anchor-label="findOrGates" id="-472550997%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="find-or-gates.html"><span>find</span><wbr></wbr><span>Or</span><wbr></wbr><span><span>Gates</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-472550997%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="find-or-gates.html"><span class="token function">findOrGates</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">state<span class="token operator">: </span><a href="-elimination-state/index.html">CDCL.EliminationState</a><span class="token punctuation">, </span></span><span class="parameter ">pivot<span class="token operator">: </span><a href="../-lit/index.html">Lit</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-clause-vec/index.html">ClauseVec</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">As mentioned in the SatElite paper, when clauses form a gate circuit, we don't need to add every resolvent. This function looks for OR-gates, which is the gate in form <code class="lang-kotlin">x = (a1 | a2 | ... | aK)</code>. This is equivalent to <code class="lang-kotlin">-x = (-a1 &amp; -a2 &amp; ... &amp; -aK)</code> so this function also discovers AND-gates when used on the negation of the pivot literal. Note that this function also discovers equivalences, that is, the gates of the form <code class="lang-kotlin">x = a</code>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2015877137%2FFunctions%2F-864720431" anchor-label="finishWithAssumptionsUnsat" id="2015877137%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="finish-with-assumptions-unsat.html"><span>finish</span><wbr></wbr><span>With</span><wbr></wbr><span>Assumptions</span><wbr></wbr><span><span>Unsat</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2015877137%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="finish-with-assumptions-unsat.html"><span class="token function">finishWithAssumptionsUnsat</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a></div><div class="brief "><p class="paragraph">Finish solving due to unsatisfiability under assumptions. Solver will still be able to perform search after this.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-828381003%2FFunctions%2F-864720431" anchor-label="finishWithSatIfAssumptionsOk" id="-828381003%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="finish-with-sat-if-assumptions-ok.html"><span>finish</span><wbr></wbr><span>With</span><wbr></wbr><span>Sat</span><wbr></wbr><span>If</span><wbr></wbr><span>Assumptions</span><wbr></wbr><span><span>Ok</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-828381003%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="finish-with-sat-if-assumptions-ok.html"><span class="token function">finishWithSatIfAssumptionsOk</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a></div><div class="brief "><p class="paragraph">Finish solving with SAT and check if all assumptions are satisfied. If not, return <a href="../-solve-result/-u-n-s-a-t/index.html">SolveResult.UNSAT</a> due to assumptions being impossible to satisfy, otherwise return <a href="../-solve-result/-s-a-t/index.html">SolveResult.SAT</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1831979369%2FFunctions%2F-864720431" anchor-label="finishWithUnsat" id="-1831979369%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="finish-with-unsat.html"><span>finish</span><wbr></wbr><span>With</span><wbr></wbr><span><span>Unsat</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1831979369%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="finish-with-unsat.html"><span class="token function">finishWithUnsat</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a></div><div class="brief "><p class="paragraph">Finish solving with UNSAT (without considering assumptions), mark the solver as not ok, add empty clause to the DRAT proof, flush the proof and return <a href="../-solve-result/-u-n-s-a-t/index.html">SolveResult.UNSAT</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="615616983%2FFunctions%2F-864720431" anchor-label="generateProbes" id="615616983%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="generate-probes.html"><span>generate</span><wbr></wbr><span><span>Probes</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="615616983%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="generate-probes.html"><span class="token function">generateProbes</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-lit-vec/index.html">LitVec</a></div><div class="brief "><p class="paragraph">Literal probing is only useful if the probe can lead to derivation of something by itself. We can generate list of possibly useful probes ahead of time.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1313685212%2FFunctions%2F-864720431" anchor-label="getModel" id="1313685212%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="get-model.html"><span>get</span><wbr></wbr><span><span>Model</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1313685212%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="get-model.html"><span class="token function">getModel</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Return the assignment of variables. This function is meant to be used when the solver returns <a href="../-solve-result/-s-a-t/index.html">SolveResult.SAT</a> after a call to <a href="solve.html">solve</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2107590731%2FFunctions%2F-864720431" anchor-label="hyperBinaryResolve" id="2107590731%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="hyper-binary-resolve.html"><span>hyper</span><wbr></wbr><span>Binary</span><wbr></wbr><span><span>Resolve</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2107590731%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="hyper-binary-resolve.html"><span class="token function">hyperBinaryResolve</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">clause<span class="token operator">: </span><a href="../-clause/index.html">Clause</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-clause/index.html">Clause</a></div><div class="brief "><p class="paragraph">Hyper binary resolution for <a href="failed-literal-probing.html">failedLiteralProbing</a>. This is used to produce new, most efficient binary clauses in the FLP.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1742032678%2FFunctions%2F-864720431" anchor-label="markDeleted" id="-1742032678%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="mark-deleted.html"><span>mark</span><wbr></wbr><span><span>Deleted</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1742032678%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="mark-deleted.html"><span class="token function">markDeleted</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">clause<span class="token operator">: </span><a href="../-clause/index.html">Clause</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Mark <a href="mark-deleted.html">clause</a> for deletion. During <a href="../-clause-database/reduce-if-needed.html">ClauseDatabase.reduceIfNeeded</a> it will be removed from the database, and the watchers will be detached (the latter may also happen in <a href="propagate.html">propagate</a>).</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="884494196%2FFunctions%2F-864720431" anchor-label="newClause" id="884494196%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="new-clause.html"><span>new</span><wbr></wbr><span><span>Clause</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="884494196%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="new-clause.html"><span class="token function">newClause</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">vararg </span>lits<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><br><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="new-clause.html"><span class="token function">newClause</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">clause<span class="token operator">: </span><a href="../-clause/index.html">Clause</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Add a new clause to the solver.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-993610609%2FFunctions%2F-864720431" anchor-label="newVariable" id="-993610609%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="new-variable.html"><span>new</span><wbr></wbr><span><span>Variable</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-993610609%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="new-variable.html"><span class="token function">newVariable</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Allocate a new variable in the solver.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-262342781%2FFunctions%2F-864720431" anchor-label="preprocess" id="-262342781%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="preprocess.html"><span><span>preprocess</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-262342781%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="preprocess.html"><span class="token function">preprocess</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Preprocessing is ran before the main loop of the solver, allowing to spend some time simplifying the problem in exchange for a possibly faster solving time.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-175473214%2FFunctions%2F-864720431" anchor-label="propagate" id="-175473214%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="propagate.html"><span><span>propagate</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-175473214%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="propagate.html"><span class="token function">propagate</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-clause/index.html">Clause</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Propagate all the literals in the trail that are not yet propagated. If a conflict is found, return the clause that caused it.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-407422518%2FFunctions%2F-864720431" anchor-label="propagateAnalyzeBacktrack" id="-407422518%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="propagate-analyze-backtrack.html"><span>propagate</span><wbr></wbr><span>Analyze</span><wbr></wbr><span><span>Backtrack</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-407422518%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="propagate-analyze-backtrack.html"><span class="token function">propagateAnalyzeBacktrack</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph"><a href="propagate.html">propagate</a>. If the conflict is found, <a href="analyze-conflict.html">analyzeConflict</a>, <a href="backtrack.html">backtrack</a>, and with the literal learned from the conflict, repeat the process.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1371263691%2FFunctions%2F-864720431" anchor-label="propagateOnlyBinary" id="-1371263691%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="propagate-only-binary.html"><span>propagate</span><wbr></wbr><span>Only</span><wbr></wbr><span><span>Binary</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1371263691%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="propagate-only-binary.html"><span class="token function">propagateOnlyBinary</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-clause/index.html">Clause</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Used in <a href="propagate-probe-and-learn-binary.html">propagateProbeAndLearnBinary</a> to only propagate using binary clauses. It uses a separate queue pointer (<a href="../-assignment/qhead-binary-only.html">Assignment.qheadBinaryOnly</a>).</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="608030362%2FFunctions%2F-864720431" anchor-label="propagateProbeAndLearnBinary" id="608030362%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="propagate-probe-and-learn-binary.html"><span>propagate</span><wbr></wbr><span>Probe</span><wbr></wbr><span>And</span><wbr></wbr><span>Learn</span><wbr></wbr><span><span>Binary</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="608030362%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="propagate-probe-and-learn-binary.html"><span class="token function">propagateProbeAndLearnBinary</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-clause/index.html">Clause</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">A specialized version of <a href="propagate.html">propagate</a> for <a href="failed-literal-probing.html">failedLiteralProbing</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1171473092%2FFunctions%2F-864720431" anchor-label="removeSubsumedBy" id="-1171473092%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="remove-subsumed-by.html"><span>remove</span><wbr></wbr><span>Subsumed</span><wbr></wbr><span><span>By</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1171473092%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="remove-subsumed-by.html"><span class="token function">removeSubsumedBy</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">state<span class="token operator">: </span><a href="-elimination-state/index.html">CDCL.EliminationState</a><span class="token punctuation">, </span></span><span class="parameter ">clause<span class="token operator">: </span><a href="../-clause/index.html">Clause</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a><span class="token operator">?</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="623143570%2FFunctions%2F-864720431" anchor-label="resolve" id="623143570%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="resolve.html"><span><span>resolve</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="623143570%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">fun </span><a href="resolve.html"><span class="token function">resolve</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">left<span class="token operator">: </span><a href="../-clause/index.html">Clause</a><span class="token punctuation">, </span></span><span class="parameter ">right<span class="token operator">: </span><a href="../-clause/index.html">Clause</a><span class="token punctuation">, </span></span><span class="parameter ">pivot<span class="token operator">: </span><a href="../-var/index.html">Var</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-clause/index.html">Clause</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">The resolution procedure used by the <a href="bounded-variable-elimination.html">boundedVariableElimination</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-352660281%2FFunctions%2F-864720431" anchor-label="search" id="-352660281%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="search.html"><span><span>search</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-352660281%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="search.html"><span class="token function">search</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a></div><div class="brief "><p class="paragraph">The main CDCL search loop.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1098567801%2FFunctions%2F-864720431" anchor-label="solve" id="1098567801%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="solve.html"><span><span>solve</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1098567801%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="solve.html"><span class="token function">solve</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">assumptions<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="../-lit/index.html">Lit</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptyList()</span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-solve-result/index.html">SolveResult</a></div><div class="brief "><p class="paragraph">Solves the CNF problem using the CDCL algorithm.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-294053337%2FFunctions%2F-864720431" anchor-label="value" id="-294053337%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="value.html"><span><span>value</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-294053337%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="value.html"><span class="token function">value</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">lit<span class="token operator">: </span><a href="../-lit/index.html">Lit</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-l-bool/index.html">LBool</a></div><div class="brief "><p class="paragraph">Return a value of the given literal, assuming it is not substituted. It is a shortcut for <a href="../-assignment/value.html">Assignment.value</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2023 Copyright</span><span
+                class="pull-right"><span>Generated by </span><a
+                href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+    </div>
+</div>
+</body>
+</html>

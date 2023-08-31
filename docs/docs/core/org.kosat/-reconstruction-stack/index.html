@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>ReconstructionStack</title>
+    <link href="../../../images/logo-icon.svg" rel="icon" type="image/svg">
+    <script>var pathToRoot = "../../../";</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="../../../scripts/sourceset_dependencies.js" async="async"></script>
+<link href="../../../styles/style.css" rel="Stylesheet">
+<link href="../../../styles/jetbrains-mono.css" rel="Stylesheet">
+<link href="../../../styles/main.css" rel="Stylesheet">
+<link href="../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../styles/logo-styles.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../scripts/clipboard.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/navigation-loader.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/platform-content-handler.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/main.js" defer="defer"></script>
+<script type="text/javascript" src="../../../scripts/prism.js" async="async"></script>
+<script type="text/javascript" src="../../../scripts/symbol-parameters-wrapper_deferred.js" defer="defer"></script>
+</head>
+<body>
+<div class="navigation-wrapper" id="navigation-wrapper">
+    <div id="leftToggler"><span class="icon-toggler"></span></div>
+    <div class="library-name">
+            <a href="../../../index.html">
+                    <span>core</span>
+            </a>
+    </div>
+    <div>
+1.0-SNAPSHOT    </div>
+    <div class="pull-right d-flex">
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector common-like" data-active="" data-filter=":core:dokkaHtml/commonMain">common</button>
+        </div>
+        <button id="theme-toggle-button"><span id="theme-toggle"></span></button>
+        <div id="searchBar"></div>
+    </div>
+</div>
+<div id="container">
+    <div id="leftColumn">
+        <div id="sideMenu"></div>
+    </div>
+    <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageIds="core::org.kosat/ReconstructionStack///PointingToDeclaration//-864720431">
+  <div class="breadcrumbs"><a href="../../../index.html">core</a><span class="delimiter">/</span><a href="../index.html">org.kosat</a><span class="delimiter">/</span><span class="current">ReconstructionStack</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Reconstruction</span><wbr></wbr><span><span>Stack</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">class </span><a href="index.html">ReconstructionStack</a></div><p class="paragraph">Reconstruction stack is data structure used to reconstruct the model after the solver has found a satisfying assignment and to restore variables required to perform an incremental addition of clauses or assumptions.</p><p class="paragraph">It uses the idea of &quot;witness&quot; literals. Every time we eliminate a variable in some way, we push its &quot;definition&quot; in clausal form to the stack. The &quot;definition&quot; is in quotes, because it is not a definition in a strict sense. Consider pure literal elimination. In it, we simply remove all clauses containing a pure literal. That literal is not &quot;defined&quot;, it is &quot;constrained&quot; by the clauses. All we have to do, is to assign it a value which won't lead to a conflict. However, most of the time, clauses strictly define a value of a literal in terms of active variables (at the moment of pushing a clause to a stack). For example, a &quot;definition&quot; of a variable <code class="lang-kotlin">x</code> as a conjunction of two other variables <code class="lang-kotlin">y</code> and <code class="lang-kotlin">z</code> can be written as <code class="lang-kotlin">(-y, -z, x), (-x, y), (-x, z)</code>. Literal <code class="lang-kotlin">x</code> in this case is referred to as a &quot;witness&quot; literal.</p><p class="paragraph">There are multiple ways to store the stack. In the original paper, the stack stored as a list of clauses, labelled by literals. Technically, it is enough to just store the clauses, keeping the invariant that the first or last literal in the clause is the witness. In CaDiCaL, the stack is stored as a vector of integers, separated into &quot;stack-frames&quot;. Each frame is either a clause or a set of literals. This allows to label a clause with multiple literals, which is useful for blocked clause elimination. Hopefully, the structure is pretty flexible and allows to implement any other stack without breaking the interface too much.</p><p class="paragraph">We use the approach from the Handbook of Satisfiability, which is to store the stack as a list of clauses, keeping first literal in the clause as the witness. In the example above, the stack would be <code class="lang-kotlin">[[x, -y, -z], [-x, y], [-x, z]]</code>. If we then substituted <code class="lang-kotlin">y</code> with <code class="lang-kotlin">-z</code>, the stack would become <code class="lang-kotlin">[[x, -y, -z], [-x, y], [-x, z], [-y, -z], [y, z]]</code>.</p><p class="paragraph">Note that witness must be in the clause.</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="-1135560037%2FConstructors%2F-864720431" anchor-label="ReconstructionStack" id="-1135560037%2FConstructors%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-reconstruction-stack.html"><span>Reconstruction</span><wbr></wbr><span><span>Stack</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1135560037%2FConstructors%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="941494871%2FProperties%2F-864720431" anchor-label="stack" id="941494871%2FProperties%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="stack.html"><span><span>stack</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="941494871%2FProperties%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword">private </span><span class="token keyword"></span><span class="token keyword">val </span><a href="stack.html">stack</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-mutable-list/index.html">MutableList</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="../-lit-vec/index.html">LitVec</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-1774293410%2FFunctions%2F-864720431" anchor-label="push" id="-1774293410%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="push.html"><span><span>push</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1774293410%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="push.html"><span class="token function">push</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">clause<span class="token operator">: </span><a href="../-clause/index.html">Clause</a><span class="token punctuation">, </span></span><span class="parameter ">witness<span class="token operator">: </span><a href="../-lit/index.html">Lit</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Pushes a clause with a given witness to the stack.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2029572963%2FFunctions%2F-864720431" anchor-label="pushBinary" id="2029572963%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="push-binary.html"><span>push</span><wbr></wbr><span><span>Binary</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2029572963%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="push-binary.html"><span class="token function">pushBinary</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">lit<span class="token operator">: </span><a href="../-lit/index.html">Lit</a><span class="token punctuation">, </span></span><span class="parameter ">witness<span class="token operator">: </span><a href="../-lit/index.html">Lit</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Pushes a binary clause from a given literal and its witness to the stack.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="279637855%2FFunctions%2F-864720431" anchor-label="pushSubstitution" id="279637855%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="push-substitution.html"><span>push</span><wbr></wbr><span><span>Substitution</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="279637855%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="push-substitution.html"><span class="token function">pushSubstitution</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">substitution<span class="token operator">: </span><a href="../-lit/index.html">Lit</a><span class="token punctuation">, </span></span><span class="parameter ">witness<span class="token operator">: </span><a href="../-lit/index.html">Lit</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Pushes two binary clauses, indicating that <a href="push-substitution.html">witness</a> is true if and only if <a href="push-substitution.html">substitution</a> is true.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="44021080%2FFunctions%2F-864720431" anchor-label="reconstruct" id="44021080%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="reconstruct.html"><span><span>reconstruct</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="44021080%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="reconstruct.html"><span class="token function">reconstruct</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">assignment<span class="token operator">: </span><a href="../-assignment/index.html">Assignment</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span class="token keyword"></span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Reconstructs the model from the current assignment, assuming it is a satisfying assignment.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1657257383%2FFunctions%2F-864720431" anchor-label="restore" id="1657257383%2FFunctions%2F-864720431" data-filterable-set=":core:dokkaHtml/commonMain"></a>
+          <div class="table-row" data-filterable-current=":core:dokkaHtml/commonMain" data-filterable-set=":core:dokkaHtml/commonMain">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="restore.html"><span><span>restore</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1657257383%2FFunctions%2F-864720431"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:dokkaHtml/commonMain"><div class="symbol monospace"><span class="token keyword"></span><span class="token keyword">fun </span><a href="restore.html"><span class="token function">restore</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">solver<span class="token operator">: </span><a href="../-c-d-c-l/index.html">CDCL</a><span class="token punctuation">, </span></span><span class="parameter ">newClauses<span class="token operator">: </span><a href="../-clause-vec/index.html">ClauseVec</a><span class="token punctuation">, </span></span><span class="parameter ">assumptions<span class="token operator">: </span><a href="../-lit-vec/index.html">LitVec</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Restores the solver state after adding new clauses or assumptions.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2023 Copyright</span><span
+                class="pull-right"><span>Generated by </span><a
+                href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+    </div>
+</div>
+</body>
+</html>
