@@ -155,36 +155,14 @@ class CDCL {
             newVariable()
         }
 
-        // Remove falsified literals from the new clause
-        clause.lits.removeAll {
-            assignment.isActive(it) && assignment.value(it) == LBool.FALSE
-        }
-
         // If the clause contains complementary literals, ignore it as useless.
         if (sortDedupAndCheckComplimentary(clause.lits)) return
 
-        newClauses.add(clause)
         clause.fromInput = true
 
-        when (clause.size) {
-            // Empty clause is an immediate UNSAT
-            0 -> finishWithUnsat()
-
-            // Enqueue the literal from a unit clauses.
-            1 -> {
-                // Note that this enqueue can't cause a conflict
-                // because if the negation of the literal is in the clause,
-                // it is already removed above.
-                check(assignment.value(clause[0]) != LBool.FALSE)
-
-                if (assignment.value(clause[0]) == LBool.UNDEF) {
-                    assignment.uncheckedEnqueue(clause[0], null)
-                }
-            }
-
-            // Clauses of size >2 are added to the database.
-            else -> attachClause(clause)
-        }
+        // Lazily add the clause to the list of clauses to be added
+        // the next time `solve` is called.
+        newClauses.add(clause)
     }
 
     fun backtrack(level: Int) {
@@ -236,6 +214,25 @@ class CDCL {
         cachedModel = null
         reconstructionStack.restore(this, newClauses, this.assumptions)
         for (assumption in this.assumptions) assignment.freeze(assumption)
+
+        // Add the new clauses (which were added since the last call to solve)
+        for (clause in newClauses) {
+            if (clause.lits.any { assignment.value(it) == LBool.TRUE }) continue
+            clause.lits.removeAll { assignment.value(it) == LBool.FALSE }
+
+            when (clause.lits.size) {
+                0 -> return finishWithUnsat()
+                1 -> {
+                    if (!assignment.enqueue(clause.lits[0], null)) {
+                        return finishWithUnsat()
+                    }
+                }
+                else -> {
+                    attachClause(clause)
+                }
+            }
+        }
+
         newClauses.clear()
 
         // Check for an immediate level 0 conflict
