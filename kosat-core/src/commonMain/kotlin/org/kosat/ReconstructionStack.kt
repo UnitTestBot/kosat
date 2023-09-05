@@ -181,7 +181,9 @@ class ReconstructionStack {
             if (clause.size > 1) {
                 solver.attachClause(Clause(clause))
             } else {
-                check(solver.assignment.enqueue(clause[0], null))
+                if (!solver.assignment.enqueue(clause[0], null)) {
+                    solver.ok = false
+                }
             }
         }
 
