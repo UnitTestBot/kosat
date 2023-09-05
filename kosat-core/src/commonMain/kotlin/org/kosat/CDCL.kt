@@ -238,6 +238,8 @@ class CDCL {
         for (assumption in this.assumptions) assignment.freeze(assumption)
         newClauses.clear()
 
+        if (!ok) return finishWithUnsat()
+
         // Check for an immediate level 0 conflict
         propagate()?.let { return finishWithUnsat() }
 
