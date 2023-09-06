@@ -96,4 +96,12 @@ class Kosat {
 
         return model!![varIndex] xor (literal < 0)
     }
+
+    fun numberOfVariables(): Int {
+        return numberOfVariables
+    }
+
+    fun numberOfClauses(): Int {
+        return numberOfClauses
+    }
 }

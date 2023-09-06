@@ -44,6 +44,20 @@ class KotlinApiTest {
         assertFalse(solver.solve())
 
         assertFailsWith(IllegalStateException::class) { solver.getModel() }
+
+        solver.reset()
+
+        assertFailsWith(IllegalStateException::class) { solver.getModel() }
+
+        solver.newVariable()
+        solver.newVariable()
+        solver.newVariable()
+
+        assertTrue(solver.solve())
+
+        assertEquals(3, solver.numberOfVariables())
+        assertEquals(0, solver.numberOfClauses())
+        assertEquals(3, solver.getModel().size)
     }
 
     @Test
