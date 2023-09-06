@@ -1,23 +1,25 @@
 ## Solver's interface functions
 
-Add a variable to CNF and return its number:
-- `addVariable(): Int`
+All variables are numbered in DIMACS format.
+
+Add a variable to CNF:
+- `newVariable()`
 
 Add a clause to CNF as pure literals or list of literals:
-- `addClause(literals: List<Lit>)`
+- `newClause(literals: List<Int>)`
 
 Solve CNF without assumptions:
 - `solve(): Boolean`
 
 Solve CNF with the passed assumptions:
-- `solve(assumptions: List<Lit>): Boolean`
+- `solve(assumptions: List<Int>): Boolean`
 
 Query boolean value of a literal:
-- `getValue(lit: Lit): Boolean`
+- `value(lit: Int): Boolean`
 
 **Note:** the solver should be in the SAT state.
 
 Query the satisfying assignment (model) for the SAT problem:
-- `fun getModel(): List<Lit>`
+- `fun getModel(): List<Int>`
 
 **Note:** the solver should be in the SAT state.

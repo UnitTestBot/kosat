@@ -19,3 +19,4 @@ fun myInclude(name: String) {
 myInclude("core")
 myInclude("cli")
 myInclude("web")
+myInclude("api")
