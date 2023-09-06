@@ -30,18 +30,18 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.UnitTestBot.kosat:core:$version")
+    implementation("com.github.UnitTestBot.kosat:api:$version")
 }
 ```
 
 #### Usage example: Kotlin
 
 ```kotlin
-import org.kosat.CDCL
+import org.kosat.Kosat
 
 fun main() {
     // Create the instance of KoSAT solver:
-    val solver = CDCL()
+    val solver = Kosat()
 
     // Allocate two variables:
     solver.newVariable()
@@ -54,8 +54,8 @@ fun main() {
     // solver.newClause(1, -2) // UNSAT with this clause
 
     // Solve the SAT problem:
-    val result = solver.solve()
-    println("result = $result") // SAT
+    val result = solver.solve() // true (SAT)
+    println("result = $result")
 
     // Get the model:
     val model = solver.getModel()

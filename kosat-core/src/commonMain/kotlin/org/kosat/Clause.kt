@@ -19,7 +19,7 @@ data class Clause(
     }
 
     companion object {
-        fun fromDimacs(dimacsLits: List<Int>): Clause {
+        fun fromDimacs(dimacsLits: Iterable<Int>): Clause {
             val lits = LitVec(dimacsLits.map { Lit.fromDimacs(it) })
             return Clause(lits)
         }
