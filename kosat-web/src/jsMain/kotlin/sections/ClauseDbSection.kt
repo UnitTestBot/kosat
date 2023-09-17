@@ -24,6 +24,7 @@ import web.cssom.Display
 import web.cssom.FlexDirection
 import web.cssom.FlexWrap
 import web.cssom.number
+import web.cssom.pct
 import web.cssom.pt
 
 private external interface ClauseListProps : Props {
@@ -93,7 +94,7 @@ val ClauseDbSection: FC<Props> = FC("ClauseDbSection") {
             sx {
                 padding = 8.pt
                 flexGrow = number(1.0)
-                minWidth = 300.pt
+                minWidth = 30.pct
                 overflow = auto
             }
 
@@ -130,7 +131,7 @@ val ClauseDbSection: FC<Props> = FC("ClauseDbSection") {
             sx {
                 padding = 8.pt
                 flexGrow = number(1.0)
-                minWidth = 300.pt
+                minWidth = 30.pct
                 overflow = auto
             }
 

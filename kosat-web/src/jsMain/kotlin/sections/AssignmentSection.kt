@@ -26,7 +26,9 @@ import web.cssom.AlignItems
 import web.cssom.Auto.Companion.auto
 import web.cssom.Display
 import web.cssom.Position
+import web.cssom.array
 import web.cssom.number
+import web.cssom.pct
 import web.cssom.pt
 
 private external interface AssignmentItemProps : PropsWithStyle {
@@ -118,7 +120,7 @@ val AssignmentSection: FC<Props> = FC("AssignmentSection") {
             }
 
             direction = responsive(StackDirection.row)
-            spacing = responsive(8.pt)
+            spacing = responsive(0.pt)
 
             // We fall back to a fixed size grid if there are too many variables
             if (assignment.numberOfVariables < 30) {

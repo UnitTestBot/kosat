@@ -39,6 +39,7 @@ import web.cssom.TextAlign
 import web.cssom.array
 import web.cssom.fr
 import web.cssom.ident
+import web.cssom.minmax
 import web.cssom.pct
 import web.cssom.pt
 import web.dom.document
@@ -160,16 +161,17 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
             display = Display.grid
             gap = 8.pt
             padding = 8.pt
-            gridTemplateColumns = array(30.pct, 1.fr, 20.pct)
-            gridTemplateRows = array(125.pt, 240.pt, 130.pt, 180.pt)
+            gridTemplateColumns = array(20.pct, minmax(100.pt, 1.fr), 20.pct)
+            gridTemplateRows = array(265.pt, 100.pt, 130.pt, 180.pt)
             gridTemplateAreas = GridTemplateAreas(
-                arrayOf(ident("input"), ident("state"), ident("trail")),
-                arrayOf(ident("input"), ident("db"), ident("trail")),
-                arrayOf(ident("assignment"), ident("assignment"), ident("trail")),
+                arrayOf(ident("state"), ident("db"), ident("trail")),
+                arrayOf(ident("history"), ident("db"), ident("trail")),
+                arrayOf(ident("history"), ident("assignment"), ident("trail")),
                 arrayOf(ident("history"), ident("analysis"), ident("actions")),
             )
         }
 
+        /*
         SectionPaper {
             gridArea = ident("input")
             title = "Input"
@@ -213,6 +215,7 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
                 }
             }
         }
+         */
 
         SectionPaper {
             gridArea = ident("history")
