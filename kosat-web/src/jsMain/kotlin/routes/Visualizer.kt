@@ -4,6 +4,7 @@ import WrapperCommand
 import cdclDispatchContext
 import cdclWrapperContext
 import components.HelpTooltip
+import components.Links
 import emotion.react.css
 import js.core.jso
 import mui.material.Box
@@ -145,6 +146,8 @@ val Visualizer: FC<Props> = FC("Visualizer") { _ ->
             document.onkeydown = null
         }
     }
+
+    Links {}
 
     Typography {
         variant = TypographyVariant.h1

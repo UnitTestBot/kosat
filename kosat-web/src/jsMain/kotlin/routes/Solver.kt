@@ -5,6 +5,7 @@ import WrapperCommand
 import cdclDispatchContext
 import cdclWrapperContext
 import components.HelpTooltip
+import components.Links
 import js.core.jso
 import mui.material.Box
 import mui.material.Button
@@ -55,6 +56,8 @@ val Solver: FC<Props> = FC("Solver") {
     var error by useState<String?>(null)
     var errorShown by useState(false)
     val navigate = useNavigate()
+
+    Links {}
 
     Typography {
         sx {
