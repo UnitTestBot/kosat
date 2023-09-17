@@ -65,7 +65,9 @@ val StateSection: FC<Props> = FC("StateSection") {
     Box {
         sx {
             display = Display.flex
+            flexDirection = FlexDirection.column
             gap = 8.pt
+            flexGrow = number(1.0)
         }
 
         StateCard {
@@ -96,7 +98,7 @@ val StateSection: FC<Props> = FC("StateSection") {
 
         solver.state.inner.run {
             StateCard {
-                title = "Decision Level"
+                title = "Level"
 
                 Typography {
                     variant = TypographyVariant.h1
