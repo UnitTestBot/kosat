@@ -5,6 +5,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlin.math.abs
 
 // DPLL
+@Deprecated("use solveCnf instead", replaceWith = ReplaceWith("solveCnf(clauses)"))
 fun solveCnfDPLL(cnf: CnfRequest): List<Int>? {
     val clauses = ArrayList(cnf.clauses.map { ArrayList(it.lits.toList()) })
     return dpll(clauses)?.sortedBy { abs(it) }

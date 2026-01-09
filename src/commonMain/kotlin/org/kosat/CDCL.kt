@@ -16,6 +16,8 @@ fun solveCnf(cnf: CnfRequest): List<Int>? {
     return CDCL(clauses.map { Clause(it) }.toMutableList(), cnf.vars).solve()
 }
 
+fun solveCnf(clauses: List<List<Lit>>): List<Int> = Kosat(clauses, 0).apply { solve() }.getModel()
+
 enum class SolverType {
     INCREMENTAL, NON_INCREMENTAL;
 }
@@ -34,6 +36,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
     val learnts = mutableListOf<Clause>()
 
     var numberOfVariables: Int = 0
+        private set
 
     // for each variable contains current assignment, clause it came from and decision level when it happened
     val vars: MutableList<VarState> = MutableList(numberOfVariables) { VarState(VarValue.UNDEFINED, null, -1) }
@@ -79,7 +82,9 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
     // get value of literal
     fun getValue(lit: Lit): VarValue {
-        if (vars[variable(lit)].value == VarValue.UNDEFINED) return VarValue.UNDEFINED
+        if (vars[variable(lit)].value == VarValue.UNDEFINED)
+            return VarValue.UNDEFINED
+
         return if (lit % 2 == 1)
                 !vars[variable(lit)].value
             else
@@ -144,7 +149,7 @@ class CDCL(private val solverType: SolverType = SolverType.INCREMENTAL) {
 
         // add not mentioned variables from new clause
         val maxVar = clause.maxOfOrNull { variable(it) } ?: 0
-        while (numberOfVariables < maxVar) {
+        while (numberOfVariables <= maxVar) {
             addVariable()
         }
 
